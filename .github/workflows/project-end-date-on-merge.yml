@@ -10,8 +10,8 @@ permissions:
   issues: read
 
 env:
-  PROJECT_OWNER: prgrms-be-devcourse
-  PROJECT_NUMBER: 269
+  PROJECT_OWNER: prgrms-web-devcourse-final-project
+  PROJECT_NUMBER: 141
 
 jobs:
   done:
