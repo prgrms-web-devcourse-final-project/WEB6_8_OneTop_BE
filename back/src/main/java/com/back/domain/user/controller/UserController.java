@@ -1,0 +1,19 @@
+package com.back.domain.user.controller;
+
+import com.back.domain.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 사용자 관련 API 요청을 처리하는 컨트롤러.
+ * 사용자 정보 조회, 수정, 통계, 목록 등의 기능을 제공합니다.
+ */
+@RestController
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+}
