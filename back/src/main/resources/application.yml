@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: back
+  profiles:
+    active: test
+  output:
+    ansi:
+      enabled: always
+  datasource:
+    hikari:
+      auto-commit: false
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        use_sql_comments: true
+        format_sql: true
+        highlight_sql: true
+  security: # 여기에 추가
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: your-google-client-id
+            client-secret: your-google-client-secret
+            scope:
+              - email
+              - profile
+          github:
+            client-id: your-github-client-id
+            client-secret: your-github-client-secret
+            scope:
+              - user:email
+              - read:user
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://www.googleapis.com/oauth2/v4/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+            user-name-attribute: id
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.orm.jdbc.extract: TRACE
+    org.springframework.transaction.interceptor: TRACE
+
+jwt:
+  secret: c3ByaW5nLWJvb3Qtc2VjdXJpdHktand0LXR1dG9yaWFsLWJhY2stZW5kLXNlY3JldC1rZXkK # Base64 encoded 256-bit key
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    groups:
+      enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+
