@@ -14,10 +14,7 @@ on:
       # PR 생성 및 다시 오픈 시
       opened, reopened,
       # 최초 PR 제출 이후 작업 브랜치 push 발생 시
-      synchronize,
-      # pr 제목, 내용 수정 등 일체의 수정이 발생했을 때 트리거 되는데요.
-      # 타켓 브랜치를 잘못 설정했을 때의 상황을 상정하여 설정입니다.
-      edited
+      synchronize
     ]
 
     # 대상 경로의 수정 사항이 있을 때 동작
@@ -32,7 +29,7 @@ on:
 
 # 동일 브랜치에서 연속 실행 방지
 concurrency:
-  group: ${{ github.workflow}}-${{ github.ref }}-${{ github.event_name }}
+  group: backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -43,7 +40,6 @@ permissions:
 jobs:
   backend-ci:
     # 상단의 types 주석을 참고
-    if: github.event.action != 'edited' || github.event.changes.base.ref
     name: Backend CI
     runs-on: ubuntu-latest
 
