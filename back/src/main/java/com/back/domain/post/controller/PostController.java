@@ -50,4 +50,11 @@ public class PostController {
         Long userId = 1L; // fixme 임시 사용자 ID
         return ResponseEntity.ok(postService.updatePost(userId, postId, request));
     }
+
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<Void> deletePost(@PathVariable Long postId) {
+        Long userId = 1L; // fixme 임시 사용자 ID
+        postService.deletePost(userId, postId);
+        return ResponseEntity.ok().build();
+    }
 }

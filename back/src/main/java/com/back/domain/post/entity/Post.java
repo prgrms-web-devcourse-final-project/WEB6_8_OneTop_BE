@@ -3,9 +3,12 @@ package com.back.domain.post.entity;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
+import com.back.global.exception.ApiException;
+import com.back.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.service.spi.ServiceException;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
@@ -57,5 +60,10 @@ public class Post extends BaseEntity {
         this.title = title;
         this.content = content;
         this.category = category;
+    }
+
+    public void checkUser(User targetUser) {
+        if (!user.equals(targetUser))
+            throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
     }
 }

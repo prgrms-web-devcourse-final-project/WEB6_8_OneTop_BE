@@ -57,15 +57,28 @@ public class PostService {
 
     @Transactional
     public PostResponse updatePost(Long userId, Long postId, PostRequest request) {
-        return postRepository.findById(postId)
-                .map(post -> {
-                    if (!post.getUser().getId().equals(userId)) {
-                        throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
-                    }
-                    post.updatePost(request.title(), request.content(), request.category());
-                    Post updatedPost = postRepository.save(post);
-                    return PostMapper.toResponse(updatedPost);
-                })
+        Post post = validatePostOwnership(userId, postId);
+
+        post.updatePost(request.title(), request.content(), request.category());
+
+        return PostMapper.toResponse(post);
+    }
+
+    @Transactional
+    public void deletePost(Long userId, Long postId) {
+        Post post = validatePostOwnership(userId, postId);
+        postRepository.delete(post);
+    }
+
+    private Post validatePostOwnership(Long userId, Long postId) {
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+
+        User requestUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+
+        post.checkUser(requestUser);
+
+        return post;
     }
 }
