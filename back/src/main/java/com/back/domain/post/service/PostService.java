@@ -7,10 +7,14 @@ import com.back.domain.post.mapper.PostMapper;
 import com.back.domain.post.repository.PostRepository;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
-import jakarta.validation.Valid;
+import com.back.global.exception.ApiException;
+import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
 
 /**
  * 게시글 관련 비즈니스 로직을 처리하는 서비스.
@@ -26,12 +30,28 @@ public class PostService {
     @Transactional
     public PostResponse createPost(Long userId, PostRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         Post post = PostMapper.toEntity(request);
         post.assignUser(user);
         Post savedPost = postRepository.save(post);
 
         return PostMapper.toResponse(savedPost);
+    }
+
+    public PostResponse getPost(Long postId) {
+        return postRepository.findById(postId)
+                .filter(post -> !post.isHide())
+                .map(PostMapper::toResponse)
+                .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    public List<PostResponse> getPosts() {
+        List<Post> posts = postRepository.findAll()
+                .stream()
+                .filter(post -> !post.isHide())
+                .toList();
+
+        return PostMapper.toResponseList(posts);
     }
 }

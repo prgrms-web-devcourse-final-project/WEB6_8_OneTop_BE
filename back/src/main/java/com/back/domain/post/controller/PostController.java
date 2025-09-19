@@ -7,10 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 게시글 관련 API 요청을 처리하는 컨트롤러.
@@ -29,5 +28,18 @@ public class PostController {
         Long userId = 1L; // fixme 임시 사용자 ID
         PostResponse response = postService.createPost(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // 게시글 목록 조회
+    @GetMapping
+    public ResponseEntity<List<PostResponse>> getPosts() {
+        List<PostResponse> responses = postService.getPosts();
+        return ResponseEntity.ok(responses);
+    }
+
+    // 게시글 단건 조회
+    @GetMapping("/{postId}")
+    public ResponseEntity<PostResponse> getPost(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getPost(postId));
     }
 }
