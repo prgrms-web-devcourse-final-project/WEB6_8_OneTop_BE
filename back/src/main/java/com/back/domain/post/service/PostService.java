@@ -54,4 +54,18 @@ public class PostService {
 
         return PostMapper.toResponseList(posts);
     }
+
+    @Transactional
+    public PostResponse updatePost(Long userId, Long postId, PostRequest request) {
+        return postRepository.findById(postId)
+                .map(post -> {
+                    if (!post.getUser().getId().equals(userId)) {
+                        throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+                    }
+                    post.updatePost(request.title(), request.content(), request.category());
+                    Post updatedPost = postRepository.save(post);
+                    return PostMapper.toResponse(updatedPost);
+                })
+                .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+    }
 }

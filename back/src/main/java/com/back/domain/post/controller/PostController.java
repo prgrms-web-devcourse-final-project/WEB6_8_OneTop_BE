@@ -42,4 +42,12 @@ public class PostController {
     public ResponseEntity<PostResponse> getPost(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getPost(postId));
     }
+
+    @PutMapping("/{postId}")
+    public ResponseEntity<PostResponse> updatePost(
+            @PathVariable Long postId,
+            @RequestBody @Valid PostRequest request) {
+        Long userId = 1L; // fixme 임시 사용자 ID
+        return ResponseEntity.ok(postService.updatePost(userId, postId, request));
+    }
 }

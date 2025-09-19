@@ -52,4 +52,10 @@ public class Post extends BaseEntity {
     public void assignUser(User user) {
         this.user = user;
     }
+
+    public void updatePost(String title, String content, PostCategory category) {
+        this.title = title;
+        this.content = content;
+        this.category = category;
+    }
 }
