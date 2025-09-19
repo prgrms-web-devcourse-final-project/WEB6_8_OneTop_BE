@@ -1,13 +1,10 @@
 package com.back.domain.post.entity;
 
+import com.back.domain.post.enums.PostCategory;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.annotation.LastModifiedDate;
 
@@ -19,9 +16,8 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
 public class Post extends BaseEntity {
 
@@ -32,13 +28,16 @@ public class Post extends BaseEntity {
     @Column(length = 200)
     private String title;
 
-    @Column(length = 200)
-    private String category;
+    @Column(length = 20)
+    @Enumerated(EnumType.STRING)
+    private PostCategory category;
 
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(columnDefinition = "jsonb")
+    /**
+     * JSON 데이터를 단순 문자열로 저장 (예: {"option1": 10, "option2": 5})
+     */
     private String voteContent;
 
     @Column(nullable = false)
