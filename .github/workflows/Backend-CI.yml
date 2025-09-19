@@ -1,0 +1,87 @@
+name: Backend PR CI
+
+env:
+  BACKEND_DIR: back
+
+on:
+  pull_request:
+    branches:
+      # 개발 초기 - main으로의 PR 시 검사
+      # 향후 dev로의 PR / dev -> main PR 시에도 검사
+      - main
+      - dev
+    types: [
+      # PR 생성 및 다시 오픈 시
+      opened, reopened,
+      # 최초 PR 제출 이후 작업 브랜치 push 발생 시
+      synchronize
+    ]
+
+    # 대상 경로의 수정 사항이 있을 때 동작
+    paths:
+      [
+        ".github/workflows/**",
+        "back/build.gradle.kts",
+        "back/settings.gradle.kts",
+        "back/src/**",
+        "back/Dockerfile",
+      ]
+
+# 동일 브랜치에서 연속 실행 방지
+concurrency:
+  group: backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # mikepenz/action-junit-report 구동을 위한 최소 조건
+  checks: write
+
+jobs:
+  backend-ci:
+    # 상단의 types 주석을 참고
+    name: Backend CI
+    runs-on: ubuntu-latest
+
+    # 작업 디렉토리
+    defaults:
+      run:
+        working-directory: ./${{ env.BACKEND_DIR }}
+
+    steps:
+      # 소스 코드 가져오기
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # JDK 설정
+      # graalvm 21 사용
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: "graalvm"
+          java-version: "21"
+          cache: "gradle"
+
+      # Gradle 캐싱
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Gradle 실행 권한 부여
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Secret으로 부터 .env 생성
+      - name: Generate .env
+        run: |
+          printf "%s" "${{ secrets.DOT_ENV }}" > .env
+
+      # Gradle 빌드 및 테스트 진행
+      - name: Execute Build and Tests
+        run: ./gradlew clean build test --no-daemon --warning-mode=all
+
+      # 테스트 실행 결과 로깅 Action
+      - name: Generate JUnit Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: success() || failure() # 성공 여부 상관없이 실행
+        with:
+          report_paths: "**/build/test-results/test/TEST-*.xml"
