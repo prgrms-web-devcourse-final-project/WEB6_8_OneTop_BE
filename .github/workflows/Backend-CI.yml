@@ -37,7 +37,7 @@ jobs:
         uses: ./.github/actions/setup-backend
 
       - name: Build with Gradle
-        run: ./gradlew build -x test
+        run: ./gradlew build -x test --no-daemon
 
   backend-test:
     name: Backend Test
@@ -52,7 +52,7 @@ jobs:
         uses: ./.github/actions/setup-backend
 
       - name: Execute Tests
-        run: ./gradlew test
+        run: ./gradlew test --no-daemon
 
       - name: Generate JUnit Test Report
         uses: mikepenz/action-junit-report@v5
