@@ -48,4 +48,8 @@ public class Post extends BaseEntity {
 
     @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    public void assignUser(User user) {
+        this.user = user;
+    }
 }
