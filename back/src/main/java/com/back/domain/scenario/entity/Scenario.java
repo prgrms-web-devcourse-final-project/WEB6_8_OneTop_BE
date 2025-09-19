@@ -1,5 +1,6 @@
 package com.back.domain.scenario.entity;
 
+import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
@@ -32,13 +33,10 @@ public class Scenario extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // 사용자가 선택한 옵션 ID (인생 선택지)
-    @Column(nullable = false)
-    private Long optionId;
-
-    // AI 시나리오 생성을 위한 컨텍스트 정보 (JSON 형태로 저장)
-    @Column(columnDefinition = "jsonb")
-    private String generationContext;
+    // 시나리오 생성의 기반이 된 선택 경로
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "decision_line_id", nullable = false)
+    private DecisionLine decisionLine;
 
     // 시나리오 처리 상태 (PENDING, PROCESSING, COMPLETED, FAILED)
     @Enumerated(EnumType.STRING)
