@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
  * @param category
  * @param hide
  * @param likeCount
- * @param createdAt
+ * @param createdDate
  * fixme @param createdBy 추가 예정
  */
 public record PostResponse(
@@ -21,5 +21,5 @@ public record PostResponse(
         PostCategory category,
         boolean hide,
         int likeCount,
-        LocalDateTime createdAt
+        LocalDateTime createdDate
 ) { }
