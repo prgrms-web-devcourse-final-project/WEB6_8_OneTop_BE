@@ -19,6 +19,8 @@ on:
       # 타켓 브랜치를 잘못 설정했을 때의 상황을 상정하여 설정입니다.
       edited
     ]
+
+    # 대상 경로의 수정 사항이 있을 때 동작
     paths:
       [
         ".github/workflows/**",
@@ -44,9 +46,12 @@ jobs:
     if: github.event.action != 'edited' || github.event.changes.base.ref
     name: Backend CI
     runs-on: ubuntu-latest
+
+    # 작업 디렉토리
     defaults:
       run:
         working-directory: ./${{ env.BACKEND_DIR }}
+
     steps:
       # 소스 코드 가져오기
       - name: Checkout repository
