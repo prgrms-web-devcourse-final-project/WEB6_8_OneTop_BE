@@ -36,9 +36,9 @@ public class Scenario extends BaseEntity {
     @Column(nullable = false)
     private Long optionId;
 
-    // AI 생성 시 적용된 제약 조건들 (JSON 형태로 저장)
+    // AI 시나리오 생성을 위한 컨텍스트 정보 (JSON 형태로 저장)
     @Column(columnDefinition = "jsonb")
-    private String constraintsJson;
+    private String generationContext;
 
     // 시나리오 처리 상태 (PENDING, PROCESSING, COMPLETED, FAILED)
     @Enumerated(EnumType.STRING)
