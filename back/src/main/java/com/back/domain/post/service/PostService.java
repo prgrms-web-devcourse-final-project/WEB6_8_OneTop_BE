@@ -10,6 +10,8 @@ import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,13 +48,9 @@ public class PostService {
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
     }
 
-    public List<PostResponse> getPosts() {
-        List<Post> posts = postRepository.findAll()
-                .stream()
-                .filter(post -> !post.isHide())
-                .toList();
-
-        return PostMapper.toResponseList(posts);
+    public Page<PostResponse> getPosts(Pageable pageable) {
+        return postRepository.findAll(pageable)
+                .map(PostMapper::toResponse);
     }
 
     @Transactional

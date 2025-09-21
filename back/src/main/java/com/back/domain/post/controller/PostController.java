@@ -4,8 +4,11 @@ import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostResponse;
 import com.back.domain.post.service.PostService;
 import com.back.global.common.ApiResponse;
+import com.back.global.common.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,14 +31,14 @@ public class PostController {
             @RequestBody @Valid PostRequest request) {
         Long userId = 1L; // fixme 임시 사용자 ID
         PostResponse response = postService.createPost(userId, request);
-        return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.CREATED);
+        return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.OK);
     }
 
     // 게시글 목록 조회
     @GetMapping
-    public ApiResponse<List<PostResponse>> getPosts() {
-        List<PostResponse> responses = postService.getPosts();
-        return ApiResponse.success(responses, "성공적으로 조회되었습니다.", HttpStatus.OK);
+    public ApiResponse<PageResponse<PostResponse>> getPosts(Pageable pageable) {
+        Page<PostResponse> responses = postService.getPosts(pageable);
+        return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     // 게시글 단건 조회
