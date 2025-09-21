@@ -3,6 +3,7 @@ package com.back.domain.post.controller;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostResponse;
 import com.back.domain.post.service.PostService;
+import com.back.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,38 +24,38 @@ public class PostController {
 
     // 게시글 생성
     @PostMapping
-    public ResponseEntity<PostResponse> createPost(
+    public ApiResponse<PostResponse> createPost(
             @RequestBody @Valid PostRequest request) {
         Long userId = 1L; // fixme 임시 사용자 ID
         PostResponse response = postService.createPost(userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.CREATED);
     }
 
     // 게시글 목록 조회
     @GetMapping
-    public ResponseEntity<List<PostResponse>> getPosts() {
+    public ApiResponse<List<PostResponse>> getPosts() {
         List<PostResponse> responses = postService.getPosts();
-        return ResponseEntity.ok(responses);
+        return ApiResponse.success(responses, "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     // 게시글 단건 조회
     @GetMapping("/{postId}")
-    public ResponseEntity<PostResponse> getPost(@PathVariable Long postId) {
-        return ResponseEntity.ok(postService.getPost(postId));
+    public ApiResponse<PostResponse> getPost(@PathVariable Long postId) {
+        return ApiResponse.success(postService.getPost(postId), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     @PutMapping("/{postId}")
-    public ResponseEntity<PostResponse> updatePost(
+    public ApiResponse<PostResponse> updatePost(
             @PathVariable Long postId,
             @RequestBody @Valid PostRequest request) {
         Long userId = 1L; // fixme 임시 사용자 ID
-        return ResponseEntity.ok(postService.updatePost(userId, postId, request));
+        return ApiResponse.success(postService.updatePost(userId, postId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
     }
 
     @DeleteMapping("/{postId}")
-    public ResponseEntity<Void> deletePost(@PathVariable Long postId) {
+    public ApiResponse<Void> deletePost(@PathVariable Long postId) {
         Long userId = 1L; // fixme 임시 사용자 ID
         postService.deletePost(userId, postId);
-        return ResponseEntity.ok().build();
+        return ApiResponse.success(null, "성공적으로 삭제되었습니다.", HttpStatus.OK);
     }
 }
