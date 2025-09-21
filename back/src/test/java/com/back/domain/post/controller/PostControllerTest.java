@@ -1,7 +1,6 @@
 package com.back.domain.post.controller;
 
 import com.back.domain.post.dto.PostRequest;
-import com.back.domain.post.dto.PostResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.repository.PostRepository;
@@ -22,16 +21,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.stream.IntStream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,9 +50,12 @@ class PostControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    private User testUser;
+    private User anotherUser;
+
     @BeforeEach
     void setUp() {
-        User testUser = User.builder()
+        testUser = User.builder()
                 .loginId("testLoginId")
                 .email("test@example.com")
                 .password("testPassword")
@@ -66,6 +66,18 @@ class PostControllerTest {
                 .birthdayAt(LocalDateTime.of(2000, 3, 1, 0, 0))
                 .build();
         userRepository.save(testUser);
+
+        anotherUser = User.builder()
+                .loginId("anotherLoginId")
+                .email("another@example.com")
+                .password("another")
+                .beliefs("도전")
+                .gender(Gender.F)
+                .role(Role.USER)
+                .mbti(Mbti.ISFJ)
+                .birthdayAt(LocalDateTime.of(2001, 4, 1, 0, 0))
+                .build();
+        userRepository.save(anotherUser);
 
         IntStream.rangeClosed(1, 5).forEach(i -> {
             postRepository.save(
@@ -90,22 +102,15 @@ class PostControllerTest {
             PostRequest request = new PostRequest("테스트 게시글", "테스트 내용입니다.", PostCategory.CHAT);
 
             // when
-            MvcResult result = mockMvc.perform(post("/api/v1/posts")
+            mockMvc.perform(post("/api/v1/posts")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.title").value("테스트 게시글"))
-                    .andExpect(jsonPath("$.content").value("테스트 내용입니다."))
-                    .andExpect(jsonPath("$.category").value("CHAT"))
-                    .andReturn();
-
-            String responseBody = result.getResponse().getContentAsString();
-            PostResponse response = objectMapper.readValue(responseBody, PostResponse.class);
-
-            Post savedPost = postRepository.findById(response.id()).orElseThrow();
-            assertThat(savedPost.getTitle()).isEqualTo("테스트 게시글");
-            assertThat(savedPost.getContent()).isEqualTo("테스트 내용입니다.");
-            assertThat(savedPost.getCategory()).isEqualTo(PostCategory.CHAT);
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.title").value("테스트 게시글"))
+                    .andExpect(jsonPath("$.data.content").value("테스트 내용입니다."))
+                    .andExpect(jsonPath("$.data.category").value("CHAT"))
+                    .andExpect(jsonPath("$.message").value("성공적으로 생성되었습니다."))
+                    .andExpect(jsonPath("$.status").value(200));
         }
 
         @Test
@@ -144,9 +149,11 @@ class PostControllerTest {
             // when & then
             mockMvc.perform(get("/api/v1/posts/{postId}", savedPost.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.title").value("조회 테스트 게시글"))
-                    .andExpect(jsonPath("$.content").value("조회 테스트 내용입니다."))
-                    .andExpect(jsonPath("$.category").value("CHAT"));
+                    .andExpect(jsonPath("$.data.title").value("조회 테스트 게시글"))
+                    .andExpect(jsonPath("$.data.content").value("조회 테스트 내용입니다."))
+                    .andExpect(jsonPath("$.data.category").value("CHAT"))
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("성공적으로 조회되었습니다."));
         }
 
         @Test
@@ -167,14 +174,112 @@ class PostControllerTest {
     class GetPosts {
 
         @Test
-        @DisplayName("성공 - 게시글 목록 조회")
-        void success() throws Exception {
+        @DisplayName("성공 - 페이징 파라미터가 없는 경우")
+        void successWithDefaultParameters() throws Exception {
             // when & then
             mockMvc.perform(get("/api/v1/posts"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(5))
-                    .andExpect(jsonPath("$[0].title").value("목록 게시글 1"))
-                    .andExpect(jsonPath("$[1].title").value("목록 게시글 2"));
+                    .andExpect(jsonPath("$.data.page").value(1))
+                    .andExpect(jsonPath("$.data.size").value(5))
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("성공적으로 조회되었습니다."));
+        }
+
+        @Test
+        @DisplayName("성공 - page와 size 모두 지정")
+        void successWithBothParameters() throws Exception {
+            // when & then
+            mockMvc.perform(get("/api/v1/posts")
+                            .param("page", "1")
+                            .param("size", "5"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.items.length()").value(5))
+                    .andExpect(jsonPath("$.data.items[0].title").value("목록 게시글 1"))
+                    .andExpect(jsonPath("$.data.items[1].title").value("목록 게시글 2"))
+                    .andExpect(jsonPath("$.data.page").value(1))
+                    .andExpect(jsonPath("$.data.size").value(5))
+                    .andExpect(jsonPath("$.data.totalElements").value(5))
+                    .andExpect(jsonPath("$.data.totalPages").value(1))
+                    .andExpect(jsonPath("$.data.last").value(true))
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("성공적으로 조회되었습니다."));
+        }
+
+        @Test
+        @DisplayName("성공 - 정렬 파라미터 포함")
+        void successWithSortParameters() throws Exception {
+            // when & then
+            mockMvc.perform(get("/api/v1/posts")
+                            .param("page", "1")
+                            .param("size", "5")
+                            .param("sort", "createdDate,desc")
+                            .param("sort", "title,asc"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.page").value(1))
+                    .andExpect(jsonPath("$.data.size").value(5))
+                    .andExpect(jsonPath("$.status").value(200));
+        }
+    }
+
+    @Nested
+    @DisplayName("게시글 수정")
+    class UpdatePost {
+
+        @Test
+        @DisplayName("성공 - 본인 게시글 수정")
+        @Sql(statements = {
+                "UPDATE users SET id = 1 WHERE login_id = 'testLoginId'"
+        })
+        void success() throws Exception {
+            // given - ID=1인 사용자의 게시글 생성
+            User user1 = userRepository.findById(1L).orElseThrow();
+            Post savedPost = postRepository.save(
+                    Post.builder()
+                            .title("수정 전 제목")
+                            .content("수정 전 내용")
+                            .category(PostCategory.CHAT)
+                            .user(user1)
+                            .build()
+            );
+
+            PostRequest updateRequest = new PostRequest("수정된 제목", "수정된 내용", PostCategory.CHAT);
+
+            // when & then
+            mockMvc.perform(put("/api/v1/posts/{postId}", savedPost.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(updateRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.title").value("수정된 제목"))
+                    .andExpect(jsonPath("$.data.content").value("수정된 내용"))
+                    .andExpect(jsonPath("$.data.category").value("CHAT"));
+        }
+
+        @Test
+        @DisplayName("실패 - 다른 사용자 게시글 수정")
+        @Sql(statements = {
+                "UPDATE users SET id = 1 WHERE login_id = 'testLoginId'",
+                "UPDATE users SET id = 2 WHERE login_id = 'anotherLoginId'"
+        })
+        void fail_UnauthorizedUser() throws Exception {
+            // given - ID=2인 사용자의 게시글 (ID=1 사용자가 수정 시도)
+            User user2 = userRepository.findById(2L).orElseThrow();
+            Post savedPost = postRepository.save(
+                    Post.builder()
+                            .title("다른 사용자 게시글")
+                            .content("다른 사용자 내용")
+                            .category(PostCategory.CHAT)
+                            .user(user2)
+                            .build()
+            );
+
+            PostRequest updateRequest = new PostRequest("수정 시도", "수정 시도 내용", PostCategory.CHAT);
+
+            // when & then
+            mockMvc.perform(put("/api/v1/posts/{postId}", savedPost.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(updateRequest)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED_USER.getCode()));
         }
     }
 }
