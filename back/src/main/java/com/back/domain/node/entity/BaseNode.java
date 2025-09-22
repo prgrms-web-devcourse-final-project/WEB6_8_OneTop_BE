@@ -1,28 +1,22 @@
+/**
+ * [ENTITY] 사용자의 현재 삶의 분기점(Base 노드)
+ * - 베이스라인에 속하며 선형(parent 체인)으로 연결
+ */
 package com.back.domain.node.entity;
 
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-/**
- * 사용자의 현재 삶의 분기점(노드)을 나타내는 엔티티.
- * 베이스라인에 속하며, 계층 구조를 가질 수 있습니다.
- */
 @Entity
 @Table(name = "base_nodes")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor @Builder
 public class BaseNode extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -53,5 +47,16 @@ public class BaseNode extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String decision;
 
-    private int decisionDate;
+    private int ageYear;
+
+    // com.back.domain.node.entity.BaseNode 안에 추가
+
+    public boolean isHeaderOf(BaseLine baseLine) {
+        if (baseLine == null) return false;
+        // header 판단 기준이 따로 있다면 맞게 수정 (여기선 parent == null 가정)
+        return this.getBaseLine() != null
+                && Objects.equals(this.getBaseLine().getId(), baseLine.getId())
+                && this.getParent() == null;
+    }
+
 }
