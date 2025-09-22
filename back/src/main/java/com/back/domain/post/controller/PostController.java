@@ -2,6 +2,7 @@ package com.back.domain.post.controller;
 
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostResponse;
+import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.service.PostService;
 import com.back.global.common.ApiResponse;
 import com.back.global.common.PageResponse;
@@ -36,8 +37,9 @@ public class PostController {
 
     // 게시글 목록 조회
     @GetMapping
-    public ApiResponse<PageResponse<PostResponse>> getPosts(Pageable pageable) {
-        Page<PostResponse> responses = postService.getPosts(pageable);
+    public ApiResponse<PageResponse<PostResponse>> getPosts(
+            @ModelAttribute PostSearchCondition condition, Pageable pageable) {
+        Page<PostResponse> responses = postService.getPosts(condition, pageable);
         return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
