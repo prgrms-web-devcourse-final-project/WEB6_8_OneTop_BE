@@ -1,3 +1,6 @@
+import org.gradle.kotlin.dsl.annotationProcessor
+import org.gradle.kotlin.dsl.testAnnotationProcessor
+
 plugins {
     java
     id("org.springframework.boot") version "3.5.5"
@@ -43,6 +46,14 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+
+    // QueryDSL
+    implementation("io.github.openfeign.querydsl:querydsl-jpa:7.0")
+    annotationProcessor("io.github.openfeign.querydsl:querydsl-apt:7.0:jpa")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
+    testAnnotationProcessor("io.github.openfeign.querydsl:querydsl-apt:7.0:jpa")
+    testAnnotationProcessor("jakarta.persistence:jakarta.persistence-api")
 }
 
 tasks.withType<Test> {
