@@ -8,5 +8,5 @@ import org.springframework.stereotype.Repository;
  * 게시글 엔티티에 대한 데이터베이스 접근을 담당하는 JpaRepository.
  */
 @Repository
-public interface PostRepository extends JpaRepository<Post, Long> {
+public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
 }
