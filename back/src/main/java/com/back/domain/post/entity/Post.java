@@ -66,4 +66,14 @@ public class Post extends BaseEntity {
         if (!user.equals(targetUser))
             throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
     }
+
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decrementLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
 }
