@@ -11,8 +11,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
 import java.security.Principal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -80,12 +80,11 @@ public class ScenarioController {
     public ApiResponse<List<BaselineListResponse>> getBaselines(
             Principal principal
     ) {
-        // Mock 베이스라인 목록
-        List<BaselineListResponse> mockBaselines = List.of(
-                new BaselineListResponse(1001L, "대학 졸업 이후", List.of("교육", "진로"), LocalDateTime.now()),
-                new BaselineListResponse(1002L, "미국 대학 이후", List.of("해외", "교육"), LocalDateTime.now())
-        );
-        return ApiResponse.success(mockBaselines, "베이스라인 목록을 성공적으로 조회했습니다.");
+        // TODO: 실제 userId 추출 로직 구현 (JWT에서 추출)
+        Long userId = 1L; // Mock userId
+
+        List<BaselineListResponse> baselines = scenarioService.getBaselines(userId);
+        return ApiResponse.success(baselines, "베이스라인 목록을 성공적으로 조회했습니다.");
     }
 
     @GetMapping("/compare/{baseId}/{compareId}")

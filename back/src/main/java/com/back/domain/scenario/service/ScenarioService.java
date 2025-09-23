@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -179,4 +180,32 @@ public class ScenarioService {
                 compareTypes
         );
     }
+
+    // 베이스라인 목록 조회
+    @Transactional(readOnly = true)
+    public List<BaselineListResponse> getBaselines(Long userId) {
+        // TODO: 실제 구현 시 BaseLineRepository.findAllByUserId(userId) 사용
+        // 현재는 Mock 데이터로 MVP 완성
+
+        // Mock 베이스라인 데이터 생성
+        return List.of(
+                new BaselineListResponse(
+                        1001L,
+                        "대학 졸업 후 진로 선택",
+                        List.of("교육", "진로", "취업"),
+                        LocalDateTime.of(2024, 1, 15, 10, 30)
+                ),
+                new BaselineListResponse(
+                        1002L,
+                        "회사 이직 후 새 시작",
+                        List.of("커리어", "성장", "도전"),
+                        LocalDateTime.of(2024, 3, 22, 14, 45)
+                ),
+                new BaselineListResponse(
+                        1003L,
+                        "결혼 후 인생 설계",
+                        List.of("가족", "관계", "안정"),
+                        LocalDateTime.of(2024, 6, 10, 16, 20)
+                )
+        );
 }
