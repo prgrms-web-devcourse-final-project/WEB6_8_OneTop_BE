@@ -20,6 +20,9 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class SceneCompare extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id", nullable = false)
+    private Scenario scenario;
 
     @Column(columnDefinition = "TEXT")
     private String compareResult;

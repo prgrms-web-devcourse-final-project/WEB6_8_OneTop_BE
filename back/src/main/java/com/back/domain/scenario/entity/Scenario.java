@@ -70,11 +70,6 @@ public class Scenario extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String timelineTitles;  // {"2020": "대학원 진학", "2022": "연구실 변경", "2025": "해외 학회"} 형태
 
-    // 시나리오 비교 결과 (다른 시나리오와의 비교 분석)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "scene_compare_id")
-    private SceneCompare sceneCompare;
-
     // 시나리오 대표 이미지 URL
     private String img;
 }

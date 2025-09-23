@@ -28,7 +28,7 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // 베이스 시나리오 조회 (비교 기준)
     Optional<Scenario> findFirstByDecisionLine_BaseLineIdOrderByCreatedDateAsc(Long baseLineId);
 
-    // 연관 Entity 정보 포함 조회 (EntityGraph로 N+1 쿼리 방지)
+    // 연관 Entity 정보 포함 조회 (EntityGraph로 N+1 쿼리 방지, 확장 기능 대비)
     @EntityGraph(attributePaths = {"user", "decisionLine", "sceneCompare"})
     Optional<Scenario> findWithAllRelationsById(Long id);
 
@@ -44,7 +44,8 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // 사용자의 최신 시나리오 조회 (확장 기능 대비)
     Optional<Scenario> findTopByUserIdOrderByCreatedDateDesc(Long userId);
 
-    // 사용자별 베이스라인 시나리오 제외 시나리오 목록 조회 (페이징구현 및 MyPage용)
+    // 사용자별 베이스라인 시나리오 제외 시나리오 목록 조회 (MyPage용, 페이징구현 및 N+1 방지)
+    @EntityGraph(attributePaths = {"user", "decisionLine", "decisionLine.baseLine"})
     @Query("SELECT s FROM Scenario s " +
            "WHERE s.user.id = :userId " +
            "AND s.decisionLine.baseLine.id = :baseLineId " +
