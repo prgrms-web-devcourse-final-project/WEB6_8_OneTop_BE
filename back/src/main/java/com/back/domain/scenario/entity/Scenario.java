@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "scenarios")
 @Getter
-@Setter
+@Setter // TODO:제거 필요한 롬복만 사용, 롬복 동작원리 공부하기
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
