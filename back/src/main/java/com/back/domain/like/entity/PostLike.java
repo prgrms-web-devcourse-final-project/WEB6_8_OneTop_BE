@@ -4,11 +4,7 @@ import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 /**
  * 게시글 좋아요 엔티티.
@@ -24,9 +20,8 @@ import lombok.Setter;
     }
 )
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
 public class PostLike extends BaseEntity {
 
