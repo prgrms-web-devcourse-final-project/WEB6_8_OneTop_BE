@@ -2,6 +2,7 @@ package com.back.domain.post.service;
 
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostResponse;
+import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.mapper.PostMapper;
 import com.back.domain.post.repository.PostRepository;
@@ -48,8 +49,8 @@ public class PostService {
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
     }
 
-    public Page<PostResponse> getPosts(Pageable pageable) {
-        return postRepository.findAll(pageable)
+    public Page<PostResponse> getPosts(PostSearchCondition condition, Pageable pageable) {
+        return postRepository.searchPosts(condition, pageable)
                 .map(PostMapper::toResponse);
     }
 

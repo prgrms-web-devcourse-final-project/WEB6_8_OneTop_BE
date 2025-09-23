@@ -26,6 +26,7 @@ public abstract class PostMapper {
                 post.getId(),
                 post.getTitle(),
                 post.getContent(),
+                post.getUser().getNickname(),
                 post.getCategory(),
                 post.isHide(),
                 post.getLikeCount(),
