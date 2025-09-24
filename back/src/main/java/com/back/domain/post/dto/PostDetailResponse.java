@@ -1,8 +1,6 @@
 package com.back.domain.post.dto;
 
-import com.back.domain.comment.dto.CommentResponse;
 import com.back.domain.post.enums.PostCategory;
-import com.back.global.common.PageResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -31,9 +29,6 @@ public record PostDetailResponse(
         boolean liked,
 
         @Schema(description = "게시글 작성일자", example = "2025.09.23")
-        LocalDateTime createdDate,
-
-        @Schema(description = "댓글 목록 (페이징)")
-        PageResponse<CommentResponse> comments
+        LocalDateTime createdDate
 ) {}
 
