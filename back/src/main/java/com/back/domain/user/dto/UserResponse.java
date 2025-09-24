@@ -3,24 +3,27 @@ package com.back.domain.user.dto;
 import com.back.domain.user.entity.Gender;
 import com.back.domain.user.entity.Mbti;
 import com.back.domain.user.entity.Role;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import com.back.domain.user.entity.User;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@Builder
-public class UserResponse {
-    private Long id;
-    private String loginId;
-    private String email;
-    private Role role;
-    private String nickname;
-    private LocalDateTime birthdayAt;
-    private Gender gender;
-    private Mbti mbti;
-    private String beliefs;
-    private String authProvider;
+public record UserResponse(
+        Long id,
+        String loginId,
+        String email,
+        Role role,
+        String nickname,
+        LocalDateTime birthdayAt,
+        Gender gender,
+        Mbti mbti,
+        String beliefs,
+        String authProvider
+) {
+    public static UserResponse from(User u) {
+        return new UserResponse(
+                u.getId(), u.getLoginId(), u.getEmail(), u.getRole(), u.getNickname(),
+                u.getBirthdayAt(), u.getGender(), u.getMbti(), u.getBeliefs(),
+                u.getAuthProvider() == null ? "" : u.getAuthProvider().name()
+        );
+    }
 }

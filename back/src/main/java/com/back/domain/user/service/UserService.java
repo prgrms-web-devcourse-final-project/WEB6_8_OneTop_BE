@@ -26,7 +26,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public void signup(SignupRequest signupRequest) {
+    public User signup(SignupRequest signupRequest) {
         // 사용자 회원가입 처리
         if (userRepository.findByLoginId(signupRequest.getLoginId()).isPresent()) {
             throw new ApiException(ErrorCode.LOGIN_ID_DUPLICATION);
@@ -48,7 +48,7 @@ public class UserService {
                 .role(Role.USER)
                 .build();
 
-        userRepository.save(user);
+        return userRepository.save(user);
     }
 
     @Transactional
