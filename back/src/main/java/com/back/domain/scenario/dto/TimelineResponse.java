@@ -32,6 +32,7 @@ public record TimelineResponse(
      * @return TimelineResponse
      */
 
+    // TODO: DecisionNode에서 TimelineEvent로 변환하는 로직 구현 필요
     public static TimelineResponse from(Long scenarioId, List<DecisionNode> decisionNodes) {
         throw new UnsupportedOperationException("구현 예정");
     }
