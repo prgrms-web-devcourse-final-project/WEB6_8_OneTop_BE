@@ -28,7 +28,6 @@ public class LikeService {
 
     @Transactional
     public void addLike(Long userId, Long postId) {
-        System.out.println("Adding like: userId=" + userId + ", postId=" + postId);
         Post post = postRepository.findByIdWithLock(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
