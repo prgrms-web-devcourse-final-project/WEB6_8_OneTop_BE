@@ -6,7 +6,7 @@
 #
 # 1. 초기 CD는 패키지 생성 확인 목적으로 작성되어 항상 실패 할 예정입니다.
 # 2. 패키지 관리
-#  (1) 일관적 관리를 위해 PACKAGE_MANAGEMENT_MEMBER 로 설정했습니다.
+#  (1) 일관적 관리를 위해 조직의 리포지토리로 설정했습니다.
 #  (2) 생성된 Package는 env 와 같은 환경 변수가 담겨있지 않을 예정이므로 현재 public 공개를 검토 중입니다.
 #    * Private 결정 시 관리는 어떻게 할 것인가
 # 3. AWS SSM Send-Command 액션
@@ -17,19 +17,19 @@
 name: deploy
 
 env:
-  IMAGE_REPOSITORY: onetop-relife-img # GHCR 이미지 리포지토리명(소유자 포함 X)
+  IMAGE_REPOSITORY: onetop-relife-be # GHCR 이미지 리포지토리명(소유자 포함 X)
   CONTAINER_1_NAME: relife_1 # 슬롯1(고정 이름)
   CONTAINER_2_NAME: relife_2 # 슬롯2(고정 이름)
   CONTAINER_PORT: 8080 # 컨테이너 내부 포트(스프링부트)
   EC2_INSTANCE_TAG_NAME: relife-ec2-1 # 배포 대상 EC2 Name 태그
   DOCKER_NETWORK: common # 도커 네트워크
   BACKEND_DIR: back # Dockerfile 위치
-  PACKAGE_MANAGEMENT_MEMBER: "gooraeng"
 
 concurrency:
-  # 커밋이 짧은 시간안에 몰려도 최신 커밋에 대해서만 액션이 수행되도록
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # 같은 브랜치에서 여러 커밋이 몰려도 동일한 그룹으로 관리
+  group: relife-backend-cd-${{ github.workflow }}-${{ github.ref }}
   # 기존 작업은 새 커밋이 들어오더라도 바로 종료하지 않고 끝날 때 까지 대기
+  # 예) tag는 있는데 package가 없는 상황
   cancel-in-progress: false
 
 on:
@@ -99,20 +99,12 @@ jobs:
       - name: Docker Buildx 설치
         uses: docker/setup-buildx-action@v3
 
-      # GHCR 로그인
-      - name: 레지스트리 로그인
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ env.PACKAGE_MANAGEMENT_MEMBER }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       # 저장소 소유자명을 소문자로 (GHCR 경로 표준화)
       - name: set lower case owner name
         run: |
           echo "OWNER_LC=${OWNER,,}" >> "${GITHUB_ENV}"
         env:
-          OWNER: ${{ env.PACKAGE_MANAGEMENT_MEMBER }}
+          OWNER: ${{ github.repository_owner }}
 
       # 캐시를 최대한 활용하여 빌드 → 버전태그 및 latest 동시 푸시
       - name: 빌드 앤 푸시
@@ -152,7 +144,7 @@ jobs:
           echo "INSTANCE_ID=${INSTANCE_ID}" >> "${GITHUB_ENV}"
 
       # 원격(SSM)으로 Blue/Green 스위치 수행
-      - name: AWS SSM Send-Command
+      - name: AWS 배포 실행
         uses: peterkimzz/aws-ssm-send-command@master
         env:
           DOT_ENV_CONTENT: ${{ secrets.DOT_ENV }}
@@ -180,8 +172,7 @@ jobs:
             #    - blue/green은 "역할"이며 매 배포마다 바뀜
             # ---------------------------------------------------------
             source /etc/environment || true   # 시스템 전역 변수(+ 비밀) 주입 시도
-            OWNER_LC="${{ env.PACKAGE_MANAGEMENT_MEMBER }}"
-            OWNER_LC="${OWNER_LC,,}"          # 소문자 표준화
+            OWNER_LC="${{ env.OWNER_LC }}"
             IMAGE_TAG="${{ needs.createTagAndRelease.outputs.tag_name }}"
             IMAGE_REPOSITORY="${{ env.IMAGE_REPOSITORY }}"
             IMAGE="ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:${IMAGE_TAG}"
