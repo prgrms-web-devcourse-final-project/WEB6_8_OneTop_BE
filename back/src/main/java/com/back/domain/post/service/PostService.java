@@ -1,5 +1,6 @@
 package com.back.domain.post.service;
 
+import com.back.domain.like.repository.PostLikeRepository;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostSearchCondition;
@@ -17,6 +18,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
 /**
  * 게시글 관련 비즈니스 로직을 처리하는 서비스.
  */
@@ -27,41 +32,66 @@ public class PostService {
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
+    private final PostLikeRepository postLikeRepository;
 
     @Transactional
     public PostDetailResponse createPost(Long userId, PostRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        PostMappers.PostCtxMapper mapper = new PostMappers.PostCtxMapper(user);
-        Post post = mapper.toEntity(request);
+        Post post = PostMappers.toEntity(request, user);
         Post savedPost = postRepository.save(post);
 
-        return mapper.toResponse(savedPost);
+        return PostMappers.toDetailResponse(savedPost, false);
     }
 
-    public PostDetailResponse getPost(Long postId) {
-        return postRepository.findById(postId)
-                .map(PostMappers.POST_DETAIL_READ::map)
+    public PostDetailResponse getPost(Long userId, Long postId) {
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+
+        boolean isLiked = false;
+
+        if (userId != null) {
+            isLiked = postLikeRepository.existsByPostIdAndUserId(userId, postId);
+        }
+
+        return PostMappers.toDetailResponse(post, isLiked);
     }
 
-    public Page<PostSummaryResponse> getPosts(PostSearchCondition condition, Pageable pageable) {
-        return postRepository.searchPosts(condition, pageable)
-                .map(PostMappers.POST_SUMMARY_READ::map);
+    public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
+        Page<Post> posts = postRepository.searchPosts(condition, pageable);
+
+        List<Long> postIdsInPage = posts.stream()
+                .map(Post::getId)
+                .toList();
+
+        Set<Long> likedPostIds;
+        if (userId != null && !postIdsInPage.isEmpty()) {
+            likedPostIds = postLikeRepository.findLikedPostIdsByUserAndPostIds(userId, postIdsInPage);
+        } else {
+            likedPostIds = Collections.emptySet();
+        }
+
+        return posts.map(post -> {
+            boolean isLiked = userId != null && likedPostIds.contains(post.getId());
+            return PostMappers.toSummaryResponse(post, isLiked);
+        });
     }
 
     @Transactional
-    public PostDetailResponse updatePost(Long userId, Long postId, PostRequest request) {
-        Post post = validatePostOwnership(userId, postId);
+    public Long updatePost(Long userId, Long postId, PostRequest request) {
+        if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
 
+        Post post = validatePostOwnership(userId, postId);
         post.updatePost(request.title(), request.content(), request.category());
 
-        return PostMappers.POST_DETAIL_READ.map(post);
+        return postId;
     }
 
     @Transactional
     public void deletePost(Long userId, Long postId) {
+        if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+
         Post post = validatePostOwnership(userId, postId);
         postRepository.delete(post);
     }

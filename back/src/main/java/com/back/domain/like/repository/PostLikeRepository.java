@@ -7,7 +7,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 게시글 좋아요 엔티티에 대한 데이터베이스 접근을 담당하는 JpaRepository.
@@ -19,4 +21,7 @@ public interface PostLikeRepository extends JpaRepository<PostLike, Long> {
     int deleteByPostIdAndUserId(@Param("postId") Long postId, @Param("userId") Long userId);
 
     boolean existsByPostIdAndUserId(Long postId, Long userId);
+
+    @Query("SELECT pl.post.id FROM PostLike pl WHERE pl.user.id = :userId AND pl.post.id IN :postIds")
+    Set<Long> findLikedPostIdsByUserAndPostIds(@Param("userId") Long userId, @Param("postIds") List<Long> postIds);
 }

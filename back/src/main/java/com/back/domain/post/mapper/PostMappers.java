@@ -5,74 +5,49 @@ import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
-import com.back.global.mapper.Mapper;
-import com.back.global.mapper.MappingException;
-import com.back.global.mapper.TwoWayMapper;
+
+import java.util.List;
 
 /**
- * PostMappers
- * - PostCtxMapper(쓰기, 컨텍스트 보유): PostRequest → Post, Post → PostDetailResponse
- * - POST_DETAIL_READ(읽기, 전역 함수형 매퍼): Post → PostDetailResponse
- * - POST_SUMMARY_READ(읽기, 전역 함수형 매퍼): Post → PostSummaryResponse
+ * PostMapper
+ * 엔티티와 PostRequest, PostResponse 간의 변환을 담당하는 매퍼 클래스
  */
-public final class PostMappers {
-
-    private PostMappers() {}
-
-    // Post → PostDetailResponse
-    public static final Mapper<Post, PostDetailResponse> POST_DETAIL_READ = e -> {
-        if (e == null) throw new MappingException("Post is null");
-        return new PostDetailResponse(
-                e.getId(),
-                e.getTitle(),
-                e.getContent(),
-                e.isHide() ? "익명" : (e.getUser() != null ? e.getUser().getNickname() : null),
-                e.getCategory(),
-                e.getLikeCount(),
-                false, // TODO: 로그인 유저 좋아요 여부
-                e.getCreatedDate()
-        );
-    };
-
-    // Post → PostSummaryResponse
-    public static final Mapper<Post, PostSummaryResponse> POST_SUMMARY_READ = e -> {
-        if (e == null) throw new MappingException("Post is null");
-        return new PostSummaryResponse(
-                e.getId(),
-                e.getTitle(),
-                e.getCategory() != null ? e.getCategory().name() : null,
-                e.isHide() ? "익명" : (e.getUser() != null ? e.getUser().getNickname() : null),
-                e.getCreatedDate(),
-                e.getComments() != null ? e.getComments().size() : 0,
-                e.getLikeCount(),
-                false // TODO: 로그인 유저 좋아요 여부
-        );
-    };
-
-    public static final class PostCtxMapper implements TwoWayMapper<PostRequest, Post, PostDetailResponse> {
-        private final User user;
-
-        public PostCtxMapper(User user) {
-            this.user = user;
-        }
-
-        // PostRequest → Post
-        @Override
-        public Post toEntity(PostRequest req) {
-            if (req == null) throw new MappingException("PostRequest is null");
-            return Post.builder()
-                    .user(user)
-                    .title(req.title())
-                    .content(req.content())
-                    .category(req.category())
-                    .hide(req.hide() != null ? req.hide() : false)
-                    .likeCount(0)
-                    .build();
-        }
-
-        @Override
-        public PostDetailResponse toResponse(Post entity) {
-            return POST_DETAIL_READ.map(entity);
-        }
+public abstract class PostMappers {
+    public static Post toEntity(PostRequest request, User user) {
+        return Post.builder()
+                .title(request.title())
+                .content(request.content())
+                .category(request.category())
+                .user(user)
+                .hide(false)
+                .likeCount(0)
+                .build();
     }
+
+    public static PostDetailResponse toDetailResponse(Post post, Boolean isLiked) {
+        return new PostDetailResponse(
+                post.getId(),
+                post.getTitle(),
+                post.getContent(),
+                post.isHide() ? "익명" : post.getUser().getNickname(),
+                post.getCategory(),
+                post.getLikeCount(),
+                isLiked,
+                post.getCreatedDate()
+        );
+    }
+
+    public static PostSummaryResponse toSummaryResponse(Post post, Boolean isLiked) {
+        return new PostSummaryResponse(
+                post.getId(),
+                post.getTitle(),
+                post.getCategory().name(),
+                post.isHide() ? "익명" : post.getUser().getNickname(),
+                post.getCreatedDate(),
+                post.getComments().size(),
+                post.getLikeCount(),
+                isLiked
+        );
+    }
+
 }
