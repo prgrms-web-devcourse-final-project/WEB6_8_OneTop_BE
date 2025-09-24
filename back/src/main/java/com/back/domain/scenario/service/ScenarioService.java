@@ -12,6 +12,7 @@ import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,9 @@ public class ScenarioService {
     // Node Repository 주입
     private final DecisionLineRepository decisionLineRepository;
     private final BaseLineRepository baseLineRepository;
+
+    // Object Mapper 주입
+    private final ObjectMapper objectMapper;
 
     // AI Service 주입 (추후 구현 시 필요, AI 호출용)
     // private final AiService aiService;
@@ -372,15 +376,20 @@ public class ScenarioService {
         );
     }
 
-    // JSON 파싱 메서드 (추후 구현)
+    // JSON 파싱 Helper 메서드
     private Map<String, String> parseTimelineTitles(String timelineTitles) {
-        // TODO: 실제 JSON 파싱 구현 (ObjectMapper 사용)
-        // 현재는 Mock 데이터 반환
-        return Map.of(
-                "2020", "창업 도전",
-                "2022", "해외 진출",
-                "2025", "상장 성공"
-        );
+        try {
+            // Null 이나 빈 문자열 체크
+            if (timelineTitles == null || timelineTitles.trim().isEmpty()) {
+                throw new ApiException(ErrorCode.SCENARIO_TIMELINE_NOT_FOUND);
+            }
+
+            // JSON 문자열을 Map으로 파싱
+            return objectMapper.readValue(timelineTitles, Map.class);
+        } catch (Exception e) {
+            // JSON 파싱 실패 시 예외 처리
+            throw new ApiException(ErrorCode.SCENARIO_TIMELINE_NOT_FOUND);
+        }
     }
 
     // 시나리오 비교 분석
