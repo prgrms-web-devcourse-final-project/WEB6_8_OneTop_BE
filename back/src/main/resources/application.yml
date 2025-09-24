@@ -62,4 +62,11 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-
+server:
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        secure: false      # 로컬 false, 운영 true(HTTPS)
+        same-site: Lax

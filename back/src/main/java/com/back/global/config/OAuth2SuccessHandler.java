@@ -1,7 +1,5 @@
 package com.back.global.config;
 
-import com.back.global.config.JwtTokenProvider;
-import com.back.global.config.TokenInfo;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

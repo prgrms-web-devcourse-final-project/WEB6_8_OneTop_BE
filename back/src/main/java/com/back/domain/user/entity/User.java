@@ -3,7 +3,6 @@ package com.back.domain.user.entity;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
@@ -29,7 +28,6 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @ColumnDefault("'GUEST'")
     private Role role;
 
     @Column(nullable = true)
