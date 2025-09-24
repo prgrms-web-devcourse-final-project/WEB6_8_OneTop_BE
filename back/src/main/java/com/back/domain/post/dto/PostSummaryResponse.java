@@ -5,6 +5,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
+/**
+ * 게시글 목록 조회 시 불필요한 정보를 제외한 요약 응답 DTO
+ */
 @Schema(description = "게시글 요약 응답 DTO")
 public record PostSummaryResponse(
         @Schema(description = "게시글 ID", example = "1")

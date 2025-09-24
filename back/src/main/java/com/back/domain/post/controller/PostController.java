@@ -1,8 +1,9 @@
 package com.back.domain.post.controller;
 
 import com.back.domain.post.dto.PostRequest;
-import com.back.domain.post.dto.PostResponse;
+import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostSearchCondition;
+import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.service.PostService;
 import com.back.global.common.ApiResponse;
 import com.back.global.common.PageResponse;
@@ -11,10 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * 게시글 관련 API 요청을 처리하는 컨트롤러.
@@ -28,29 +26,29 @@ public class PostController {
 
     // 게시글 생성
     @PostMapping
-    public ApiResponse<PostResponse> createPost(
+    public ApiResponse<PostDetailResponse> createPost(
             @RequestBody @Valid PostRequest request) {
         Long userId = 1L; // fixme 임시 사용자 ID
-        PostResponse response = postService.createPost(userId, request);
+        PostDetailResponse response = postService.createPost(userId, request);
         return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.OK);
     }
 
     // 게시글 목록 조회
     @GetMapping
-    public ApiResponse<PageResponse<PostResponse>> getPosts(
+    public ApiResponse<PageResponse<PostSummaryResponse>> getPosts(
             @ModelAttribute PostSearchCondition condition, Pageable pageable) {
-        Page<PostResponse> responses = postService.getPosts(condition, pageable);
+        Page<PostSummaryResponse> responses = postService.getPosts(condition, pageable);
         return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     // 게시글 단건 조회
     @GetMapping("/{postId}")
-    public ApiResponse<PostResponse> getPost(@PathVariable Long postId) {
+    public ApiResponse<PostDetailResponse> getPost(@PathVariable Long postId) {
         return ApiResponse.success(postService.getPost(postId), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     @PutMapping("/{postId}")
-    public ApiResponse<PostResponse> updatePost(
+    public ApiResponse<PostDetailResponse> updatePost(
             @PathVariable Long postId,
             @RequestBody @Valid PostRequest request) {
         Long userId = 1L; // fixme 임시 사용자 ID
