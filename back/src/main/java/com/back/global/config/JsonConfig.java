@@ -1,9 +1,12 @@
 package com.back.global.config;
 
+import com.back.global.jackson.ProblemDetailJsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.ProblemDetail;
 
 /**
  * JSON 처리를 위한 ObjectMapper 설정 클래스.
@@ -22,6 +25,10 @@ public class JsonConfig {
 
         // Java 8 시간 타입 지원 (LocalDateTime 등)
         mapper.registerModule(new JavaTimeModule());
+
+        SimpleModule pdModule = new SimpleModule();
+        pdModule.addSerializer(ProblemDetail.class, new ProblemDetailJsonSerializer());
+        mapper.registerModule(pdModule);
 
         // 알려지지 않은 속성이 있어도 JSON 파싱 실패하지 않음 (알려지지 않은 속성 무시)
         mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

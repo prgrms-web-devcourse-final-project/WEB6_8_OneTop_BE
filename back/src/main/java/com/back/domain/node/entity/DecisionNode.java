@@ -54,11 +54,25 @@ public class DecisionNode extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String decision;
 
-    private int ageYear; // ← 나이(정수)
+    private int ageYear;
 
     @Column(columnDefinition = "TEXT")
     private String background;
 
+    @Column(length = 255)
+    private String option1; // 선택지1
+
+    @Column(length = 255)
+    private String option2; // 선택지2
+
+    @Column(length = 255)
+    private String option3; // 선택지3
+
+    private Integer selectedIndex; // 0..2
+
+    private Integer parentOptionIndex; // 부모 결정의 어떤 옵션(0..2)에서 파생됐는지
+
+    // 다음 나이 검증
     public void guardNextAgeValid(int nextAge) {
         if (nextAge <= this.getAgeYear()) {
             throw new IllegalArgumentException("ageYear must be greater than parent's ageYear");

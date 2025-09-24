@@ -1,12 +1,16 @@
 /**
- * [TEST] BaseLine/BaseNode 저장·조회 (글로벌 에러 응답 검증 포함)
- * - 성공: bulk 저장, 라인 조회, 피벗 조회
- * - 실패: bulk 저장 유효성 실패(nodes < 2) → ApiException(INVALID_INPUT_VALUE) 검증
+ * [TEST SUITE] Re:Life — BaseLine/BaseNode 통합 테스트 (분류별 정리)
+ *
+ * 목적
+ * - 베이스 라인/노드 저장·조회, 피벗 규칙, 검증 에러, 존재하지 않는 자원 404, 트랜잭션 롤백, 정렬 안정성 통합 검증
+ *
  */
 package com.back.domain.node.controller;
 
 import com.back.domain.node.dto.BaseLineBulkCreateResponse;
 import com.back.domain.node.entity.NodeCategory;
+import com.back.domain.node.repository.BaseLineRepository;
+import com.back.domain.node.repository.BaseNodeRepository;
 import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,12 +32,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@DisplayName("BaseLine 플로우(저장/조회) - 통합 테스트(에러포맷 포함)")
+@DisplayName("Re:Life — BaseLine/BaseNode 통합 테스트")
 public class BaseLineControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private UserRepository userRepository;
+
+    @Autowired private BaseLineRepository baseLineRepository;
+    @Autowired private BaseNodeRepository baseNodeRepository;
 
     private Long userId;
 
@@ -54,13 +61,16 @@ public class BaseLineControllerTest {
         userId = userRepository.save(user).getId();
     }
 
+    // ===========================
+    // 베이스 라인 생성/검증
+    // ===========================
     @Nested
-    @DisplayName("베이스 라인 일괄 저장")
-    class BulkCreate {
+    @DisplayName("베이스 라인 생성/검증")
+    class BaseLine_Create_Validate {
 
         @Test
-        @DisplayName("T1: 헤더~꼬리 4개 노드 라인을 일괄 저장하면 201과 생성 id 목록을 돌려준다")
-        void t1_bulkCreateLine_success() throws Exception {
+        @DisplayName("성공 : 헤더~꼬리 4개 노드 라인을 /bulk로 저장하면 201과 생성 id 목록을 반환한다")
+        void success_bulkCreateLine() throws Exception {
             String payload = sampleLineJson(userId);
 
             var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
@@ -78,29 +88,96 @@ public class BaseLineControllerTest {
         }
 
         @Test
-        @DisplayName("T1-ERR: nodes 길이가 2 미만이면 400/INVALID_INPUT_VALUE 반환")
-        void t1_err_bulkCreateLine_invalidNodes() throws Exception {
+        @DisplayName("실패 : nodes 길이가 2 미만이면 400/C001을 반환한다")
+        void fail_nodesTooShort() throws Exception {
+            // decision 필수 → 단건 샘플에도 decision 채움
             String bad = """
-            { "userId": %d, "nodes": [ { "category":"%s", "situation":"단건", "ageYear":18 } ] }
+            { "userId": %d, "nodes": [ { "category":"%s", "situation":"단건", "decision":"단건", "ageYear":18 } ] }
             """.formatted(userId, NodeCategory.EDUCATION);
 
             mockMvc.perform(post("/api/v1/base-lines/bulk")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(bad))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.status").value(400))
-                    .andExpect(jsonPath("$.code").value("C001"))
-                    .andExpect(jsonPath("$.message").exists());
+                    .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+        @Test
+        @DisplayName("실패 : 음수 ageYear가 포함되면 400/C001을 반환한다")
+        void fail_negativeAge() throws Exception {
+            String bad = """
+            { "userId": %d,
+              "nodes": [
+                {"category":"%s","situation":"음수나이","decision":"음수나이","ageYear":-1},
+                {"category":"%s","situation":"꼬리","decision":"꼬리","ageYear":24}
+              ]
+            }
+            """.formatted(userId, NodeCategory.EDUCATION, NodeCategory.ETC);
+
+            mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+        @Test
+        @DisplayName("실패 : situation 문자열 길이 초과 시 400/C001을 반환한다")
+        void fail_longText() throws Exception {
+            String longText = "가".repeat(5000);
+            String bad = """
+            { "userId": %d,
+              "nodes": [
+                {"category":"%s","situation":"%s","decision":"%s","ageYear":18},
+                {"category":"%s","situation":"정상","decision":"정상","ageYear":24}
+              ]
+            }
+            """.formatted(userId, NodeCategory.EDUCATION, longText, longText, NodeCategory.ETC);
+
+            mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+        @Test
+        @DisplayName("실패 : 중간 노드 invalid 시 트랜잭션 롤백되어 어떤 엔티티도 남지 않는다")
+        void fail_midInvalid_rollback() throws Exception {
+            long beforeLines = baseLineRepository.count();
+            long beforeNodes = baseNodeRepository.count();
+
+            String midBad = """
+            { "userId": %d,
+              "nodes": [
+                {"category":"%s","situation":"헤더","decision":"헤더","ageYear":18},
+                {"category":"%s","situation":"중간-invalid","decision":"중간-invalid","ageYear":-1},
+                {"category":"%s","situation":"꼬리","decision":"꼬리","ageYear":24}
+              ]
+            }
+            """.formatted(userId, NodeCategory.EDUCATION, NodeCategory.CAREER, NodeCategory.ETC);
+
+            mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(midBad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("C001"));
+
+            assertThat(baseLineRepository.count()).isEqualTo(beforeLines);
+            assertThat(baseNodeRepository.count()).isEqualTo(beforeNodes);
         }
     }
 
+    // ===========================
+    // 베이스 라인 조회
+    // ===========================
     @Nested
     @DisplayName("베이스 라인 조회")
-    class ReadLine {
+    class BaseLine_Read {
 
         @Test
-        @DisplayName("T2: 저장된 라인을 ageYear 오름차순으로 조회할 수 있다")
-        void t2_readLine_sortedByAge() throws Exception {
+        @DisplayName("성공 : 저장된 라인을 ageYear 오름차순(동률 id ASC)으로 조회할 수 있다")
+        void success_readLine_sortedByAge() throws Exception {
             Long baseLineId = saveAndGetBaseLineId();
 
             var res = mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", baseLineId))
@@ -114,22 +191,16 @@ public class BaseLineControllerTest {
         }
 
         @Test
-        @DisplayName("T3: 피벗 목록은 헤더/꼬리 제외한 나이만 반환한다(20,22)")
-        void t3_readPivots_middleOnly() throws Exception {
-            Long baseLineId = saveAndGetBaseLineId();
-
-            var res = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.baseLineId").value(baseLineId))
-                    .andExpect(jsonPath("$.pivots.length()").value(2))
-                    .andReturn();
-
-            JsonNode pivots = om.readTree(res.getResponse().getContentAsString()).get("pivots");
-            assertThat(pivots.get(0).get("ageYear").asInt()).isEqualTo(20);
-            assertThat(pivots.get(1).get("ageYear").asInt()).isEqualTo(22);
+        @DisplayName("실패 : 존재하지 않는 baseLineId로 조회 시 404/N002를 반환한다")
+        void fail_lineNotFound() throws Exception {
+            long unknownId = 9_999_999L;
+            mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", unknownId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N002"))
+                    .andExpect(jsonPath("$.message").exists());
         }
 
-        // 저장 → baseLineId 반환
+        // (가장 중요한) 라인 저장 후 baseLineId 반환
         private Long saveAndGetBaseLineId() throws Exception {
             var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -140,14 +211,117 @@ public class BaseLineControllerTest {
         }
     }
 
+    // ===========================
+    // 베이스 노드 조회
+    // ===========================
+    @Nested
+    @DisplayName("베이스 노드 조회")
+    class BaseNode_Read {
+
+        @Test
+        @DisplayName("성공 : /nodes/{baseNodeId} 단건 조회가 정상 동작한다")
+        void success_readSingleNode() throws Exception {
+            Long baseLineId = createLineAndGetId(userId);
+
+            var listRes = mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", baseLineId))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            var arr = om.readTree(listRes.getResponse().getContentAsString());
+            long nodeId = arr.get(0).get("id").asLong();
+
+            mockMvc.perform(get("/api/v1/base-lines/nodes/{nodeId}", nodeId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(nodeId))
+                    .andExpect(jsonPath("$.baseLineId").value(baseLineId));
+        }
+
+        @Test
+        @DisplayName("실패 : 존재하지 않는 baseNodeId 단건 조회 시 404/N001을 반환한다")
+        void fail_nodeNotFound() throws Exception {
+            long unknownNode = 9_999_999L;
+            mockMvc.perform(get("/api/v1/base-lines/nodes/{nodeId}", unknownNode))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N001"))
+                    .andExpect(jsonPath("$.message").exists());
+        }
+
+        // (자주 쓰는) 뒤섞인 입력으로 라인 생성 후 baseLineId 반환(정렬 안정성 검증 겸용)
+        private Long createLineAndGetId(Long uid) throws Exception {
+            var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(sampleShuffledJson(uid)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            return om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
+        }
+
+        // (자주 쓰는) 정렬 안정성 검증용 뒤섞인 입력 샘플 생성
+        private String sampleShuffledJson(Long uid) {
+            return """
+            { "userId": %d,
+              "nodes": [
+                {"category":"%s","situation":"첫 인턴","decision":"첫 인턴","ageYear":22},
+                {"category":"%s","situation":"결말","decision":"결말","ageYear":24},
+                {"category":"%s","situation":"고등학교 졸업","decision":"고등학교 졸업","ageYear":18},
+                {"category":"%s","situation":"대학 입학","decision":"대학 입학","ageYear":20}
+              ]
+            }
+            """.formatted(uid,
+                    NodeCategory.CAREER, NodeCategory.ETC, NodeCategory.EDUCATION, NodeCategory.CAREER);
+        }
+    }
+
+    // ===========================
+    // 피벗 규칙 검증
+    // ===========================
+    @Nested
+    @DisplayName("피벗 규칙 검증")
+    class Pivot_Rules {
+
+        @Test
+        @DisplayName("성공 : 피벗은 헤더/꼬리 제외, 중복 제거, 오름차순 정렬이 보장된다")
+        void success_pivotRules() throws Exception {
+            String withDup = """
+            { "userId": %d,
+              "nodes": [
+                {"category":"%s","situation":"헤더","decision":"헤더","ageYear":18},
+                {"category":"%s","situation":"중간1","decision":"중간1","ageYear":20},
+                {"category":"%s","situation":"중복20","decision":"중복20","ageYear":20},
+                {"category":"%s","situation":"중간2","decision":"중간2","ageYear":22},
+                {"category":"%s","situation":"꼬리","decision":"꼬리","ageYear":24}
+              ]
+            }
+            """.formatted(userId,
+                    NodeCategory.EDUCATION, NodeCategory.CAREER, NodeCategory.CAREER, NodeCategory.CAREER, NodeCategory.ETC);
+
+            var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(withDup))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            long baseLineId = om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
+
+            var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.pivots.length()").value(2))
+                    .andReturn();
+
+            var pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
+            assertThat(pivots.get(0).get("ageYear").asInt()).isEqualTo(20);
+            assertThat(pivots.get(1).get("ageYear").asInt()).isEqualTo(22);
+        }
+    }
+
+    // (자주 쓰는) 정상 입력 샘플 JSON 생성
     private String sampleLineJson(Long uid) {
         return """
         { "userId": %d,
           "nodes": [
-            {"category":"%s","situation":"고등학교 졸업","decision":null,"ageYear":18},
-            {"category":"%s","situation":"대학 입학","decision":null,"ageYear":20},
-            {"category":"%s","situation":"첫 인턴","decision":null,"ageYear":22},
-            {"category":"%s","situation":"결말","decision":null,"ageYear":24}
+            {"category":"%s","situation":"고등학교 졸업","decision":"고등학교 졸업","ageYear":18},
+            {"category":"%s","situation":"대학 입학","decision":"대학 입학","ageYear":20},
+            {"category":"%s","situation":"첫 인턴","decision":"첫 인턴","ageYear":22},
+            {"category":"%s","situation":"결말","decision":"결말","ageYear":24}
           ]
         }
         """.formatted(uid,

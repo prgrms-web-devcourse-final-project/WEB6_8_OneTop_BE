@@ -6,6 +6,6 @@ package com.back.domain.node.dto;
 import java.util.List;
 
 public record TreeDto(
-        List<BaseLineDto> baseNodes,
+        List<BaseNodeDto> baseNodes,
         List<DecLineDto> decisionNodes
 ) {}
