@@ -1,5 +1,6 @@
 package com.back.domain.scenario.service;
 
+import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
@@ -12,6 +13,7 @@ import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
@@ -92,7 +94,7 @@ public class ScenarioService {
     // 시나리오 생성 Helper 메서드
     // 베이스 시나리오 생성 (Mock 구현)
     @Transactional
-    protected void createBaseScenario(com.back.domain.node.entity.BaseLine baseLine) {
+    protected void createBaseScenario(BaseLine baseLine) {
         // Mock 베이스 시나리오 데이터 생성
         Scenario baseScenario = Scenario.builder()
                 .user(baseLine.getUser())
@@ -385,7 +387,8 @@ public class ScenarioService {
             }
 
             // JSON 문자열을 Map으로 파싱
-            return objectMapper.readValue(timelineTitles, Map.class);
+            return objectMapper.readValue(timelineTitles,
+                    new TypeReference<Map<String, String>>() {});
         } catch (Exception e) {
             // JSON 파싱 실패 시 예외 처리
             throw new ApiException(ErrorCode.SCENARIO_TIMELINE_NOT_FOUND);
