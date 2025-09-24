@@ -28,22 +28,22 @@ public class UserService {
     @Transactional
     public User signup(SignupRequest signupRequest) {
         // 사용자 회원가입 처리
-        if (userRepository.findByLoginId(signupRequest.getLoginId()).isPresent()) {
+        if (userRepository.findByLoginId(signupRequest.loginId()).isPresent()) {
             throw new ApiException(ErrorCode.LOGIN_ID_DUPLICATION);
         }
-        if (userRepository.findByEmail(signupRequest.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(signupRequest.email()).isPresent()) {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATION);
         }
 
         User user = User.builder()
-                .loginId(signupRequest.getLoginId())
-                .email(signupRequest.getEmail())
-                .password(passwordEncoder.encode(signupRequest.getPassword()))
-                .nickname(signupRequest.getNickname())
-                .birthdayAt(signupRequest.getBirthdayAt())
-                .gender(signupRequest.getGender())
-                .mbti(signupRequest.getMbti())
-                .beliefs(signupRequest.getBeliefs())
+                .loginId(signupRequest.loginId())
+                .email(signupRequest.email())
+                .password(passwordEncoder.encode(signupRequest.password()))
+                .nickname(signupRequest.nickname())
+                .birthdayAt(signupRequest.birthdayAt())
+                .gender(signupRequest.gender())
+                .mbti(signupRequest.mbti())
+                .beliefs(signupRequest.beliefs())
                 .authProvider(AuthProvider.LOCAL)
                 .role(Role.USER)
                 .build();
