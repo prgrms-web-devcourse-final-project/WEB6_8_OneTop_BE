@@ -32,7 +32,7 @@ on:
 
 # 동일 브랜치에서 연속 실행 방지
 concurrency:
-  group: backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
+  group: relife-backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -57,11 +57,11 @@ jobs:
         uses: actions/checkout@v4
 
       # JDK 설정
-      # Amazon Corretto 21 사용 (Docker와 일치)
+      # Graalvm 21 사용 (Docker 및 개발 환경 일치)
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
-          distribution: "corretto"
+          distribution: "graalvm"
           java-version: "21"
 
       # Gradle 셋업
