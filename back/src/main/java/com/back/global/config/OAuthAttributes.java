@@ -2,6 +2,7 @@ package com.back.global.config;
 
 import lombok.Builder;
 import lombok.Getter;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 
 import java.util.Map;
 
@@ -20,12 +21,11 @@ public class OAuthAttributes {
 
     public static OAuthAttributes of(String registrationId, String userNameAttributeName, Map<String, Object> attributes) {
         // OAuth2 공급자(registrationId)에 따라 적절한 OAuthAttributes 객체를 생성
-        if ("github".equals(registrationId)) {
-            return ofGithub(userNameAttributeName, attributes);
-        } else if ("google".equals(registrationId)) {
-            return ofGoogle(userNameAttributeName, attributes);
-        }
-        return null; // 또는 예외 처리
+        return switch (registrationId.toLowerCase()) {
+            case "github" -> ofGithub(userNameAttributeName, attributes);
+            case "google" -> ofGoogle(userNameAttributeName, attributes);
+            default -> throw new OAuth2AuthenticationException("지원하지 않는 OAuth2 제공자입니다: " + registrationId);
+        };
     }
 
     private static OAuthAttributes ofGoogle(String userNameAttributeName, Map<String, Object> attributes) {
@@ -41,9 +41,17 @@ public class OAuthAttributes {
 
     private static OAuthAttributes ofGithub(String userNameAttributeName, Map<String, Object> attributes) {
         // GitHub OAuth2 사용자 속성을 OAuthAttributes 객체로 변환
+        // GitHub의 경우 이메일이 null일 수 있으므로 처리
+        String email = (String) attributes.get("email");
+        String name = (String) attributes.get("name");
+
+        // name이 null이면 login을 사용
+        if (name == null || name.trim().isEmpty()) {
+            name = (String) attributes.get("login");
+        }
         return OAuthAttributes.builder()
-                .name((String) attributes.get("login")) // GitHub는 'login' 필드를 이름으로 사용
-                .email((String) attributes.get("email")) // GitHub는 이메일이 없을 수 있음
+                .name(name)
+                .email(email) // null일 수 있음
                 .picture((String) attributes.get("avatar_url"))
                 .attributes(attributes)
                 .nameAttributeKey(userNameAttributeName)
