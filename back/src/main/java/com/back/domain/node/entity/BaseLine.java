@@ -26,6 +26,9 @@ public class BaseLine extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(length = 100, nullable = false)
+    private String title;
+
     // BaseLine ←→ BaseNode 양방향 매핑 (BaseNode 쪽에 @ManyToOne BaseLine baseLine 있어야 함)
     @OneToMany(mappedBy = "baseLine", cascade = CascadeType.ALL, orphanRemoval = false)
     @Builder.Default

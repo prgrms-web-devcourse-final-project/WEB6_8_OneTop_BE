@@ -9,6 +9,7 @@ import java.util.List;
 
 public record BaseLineBulkCreateRequest(
         Long userId,
+        String title,
         List<BaseNodePayload> nodes
 ) {
     public record BaseNodePayload(

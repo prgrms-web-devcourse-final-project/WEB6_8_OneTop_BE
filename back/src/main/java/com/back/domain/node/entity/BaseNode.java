@@ -49,14 +49,31 @@ public class BaseNode extends BaseEntity {
 
     private int ageYear;
 
-    // com.back.domain.node.entity.BaseNode 안에 추가
+    @Column(length = 255)
+    private String fixedChoice; // 고정 선택 1개
 
+    @Column(length = 255)
+    private String altOpt1; // 분기 선택지 1
+
+    @Column(length = 255)
+    private String altOpt2; // 분기 선택지 2
+
+    private Long altOpt1TargetDecisionId; // 분기1 연결 대상 결정노드 id
+
+    private Long altOpt2TargetDecisionId; // 분기2 연결 대상 결정노드 id
+
+    // 헤더 판단 헬퍼
     public boolean isHeaderOf(BaseLine baseLine) {
         if (baseLine == null) return false;
-        // header 판단 기준이 따로 있다면 맞게 수정 (여기선 parent == null 가정)
         return this.getBaseLine() != null
                 && Objects.equals(this.getBaseLine().getId(), baseLine.getId())
                 && this.getParent() == null;
     }
 
+    // 베이스 분기 규칙 검증
+    public void guardBaseOptionsValid() {
+        if (fixedChoice == null || fixedChoice.isBlank()) throw new IllegalArgumentException("fixedChoice required");
+        if (altOpt1 != null && altOpt1.isBlank()) throw new IllegalArgumentException("altOpt1 blank");
+        if (altOpt2 != null && altOpt2.isBlank()) throw new IllegalArgumentException("altOpt2 blank");
+    }
 }

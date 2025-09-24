@@ -6,7 +6,7 @@ package com.back.domain.node.controller;
 
 import com.back.domain.node.dto.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.BaseLineBulkCreateResponse;
-import com.back.domain.node.dto.BaseLineDto;
+import com.back.domain.node.dto.BaseNodeDto;
 import com.back.domain.node.dto.PivotListDto;
 import com.back.domain.node.service.NodeService;
 import lombok.RequiredArgsConstructor;
@@ -35,16 +35,15 @@ public class BaseLineController {
         return ResponseEntity.ok(nodeService.getPivotBaseNodes(baseLineId));
     }
 
-    // GET /api/v1/base-lines/{baseLineId}/nodes
+    // 전체 노드 목록 반환
     @GetMapping("/{baseLineId}/nodes")
-    public ResponseEntity<List<BaseLineDto>> getBaseLineNodes(@PathVariable Long baseLineId) {
+    public ResponseEntity<List<BaseNodeDto>> getBaseLineNodes(@PathVariable Long baseLineId) {
         return ResponseEntity.ok(nodeService.getBaseLineNodes(baseLineId));
     }
 
-    // GET /api/v1/base-lines/node/{baseNodeId}
-    @GetMapping("/node/{baseNodeId}")
-    public ResponseEntity<BaseLineDto> getBaseNode(@PathVariable Long baseNodeId) {
+    // 단일 노드 반환
+    @GetMapping("/nodes/{baseNodeId}")
+    public ResponseEntity<BaseNodeDto> getBaseNode(@PathVariable Long baseNodeId) {
         return ResponseEntity.ok(nodeService.getBaseNode(baseNodeId));
     }
-
 }
