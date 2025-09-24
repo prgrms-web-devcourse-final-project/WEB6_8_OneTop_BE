@@ -1,5 +1,6 @@
 package com.back.domain.post.entity;
 
+import com.back.domain.comment.entity.Comment;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
@@ -12,10 +13,12 @@ import org.hibernate.service.spi.ServiceException;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 게시글 엔티티.
  * 사용자가 작성한 게시글의 정보를 저장합니다.
+ * 인덱스...
  */
 @Entity
 @Getter
@@ -52,9 +55,8 @@ public class Post extends BaseEntity {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public void assignUser(User user) {
-        this.user = user;
-    }
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments;
 
     public void updatePost(String title, String content, PostCategory category) {
         this.title = title;
