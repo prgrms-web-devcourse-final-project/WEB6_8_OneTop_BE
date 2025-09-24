@@ -3,7 +3,7 @@ package com.back.domain.user.service;
 import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
-import com.back.global.dto.SignupRequest;
+import com.back.domain.userauth.dto.SignupRequest;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;

@@ -51,9 +51,6 @@ logging:
     org.hibernate.orm.jdbc.extract: TRACE
     org.springframework.transaction.interceptor: TRACE
 
-jwt:
-  secret: c3ByaW5nLWJvb3Qtc2VjdXJpdHktand0LXR1dG9yaWFsLWJhY2stZW5kLXNlY3JldC1rZXkK # Base64 encoded 256-bit key
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -65,8 +62,8 @@ springdoc:
 server:
   servlet:
     session:
-      timeout: 30m
       cookie:
+        name: SESSIONID
         http-only: true
         secure: false      # 로컬 false, 운영 true(HTTPS)
         same-site: Lax

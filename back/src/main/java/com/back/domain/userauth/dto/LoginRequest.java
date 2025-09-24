@@ -1,4 +1,4 @@
-package com.back.global.dto;
+package com.back.domain.userauth.dto;
 
 import lombok.Getter;
 import lombok.Setter;
