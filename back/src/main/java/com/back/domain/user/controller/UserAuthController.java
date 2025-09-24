@@ -55,16 +55,6 @@ public class UserAuthController {
         );
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Map<String,String>>> logout(HttpServletRequest request){
-        HttpSession session = request.getSession(false);
-        if(session != null) session.invalidate();
-        SecurityContextHolder.clearContext();
-        return ResponseEntity.ok(
-                ApiResponse.success(Map.of("message","logged out"), "로그아웃 성공", HttpStatus.OK)
-        );
-    }
-
     @PostMapping("/guest")
     public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin(){
         User savedGuest = guestService.createAndSaveGuest();

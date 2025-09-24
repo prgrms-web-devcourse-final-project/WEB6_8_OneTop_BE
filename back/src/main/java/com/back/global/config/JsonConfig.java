@@ -2,6 +2,7 @@ package com.back.global.config;
 
 import com.back.global.jackson.ProblemDetailJsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,8 @@ public class JsonConfig {
 
         // 날짜를 문자열로 변환 (타임스탬프 대신)
         mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
 
         return mapper;
     }
