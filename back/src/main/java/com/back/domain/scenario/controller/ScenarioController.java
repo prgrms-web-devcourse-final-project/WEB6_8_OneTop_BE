@@ -32,10 +32,9 @@ public class ScenarioController {
     @PostMapping
     @Operation(summary = "시나리오 생성", description = "DecisionLine을 기반으로 AI 시나리오를 생성합니다.")
     public ApiResponse<ScenarioStatusResponse> createScenario(
-            @Valid @RequestBody ScenarioCreateRequest request,
-            Principal principal
+            @Valid @RequestBody ScenarioCreateRequest request
             ) {
-        Long userId = getUserIdFromPrincipal(principal);
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         ScenarioStatusResponse scenarioCreateResponse = scenarioService.createScenario(userId, request);
 
@@ -45,10 +44,9 @@ public class ScenarioController {
     @GetMapping("/{scenarioId}/status")
     @Operation(summary = "시나리오 상태 조회", description = "시나리오 생성 진행 상태를 조회합니다.")
     public ApiResponse<ScenarioStatusResponse> getScenarioStatus(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
-            Principal principal
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
     ) {
-        Long userId = getUserIdFromPrincipal(principal);
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         ScenarioStatusResponse scenarioStatusResponse = scenarioService.getScenarioStatus(scenarioId, userId);
 
@@ -58,10 +56,9 @@ public class ScenarioController {
     @GetMapping("/info/{scenarioId}")
     @Operation(summary = "시나리오 상세 조회", description = "완성된 시나리오의 상세 정보를 조회합니다.")
     public ApiResponse<ScenarioDetailResponse> getScenarioDetail(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
-            Principal principal
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
     ) {
-        Long userId = getUserIdFromPrincipal(principal);
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         ScenarioDetailResponse scenarioDetailResponse = scenarioService.getScenarioDetail(scenarioId, userId);
 
@@ -71,10 +68,9 @@ public class ScenarioController {
     @GetMapping("/{scenarioId}/timeline")
     @Operation(summary = "시나리오 타임라인 조회", description = "시나리오의 선택 경로를 시간순으로 조회합니다.")
     public ApiResponse<TimelineResponse> getScenarioTimeline(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
-            Principal principal
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
     ) {
-        Long userId = getUserIdFromPrincipal(principal);
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         TimelineResponse timelineResponse = scenarioService.getScenarioTimeline(scenarioId, userId);
 
@@ -83,10 +79,8 @@ public class ScenarioController {
 
     @GetMapping("/baselines")
     @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 조회합니다.")
-    public ApiResponse<List<BaselineListResponse>> getBaselines(
-            Principal principal
-    ) {
-        Long userId = getUserIdFromPrincipal(principal);
+    public ApiResponse<List<BaselineListResponse>> getBaselines() {
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         List<BaselineListResponse> baselines = scenarioService.getBaselines(userId);
 
@@ -97,10 +91,9 @@ public class ScenarioController {
     @Operation(summary = "시나리오 비교 분석 결과 조회", description = "두 시나리오를 비교 분석 결과를 조회합니다.")
     public ApiResponse<ScenarioCompareResponse> compareScenarios(
             @Parameter(description = "기준 시나리오 ID") @PathVariable Long baseId,
-            @Parameter(description = "비교 시나리오 ID") @PathVariable Long compareId,
-            Principal principal
+            @Parameter(description = "비교 시나리오 ID") @PathVariable Long compareId
     ) {
-        Long userId = getUserIdFromPrincipal(principal);
+        Long userId = 1L; // TODO: Principal에서 추출 예정
 
         ScenarioCompareResponse scenarioCompareResponse = scenarioService.compareScenarios(baseId, compareId, userId);
 
