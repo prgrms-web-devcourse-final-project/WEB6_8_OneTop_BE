@@ -8,3 +8,9 @@ CLAUDE.md
 
 # DB
 db_dev.mv.db
+
+# QueryDSL Generated
+**/generated/
+**/build/generated/
+src/main/generated/
+back/src/main/generated/

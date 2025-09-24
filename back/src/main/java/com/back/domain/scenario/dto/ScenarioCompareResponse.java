@@ -1,11 +1,9 @@
 package com.back.domain.scenario.dto;
 
-import com.back.domain.scenario.entity.Scenario;
-import com.back.domain.scenario.entity.SceneCompare;
-import com.back.domain.scenario.entity.SceneType;
-import com.back.domain.scenario.entity.Type;
+import com.back.domain.scenario.entity.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**                                                                                                                                                                                                                  │ │
@@ -48,6 +46,47 @@ public record ScenarioCompareResponse(
             List<SceneType> baseIndicators,
             List<SceneType> compareIndicators
     ) {
-        throw new UnsupportedOperationException("구현 예정");
+        // TOTAL 타입에서 종합 분석 추출
+        String overallAnalysis = compareResults.stream()
+                .filter(compare -> compare.getResultType() == SceneCompareResultType.TOTAL)
+                .findFirst()
+                .map(SceneCompare::getCompareResult)
+                .orElse("비교 분석 결과가 없습니다.");
+
+        // 5개 지표별 비교 결과 생성
+        List<IndicatorComparison> indicators = Arrays.stream(Type.values())
+                .map(type -> {
+                    // 기준 시나리오의 해당 지표 점수 찾기
+                    int baseScore = baseIndicators.stream()
+                            .filter(indicator -> indicator.getType() == type)
+                            .findFirst()
+                            .map(SceneType::getPoint)
+                            .orElse(0);
+
+                    // 비교 시나리오의 해당 지표 점수 찾기
+                    int compareScore = compareIndicators.stream()
+                            .filter(indicator -> indicator.getType() == type)
+                            .findFirst()
+                            .map(SceneType::getPoint)
+                            .orElse(0);
+
+                    // SceneCompare에서 해당 지표 분석 찾기 (TOTAL 제외하고)
+                    String analysis = compareResults.stream()
+                            .filter(compare -> compare.getResultType() != SceneCompareResultType.TOTAL)
+                            .filter(compare -> compare.getResultType().name().equals(type.name()))
+                            .findFirst()
+                            .map(SceneCompare::getCompareResult)
+                            .orElse(type.name() + " 분석 결과가 없습니다.");
+
+                    return new IndicatorComparison(type, baseScore, compareScore, analysis);
+                })
+                .toList();
+
+        return new ScenarioCompareResponse(
+                baseScenario.getId(),
+                compareScenario.getId(),
+                overallAnalysis,
+                indicators
+        );
     }
 }
