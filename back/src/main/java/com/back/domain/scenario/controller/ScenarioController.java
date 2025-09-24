@@ -26,6 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ScenarioController {
 
+    // TODO: ApiResponse를 ResponseEntity로 변경 예정
     private final ScenarioService scenarioService;
 
     @PostMapping
