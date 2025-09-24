@@ -5,15 +5,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer; // 추가
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
  * Spring Security 설정을 정의하는 구성 클래스.
@@ -24,7 +24,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
@@ -34,37 +33,21 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // HTTP 보안 필터 체인을 구성
         http
-                .httpBasic().disable()
-                .csrf().disable()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                .and()
-                .formLogin()
-                    .loginPage("/users-auth/login")
-                    .loginProcessingUrl("/users-auth/login")
-                    .defaultSuccessUrl("/")
-                    .failureUrl("/users-auth/login?error=true")
-                    .permitAll()
-                .and()
-                .logout()
-                    .logoutUrl("/users-auth/logout")
-                    .logoutSuccessUrl("/users-auth/login?logout=true")
-                    .invalidateHttpSession(true)
-                    .deleteCookies("JSESSIONID")
-                    .permitAll()
-                .and()
-                .oauth2Login()
-                    .userInfoEndpoint()
-                        .userService(customOAuth2UserService)
-                        .and()
-                    .successHandler(oAuth2SuccessHandler)
-                    .failureHandler(oAuth2FailureHandler)
-                    .and()
-                .authorizeHttpRequests()
-                .requestMatchers("/users-auth/**").permitAll() // Swagger 경로를 WebSecurityCustomizer로 제외했으므로 여기서 제거
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .anyRequest().authenticated()
-                .and()
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/users-auth/**").permitAll()
+                        .requestMatchers("/admin/").hasRole("ADMIN")
+                        .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(ui -> ui.userService(customOAuth2UserService))
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
+                )
+                .formLogin(form -> form.disable())
+                .httpBasic(h -> h.disable());
         return http.build();
     }
 

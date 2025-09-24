@@ -1,15 +1,17 @@
 package com.back.domain.user.service;
 
-import com.back.domain.user.entity.Role;
-import com.back.domain.user.entity.User;
+import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
-import com.back.domain.userauth.dto.SignupRequest;
+import com.back.domain.user.dto.SignupRequest;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * 사용자 관련 비즈니스 로직을 처리하는 서비스.
@@ -42,10 +44,36 @@ public class UserService {
                 .gender(signupRequest.getGender())
                 .mbti(signupRequest.getMbti())
                 .beliefs(signupRequest.getBeliefs())
+                .authProvider(AuthProvider.LOCAL)
                 .role(Role.USER)
                 .build();
 
         userRepository.save(user);
+    }
+
+    @Transactional
+    public User upsertOAuthUser(String email, String nickname, AuthProvider provider){
+        Optional<User> found = userRepository.findByEmail(email);
+        if(found.isPresent()){
+            User u = found.get();
+            if(u.getAuthProvider()==null) u.setAuthProvider(provider);
+            if(u.getNickname()==null) u.setNickname(nickname);
+            return u;
+        }
+        // 최초 소셜 로그인 시 필수값 기본 세팅
+        User u = User.builder()
+                .loginId(null)
+                .email(email)
+                .password(null)
+                .nickname(nickname)
+                .birthdayAt(LocalDateTime.now())
+                .gender(Gender.N)
+                .mbti(Mbti.INFP)
+                .beliefs("자유")
+                .role(Role.USER)
+                .authProvider(provider)
+                .build();
+        return userRepository.save(u);
     }
 
     public User findByLoginId(String loginId) {

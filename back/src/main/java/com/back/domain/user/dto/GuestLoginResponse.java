@@ -1,4 +1,4 @@
-package com.back.domain.userauth.dto;
+package com.back.domain.user.dto;
 
 import lombok.Builder;
 import lombok.Getter;

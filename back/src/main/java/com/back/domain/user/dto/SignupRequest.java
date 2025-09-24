@@ -1,4 +1,4 @@
-package com.back.domain.userauth.dto;
+package com.back.domain.user.dto;
 
 import com.back.domain.user.entity.Gender;
 import com.back.domain.user.entity.Mbti;

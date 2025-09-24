@@ -1,12 +1,13 @@
 package com.back.global.config;
 
+import com.back.domain.user.repository.UserRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -19,21 +20,16 @@ import java.io.IOException;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+public class OAuth2SuccessHandler extends AuthenticationSuccessHandler {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
+
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        // OAuth2 로그인 성공 시 JWT 토큰을 생성하고 클라이언트로 리다이렉트
+        String nameAttr = authentication.getName();
         log.info("OAuth2 Login Success!");
-
-        TokenInfo tokenInfo = jwtTokenProvider.generateToken(authentication);
-
-        String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:3000/oauth2/redirect") // 클라이언트 리다이렉트 URL
-                .queryParam("token", tokenInfo.getAccessToken())
-                .build().toUriString();
-
-        getRedirectStrategy().sendRedirect(request, response, targetUrl);
+        response.sendRedirect("http://localhost:3000/oauth2/redirect");
     }
+
 }
