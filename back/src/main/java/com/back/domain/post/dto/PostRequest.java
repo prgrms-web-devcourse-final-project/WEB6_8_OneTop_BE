@@ -14,5 +14,7 @@ public record PostRequest(
         String content,
 
         @NotNull(message = "카테고리는 필수입니다")
-        PostCategory category
+        PostCategory category,
+
+        Boolean hide
 ) { }
