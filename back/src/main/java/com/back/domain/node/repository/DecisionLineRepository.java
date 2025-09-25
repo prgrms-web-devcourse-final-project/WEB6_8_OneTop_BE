@@ -13,4 +13,5 @@ import java.util.List;
 @Repository
 public interface DecisionLineRepository extends JpaRepository<DecisionLine, Long> {
     List<DecisionLine> findByUser(User user);
+    List<DecisionLine> findByBaseLine_Id(Long baseLineId);
 }

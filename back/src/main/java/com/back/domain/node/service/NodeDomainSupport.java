@@ -1,6 +1,7 @@
 /**
  * NodeDomainSupport (공통 헬퍼)
  * - 입력 검증, 피벗/나이 해석, 정렬 조회, 옵션 검증, 제목 생성, 예외 매핑 등
+ * - FromBase 전용 옵션 규칙(1~2개, 단일 옵션은 선택 슬롯만) 포함
  */
 package com.back.domain.node.service;
 
@@ -35,7 +36,7 @@ class NodeDomainSupport {
                 .orElseThrow(() -> new ApiException(ErrorCode.BASE_LINE_NOT_FOUND, "BaseLine not found: " + baseLineId));
     }
 
-    // BaseLine 정렬된 노드 조회 + 라인 존재 확인
+    // (가장 많이 사용하는) BaseLine 정렬된 노드 조회 + 라인 존재 확인
     public List<BaseNode> getOrderedBaseNodes(Long baseLineId) {
         BaseLine baseLine = baseLineRepository.findById(baseLineId)
                 .orElseThrow(() -> new ApiException(ErrorCode.BASE_LINE_NOT_FOUND, "BaseLine not found: " + baseLineId));
@@ -94,7 +95,64 @@ class NodeDomainSupport {
         return idx;
     }
 
-    // 옵션 1~3, selectedIndex/decision 일관성 검증
+    // (가장 중요한) FromBase용 옵션 검증(1~2개, 선택 인덱스 범위만 체크)
+    public void validateOptionsForFromBase(List<String> options, Integer selectedIndex) {
+        if (options == null || options.isEmpty())
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "options required");
+        if (options.size() > 2)
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "options up to 2 on from-base");
+        for (String s : options)
+            if (s == null || s.isBlank())
+                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "option text blank");
+        if (selectedIndex != null && (selectedIndex < 0 || selectedIndex >= options.size()))
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "selectedIndex out of range");
+    }
+
+    // (가장 많이 사용하는) FromBase에서 피벗 슬롯 텍스트 반영(1~2개; 단일 옵션은 선택 슬롯에만 기록)
+    public void upsertPivotAltTextsForFromBase(BaseNode pivot, List<String> options, int selectedAltIndex) {
+        if (options == null || options.isEmpty()) return;
+
+        // 단일 옵션: 선택 슬롯에만 적용
+        if (options.size() == 1) {
+            String text = options.get(0);
+            if (selectedAltIndex == 0) {
+                if (pivot.getAltOpt1TargetDecisionId() != null && !text.equals(pivot.getAltOpt1()))
+                    throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 already linked");
+                if (pivot.getAltOpt1() == null || pivot.getAltOpt1().isBlank()) pivot.setAltOpt1(text);
+                else if (!pivot.getAltOpt1().equals(text)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 text mismatch");
+            } else {
+                if (pivot.getAltOpt2TargetDecisionId() != null && !text.equals(pivot.getAltOpt2()))
+                    throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 already linked");
+                if (pivot.getAltOpt2() == null || pivot.getAltOpt2().isBlank()) pivot.setAltOpt2(text);
+                else if (!pivot.getAltOpt2().equals(text)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 text mismatch");
+            }
+            return;
+        }
+
+        // 옵션 2개: 앞 두 개를 alt1/alt2 반영(선택 슬롯 우선)
+        String o1 = options.get(0);
+        String o2 = options.get(1);
+
+        if (selectedAltIndex == 0) {
+            if (pivot.getAltOpt1TargetDecisionId() != null && !o1.equals(pivot.getAltOpt1()))
+                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 already linked");
+            if (pivot.getAltOpt1() == null || pivot.getAltOpt1().isBlank()) pivot.setAltOpt1(o1);
+            else if (!pivot.getAltOpt1().equals(o1)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 text mismatch");
+
+            if (pivot.getAltOpt2() == null || pivot.getAltOpt2().isBlank()) pivot.setAltOpt2(o2);
+            else if (!pivot.getAltOpt2().equals(o2)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 text mismatch");
+        } else {
+            if (pivot.getAltOpt2TargetDecisionId() != null && !o2.equals(pivot.getAltOpt2()))
+                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 already linked");
+            if (pivot.getAltOpt2() == null || pivot.getAltOpt2().isBlank()) pivot.setAltOpt2(o2);
+            else if (!pivot.getAltOpt2().equals(o2)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 text mismatch");
+
+            if (pivot.getAltOpt1() == null || pivot.getAltOpt1().isBlank()) pivot.setAltOpt1(o1);
+            else if (!pivot.getAltOpt1().equals(o1)) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 text mismatch");
+        }
+    }
+
+    // Next용 옵션 1~3, selectedIndex/decision 일관성 검증
     public void validateOptions(List<String> options, Integer selectedIndex, String decision) {
         if (options == null || options.isEmpty()) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "options required");
         if (options.size() > 3) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "options up to 3");
@@ -104,33 +162,6 @@ class NodeDomainSupport {
         if (decision != null && selectedIndex != null) {
             if (!Objects.equals(decision, options.get(selectedIndex)))
                 throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "decision must equal options[selectedIndex]");
-        }
-    }
-
-    // 피벗 alt 슬롯 텍스트 채우기/검증
-    public void ensurePivotAltTexts(BaseNode pivot, List<String> options) {
-        String o1 = options.size() > 0 ? options.get(0) : null;
-        String o2 = options.size() > 1 ? options.get(1) : null;
-
-        if (o1 != null && !o1.isBlank()) {
-            if (pivot.getAltOpt1() == null || pivot.getAltOpt1().isBlank()) {
-                pivot.setAltOpt1(o1);
-            } else if (!pivot.getAltOpt1().equals(o1)) {
-                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 text mismatch");
-            }
-        }
-        if (o2 != null && !o2.isBlank()) {
-            if (pivot.getAltOpt2() == null || pivot.getAltOpt2().isBlank()) {
-                pivot.setAltOpt2(o2);
-            } else if (!pivot.getAltOpt2().equals(o2)) {
-                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 text mismatch");
-            }
-        }
-        if (pivot.getAltOpt1TargetDecisionId() != null && o1 != null && !o1.equals(pivot.getAltOpt1())) {
-            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt1 already linked");
-        }
-        if (pivot.getAltOpt2TargetDecisionId() != null && o2 != null && !o2.equals(pivot.getAltOpt2())) {
-            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "altOpt2 already linked");
         }
     }
 
