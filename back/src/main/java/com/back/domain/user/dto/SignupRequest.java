@@ -20,6 +20,9 @@ public record SignupRequest(
                 message="비밀번호는 영문, 숫자, 특수기호 포함 8~20자여야 합니다.")
         String password,
 
+        @NotBlank(message = "이름은 필수 입력 값입니다.")
+        String username,
+
         @NotBlank(message = "닉네임은 필수 입력 값입니다.")
         String nickname,
 

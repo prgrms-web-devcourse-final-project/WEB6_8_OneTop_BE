@@ -27,14 +27,18 @@ public class UserService {
 
     @Transactional
     public User signup(SignupRequest signupRequest) {
-        // 사용자 회원가입 처리
-        if (userRepository.findByEmail(signupRequest.email()).isPresent()) {
+        // 사전 검증
+        if (userRepository.existsByEmail(signupRequest.email())) {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATION);
+        }
+        if (userRepository.existsByNickname(signupRequest.nickname())) {
+            throw new ApiException(ErrorCode.NICKNAME_DUPLICATION); // 없으면 추가(아래 참고)
         }
 
         User user = User.builder()
                 .email(signupRequest.email())
                 .password(passwordEncoder.encode(signupRequest.password()))
+                .username(signupRequest.username())
                 .nickname(signupRequest.nickname())
                 .birthdayAt(signupRequest.birthdayAt())
                 .authProvider(AuthProvider.LOCAL)
@@ -50,18 +54,50 @@ public class UserService {
         if(found.isPresent()){
             User user = found.get();
             if(user.getAuthProvider()==null) user.setAuthProvider(provider);
-            if(user.getNickname()==null) user.setNickname(nickname);
+            if(user.getNickname()==null || user.getNickname().isBlank()){
+                user.setNickname(safeUniqueNickname(nickname));
+            }
+            if(user.getUsername()==null || user.getUsername().isBlank()){
+                user.setUsername(defaultUsernameFromEmail(email));
+            }
             return user;
         }
         // 최초 소셜 로그인 시 필수값 기본 세팅
+        String safeNick = safeUniqueNickname(nickname);
+        String defaultUsername = defaultUsernameFromEmail(email);
+
         User user = User.builder()
                 .email(email)
+                .username(defaultUsername)
                 .password(null)
-                .nickname(nickname)
+                .nickname(safeNick)
                 .birthdayAt(LocalDateTime.now())
                 .role(Role.USER)
                 .authProvider(provider)
                 .build();
         return userRepository.save(user);
+    }
+
+    // 닉네임 유니크 보장 메서드
+    private String safeUniqueNickname(String base) {
+        if (base == null || base.isBlank()) base = "user";
+        String nick = base;
+        int i = 0;
+        while (userRepository.existsByNickname(nick)) {
+            i++;
+            nick = base + i;
+            if (nick.length() > 80) {
+                nick = (base.length() > 75 ? base.substring(0, 75) : base) + i;
+            }
+        }
+        return nick;
+    }
+
+    private String defaultUsernameFromEmail(String email) {
+        String local = (email != null && email.contains("@")) ? email.substring(0, email.indexOf('@')) : "user";
+        String candidate = local.replaceAll("[^a-zA-Z0-9._-]", "");
+        if (candidate.length() < 3) candidate = "user";
+        if (candidate.length() > 30) candidate = candidate.substring(0, 30);
+        return candidate;
     }
 }

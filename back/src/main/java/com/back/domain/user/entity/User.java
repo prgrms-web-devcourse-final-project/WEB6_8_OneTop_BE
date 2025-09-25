@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @Builder
 public class User extends BaseEntity {
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Enumerated(EnumType.STRING)
@@ -30,7 +30,10 @@ public class User extends BaseEntity {
     @Column(nullable = true)
     private String password;
 
-    @Column(length = 80)
+    @Column(nullable = false, length = 30)
+    private String username;
+
+    @Column(nullable = false, unique = true, length = 80)
     private String nickname;
 
     @Column(nullable = false)

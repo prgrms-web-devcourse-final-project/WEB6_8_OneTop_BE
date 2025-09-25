@@ -26,6 +26,7 @@ public enum ErrorCode {
     LOGIN_ID_DUPLICATION(HttpStatus.BAD_REQUEST, "U003", "Login ID Duplication"),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "U004", "Invalid Password"),
     UNAUTHORIZED_USER(HttpStatus.UNAUTHORIZED, "U005", "Unauthorized User"),
+    NICKNAME_DUPLICATION(HttpStatus.CONFLICT, "U006", "이미 사용 중인 닉네임입니다."),
 
     // Post Errors
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "Post Not Found"),
