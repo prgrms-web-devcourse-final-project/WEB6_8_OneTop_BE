@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 public record UserResponse(
         Long id,
-        String loginId,
         String email,
         Role role,
         String nickname,
@@ -21,7 +20,7 @@ public record UserResponse(
 ) {
     public static UserResponse from(User u) {
         return new UserResponse(
-                u.getId(), u.getLoginId(), u.getEmail(), u.getRole(), u.getNickname(),
+                u.getId(), u.getEmail(), u.getRole(), u.getNickname(),
                 u.getBirthdayAt(), u.getGender(), u.getMbti(), u.getBeliefs(),
                 u.getAuthProvider() == null ? "" : u.getAuthProvider().name()
         );

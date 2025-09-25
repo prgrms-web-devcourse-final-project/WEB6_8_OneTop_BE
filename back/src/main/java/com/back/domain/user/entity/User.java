@@ -21,9 +21,6 @@ import java.time.LocalDateTime;
 public class User extends BaseEntity {
 
     @Column(unique = true)
-    private String loginId;
-
-    @Column(unique = true)
     private String email;
 
     @Enumerated(EnumType.STRING)

@@ -12,8 +12,6 @@ import java.time.LocalDateTime;
  * 로그인 ID, 이메일, 비밀번호, 닉네임, 생년월일, 성별, MBTI, 가치관 등을 포함합니다.
  */
 public record SignupRequest(
-        @NotBlank(message = "로그인 아이디는 필수 입력 값입니다.")
-        String loginId,
 
         @NotBlank(message = "이메일은 필수 입력 값입니다.")
         @Email(message = "이메일 형식에 맞지 않습니다.")

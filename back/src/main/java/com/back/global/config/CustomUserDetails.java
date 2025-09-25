@@ -42,7 +42,7 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
 
     @Override
     public String getUsername() {
-        return user.getLoginId();
+        return user.getEmail();
     }
 
     @Override
@@ -72,7 +72,6 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
 
     @Override public String getName() {
         if (user.getNickname()!=null && !user.getNickname().isBlank()) return user.getNickname();
-        if (user.getLoginId()!=null && !user.getLoginId().isBlank()) return user.getLoginId();
         return user.getEmail();
     }
 }

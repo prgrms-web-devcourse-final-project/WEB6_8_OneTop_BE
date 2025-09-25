@@ -41,7 +41,7 @@ public class UserAuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest req){
         Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.loginId(), req.password()));
+                new UsernamePasswordAuthenticationToken(req.email(), req.password()));
         SecurityContextHolder.getContext().setAuthentication(auth); // 세션에 SecurityContext 저장
         CustomUserDetails cud = (CustomUserDetails) auth.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공"));

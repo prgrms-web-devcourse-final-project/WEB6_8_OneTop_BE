@@ -20,9 +20,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         // 사용자 정보를 데이터베이스에서 조회하여 UserDetails 객체로 반환
-        User user = userRepository.findByLoginId(loginId)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         return new CustomUserDetails(user);
     }
