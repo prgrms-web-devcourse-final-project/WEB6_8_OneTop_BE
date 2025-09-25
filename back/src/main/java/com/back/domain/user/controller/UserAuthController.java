@@ -9,6 +9,7 @@ import com.back.domain.user.service.GuestService;
 import com.back.domain.user.service.UserService;
 import com.back.global.common.ApiResponse;
 import com.back.global.config.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,11 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/users-auth")
@@ -39,10 +38,11 @@ public class UserAuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest req){
+    public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest req, HttpServletRequest request){
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.email(), req.password()));
-        SecurityContextHolder.getContext().setAuthentication(auth); // 세션에 SecurityContext 저장
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        request.getSession(true);
         CustomUserDetails cud = (CustomUserDetails) auth.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공"));
     }
@@ -56,5 +56,13 @@ public class UserAuthController {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         return ResponseEntity.ok(ApiResponse.success(GuestLoginResponse.from(savedGuest), "게스트 로그인 성공"));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> me(@AuthenticationPrincipal CustomUserDetails cud) {
+        if (cud == null) {
+            return ResponseEntity.ok(ApiResponse.success(null, "anonymous"));
+        }
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "authenticated"));
     }
 }

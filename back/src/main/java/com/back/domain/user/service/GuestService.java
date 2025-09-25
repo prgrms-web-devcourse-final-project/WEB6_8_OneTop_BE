@@ -33,7 +33,7 @@ public class GuestService {
                 .mbti(Mbti.INFP)
                 .beliefs("자유")
                 .role(Role.GUEST)
-                .authProvider(AuthProvider.LOCAL)
+                .authProvider(AuthProvider.GUEST)
                 .build();
         return userRepository.save(guest);
     }

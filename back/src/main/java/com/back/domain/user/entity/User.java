@@ -37,7 +37,6 @@ public class User extends BaseEntity {
     private LocalDateTime birthdayAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Gender gender;
 
     @Enumerated(EnumType.STRING)

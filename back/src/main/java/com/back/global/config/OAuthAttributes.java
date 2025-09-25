@@ -3,6 +3,7 @@ package com.back.global.config;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 
 import java.util.Map;
 
@@ -24,7 +25,9 @@ public class OAuthAttributes {
         return switch (registrationId.toLowerCase()) {
             case "github" -> ofGithub(userNameAttributeName, attributes);
             case "google" -> ofGoogle(userNameAttributeName, attributes);
-            default -> throw new OAuth2AuthenticationException("지원하지 않는 OAuth2 제공자입니다: " + registrationId);
+            default -> throw new OAuth2AuthenticationException(
+                    new OAuth2Error("provider_not_supported", "지원하지 않는 제공자: " + registrationId, null)
+            );
         };
     }
 

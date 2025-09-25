@@ -62,6 +62,7 @@ springdoc:
 server:
   servlet:
     session:
+      timeout: 30m
       cookie:
         name: SESSIONID
         http-only: true
