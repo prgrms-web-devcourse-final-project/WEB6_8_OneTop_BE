@@ -37,7 +37,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
             OAuthAttributes attrs = OAuthAttributes.of(registrationId, userNameAttr, raw.getAttributes());
 
-            String email = attrs.getEmail();
+            String email = attrs.email();
             if (email == null || email.isBlank()) {
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("email_not_found", "OAuth2 제공자로부터 이메일을 받을 수 없습니다.", null)
@@ -45,7 +45,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             }
 
             AuthProvider provider = AuthProvider.valueOf(registrationId.toUpperCase());
-            User user = userService.upsertOAuthUser(email, attrs.getName(), provider);
+            User user = userService.upsertOAuthUser(email, attrs.name(), provider);
 
             return new CustomUserDetails(user, raw.getAttributes());
 
