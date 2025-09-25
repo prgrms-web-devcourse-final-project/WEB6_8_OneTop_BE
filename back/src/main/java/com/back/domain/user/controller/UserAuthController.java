@@ -1,6 +1,5 @@
 package com.back.domain.user.controller;
 
-import com.back.domain.user.dto.GuestLoginResponse;
 import com.back.domain.user.dto.LoginRequest;
 import com.back.domain.user.dto.SignupRequest;
 import com.back.domain.user.dto.UserResponse;
@@ -48,7 +47,7 @@ public class UserAuthController {
     }
 
     @PostMapping("/guest")
-    public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin(HttpServletRequest request){
+    public ResponseEntity<ApiResponse<UserResponse>> guestLogin(HttpServletRequest request){
         User savedGuest = guestService.createAndSaveGuest();
 
         CustomUserDetails cud = new CustomUserDetails(savedGuest);
@@ -57,7 +56,7 @@ public class UserAuthController {
 
         request.getSession(true);
 
-        return ResponseEntity.ok(ApiResponse.success(GuestLoginResponse.from(savedGuest), "게스트 로그인 성공"));
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(savedGuest), "게스트 로그인 성공"));
     }
 
     @GetMapping("/me")
