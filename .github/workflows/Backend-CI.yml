@@ -1,3 +1,6 @@
+# 마지막 수정: 250924
+# Backend CI Workflow 입니다.
+
 name: Backend PR CI
 
 env:
@@ -29,7 +32,7 @@ on:
 
 # 동일 브랜치에서 연속 실행 방지
 concurrency:
-  group: backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
+  group: relife-backend-ci-${{ github.ref }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -54,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
 
       # JDK 설정
-      # graalvm 21 사용
+      # Graalvm 21 사용 (Docker 및 개발 환경 일치)
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -62,26 +65,26 @@ jobs:
           java-version: "21"
           cache: "gradle"
 
-      # Gradle 캐싱
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       # Gradle 실행 권한 부여
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       # Secret으로 부터 .env 생성
-      - name: Generate .env
+      - name: Generate .env from Secret
         run: |
           printf "%s" "${{ secrets.DOT_ENV }}" > .env
 
-      # Gradle 빌드 및 테스트 진행
-      - name: Execute Build and Tests
-        run: ./gradlew clean build test --no-daemon --warning-mode=all
+      # Gradle 빌드 및 테스트
+      # 빌드 / 테스트 분리
+      - name: Execute Build
+        run: ./gradlew clean build -x test --warning-mode=all
+
+      - name: Execute Tests
+        run: ./gradlew test --info
 
       # 테스트 실행 결과 로깅 Action
       - name: Generate JUnit Test Report
         uses: mikepenz/action-junit-report@v5
-        if: success() || failure() # 성공 여부 상관없이 실행
+        if: always()
         with:
           report_paths: "**/build/test-results/test/TEST-*.xml"

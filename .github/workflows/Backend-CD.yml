@@ -1,0 +1,336 @@
+# 마지막 수정: 250924
+# 작성자: gooraeng
+
+# BEFORE YOU READ..
+# 아래의 사항은 250924 기준으로 변경사항 발생 시 수정될 수 있습니다.
+#
+# 1. 초기 CD는 패키지 생성 확인 목적으로 작성되어 항상 실패 할 예정입니다.
+# 2. 패키지 관리
+#  (1) 일관적 관리를 위해 조직의 리포지토리로 설정했습니다.
+#  (2) 생성된 Package는 env 와 같은 환경 변수가 담겨있지 않을 예정이므로 현재 public 공개를 검토 중입니다.
+#    * Private 결정 시 관리는 어떻게 할 것인가
+# 3. AWS SSM Send-Command 액션
+#  (1) 스크립트 전송이나 인증만 잘 되면 스크립트 내용에 상관없이 Action은 성공으로 간주됩니다.
+#      내부적으로 EC2 상에서만 실패로 간주됩니다.
+#  (2) 따라서, 실제 성공 여부는 EC2 내부에서 별도로 생성되는 배포 과정을 담은 로그 파일에서 확인해야 합니다.
+
+name: deploy
+
+env:
+  IMAGE_REPOSITORY: onetop-relife-be # GHCR 이미지 리포지토리명(소유자 포함 X)
+  CONTAINER_1_NAME: relife_1 # 슬롯1(고정 이름)
+  CONTAINER_2_NAME: relife_2 # 슬롯2(고정 이름)
+  CONTAINER_PORT: 8080 # 컨테이너 내부 포트(스프링부트)
+  EC2_INSTANCE_TAG_NAME: relife-ec2-1 # 배포 대상 EC2 Name 태그
+  DOCKER_NETWORK: common # 도커 네트워크
+  BACKEND_DIR: back # Dockerfile 위치
+
+concurrency:
+  # 같은 브랜치에서 여러 커밋이 몰려도 동일한 그룹으로 관리
+  group: relife-backend-cd-${{ github.workflow }}-${{ github.ref }}
+  # 기존 작업은 새 커밋이 들어오더라도 바로 종료하지 않고 끝날 때 까지 대기
+  # 예) tag는 있는데 package가 없는 상황
+  cancel-in-progress: false
+
+on:
+  push:
+    paths: [
+      ".github/workflows/**",
+      "back/src/**",
+      "back/build.gradle.kts",
+      "back/settings.gradle.kts",
+      "back/Dockerfile"
+    ]
+    # TODO: 향후 Git flow 전략 적용 시 논의 필요
+    branches:
+      - main
+
+# 권한 최소화/명시화
+permissions:
+  contents: write # 태그/릴리즈
+  packages: write # GHCR 푸시
+
+# 기본 Shell
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ---------------------------------------------------------
+  # 1) 태그/릴리즈 생성
+  # ---------------------------------------------------------
+  createTagAndRelease:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.create_tag.outputs.new_tag }} # 이후 잡에서 사용할 태그명
+    steps:
+      - uses: actions/checkout@v4
+
+      # 버전 태그 자동 생성 (vX.Y.Z)
+      - name: Create Tag
+        id: create_tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 릴리즈 생성
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.create_tag.outputs.new_tag }}
+          release_name: Release ${{ steps.create_tag.outputs.new_tag }}
+          body: ${{ steps.create_tag.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+  # ---------------------------------------------------------
+  # 2) 도커 이미지 빌드/푸시 (캐시 최대 활용)
+  # ---------------------------------------------------------
+  buildImageAndPush:
+    name: 도커 이미지 빌드와 푸시
+    needs: createTagAndRelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Buildx 설치
+        uses: docker/setup-buildx-action@v3
+
+      # 저장소 소유자명을 소문자로 (GHCR 경로 표준화)
+      - name: set lower case owner name
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >> "${GITHUB_ENV}"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      # 캐시를 최대한 활용하여 빌드 → 버전태그 및 latest 동시 푸시
+      - name: 빌드 앤 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BACKEND_DIR }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:${{ needs.createTagAndRelease.outputs.tag_name }}
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:latest
+
+  # ---------------------------------------------------------
+  # 3) Blue/Green 무중단 배포 (EC2 + NPM 스위치)
+  # ---------------------------------------------------------
+  deploy:
+    name: Blue/Green 무중단 배포
+    runs-on: ubuntu-latest
+    needs: [createTagAndRelease, buildImageAndPush]
+    steps:
+      # AWS 자격 구성
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # Name 태그로 EC2 인스턴스 조회 (없으면 실패)
+      - name: 인스턴스 ID 가져오기
+        id: get_instance_id
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${{ env.EC2_INSTANCE_TAG_NAME }}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)
+          [[ -n "${INSTANCE_ID}" && "${INSTANCE_ID}" != "None" ]] || { echo "No running instance found"; exit 1; }
+          echo "INSTANCE_ID=${INSTANCE_ID}" >> "${GITHUB_ENV}"
+
+      # 원격(SSM)으로 Blue/Green 스위치 수행
+      - name: AWS 배포 실행
+        uses: peterkimzz/aws-ssm-send-command@master
+        env:
+          DOT_ENV_CONTENT: ${{ secrets.DOT_ENV }}
+          NGINX_ADMIN_EMAIL: ${{ secrets.NGNIX_ADMIN_EMAIL }}
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          instance-ids: ${{ env.INSTANCE_ID }}
+          working-directory: /
+          comment: Deploy
+          command: |
+            set -Eeuo pipefail
+
+            # ---------------------------------------------------------
+            # 0) 실행 로그(라인 타임스탬프 부착)
+            # ---------------------------------------------------------
+            LOG="/tmp/ssm-$(date +%Y%m%d_%H%M%S).log"
+            exec > >(awk '{ fflush(); print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }' | tee -a "$LOG")
+            exec 2> >(awk '{ fflush(); print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }' | tee -a "$LOG" >&2)
+
+            # ---------------------------------------------------------
+            # 1) 변수 정의
+            #    - 슬롯 이름은 고정(두 개의 컨테이너 이름)
+            #    - blue/green은 "역할"이며 매 배포마다 바뀜
+            # ---------------------------------------------------------
+            source /etc/environment || true   # 시스템 전역 변수(+ 비밀) 주입 시도
+            OWNER_LC="${{ github.repository_owner }}"
+            OWNER_LC="${OWNER_LC,,}"
+            IMAGE_TAG="${{ needs.createTagAndRelease.outputs.tag_name }}"
+            IMAGE_REPOSITORY="${{ env.IMAGE_REPOSITORY }}"
+            IMAGE="ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+            SLOT1="${{ env.CONTAINER_1_NAME }}"
+            SLOT2="${{ env.CONTAINER_2_NAME }}"
+            PORT_IN="${{ env.CONTAINER_PORT }}"
+            NET="${{ env.DOCKER_NETWORK }}"
+            ENV_FILE="/tmp/relife.env"
+
+            echo "🔹 Use image: ${IMAGE}"
+            if ! docker pull "${IMAGE}"; then
+              echo "❌ Failed to pull image: ${IMAGE}"
+              exit 1
+            fi
+            echo "✅ Successfully pulled image."
+            
+            # ---------------------------------------------------------
+            # GitHub Secret으로 임시 .env 파일 생성
+            # ---------------------------------------------------------
+            echo "🔐 Creating .env file from GitHub Secret..."
+            # GitHub Actions에서 secrets.DOT_ENV 값을 받아와 파일로 쓴다.
+            # 특수문자 문제를 피하기 위해 printf와 히어독(here-doc)을 사용한다.
+            printf '%s' "${{ env.DOT_ENV_CONTENT }}" > "${ENV_FILE}"
+            
+            if [[ ! -s "${ENV_FILE}" ]]; then
+              echo "❌ Failed to create env file from secret or it is empty."
+              exit 1
+            fi
+            echo "✅ Successfully created env file."
+            
+            # ---------------------------------------------------------
+            # 2) Nginx Proxy Manager(NPM) API 토큰 발급
+            #     - /etc/environment 등에 설정된 PASSWORD_1, APP_BACK_DOMAIN 사용 가정
+            # ---------------------------------------------------------
+            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \
+              -H "Content-Type: application/json" \
+              -d "{\"identity\": \"${{ env.NGINX_ADMIN_EMAIL }}\", \"secret\": \"${PASSWORD_1}\"}" | jq -r '.token')
+
+            # 토큰/도메인 검증(없으면 실패)
+            [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; }
+            [[ -n "${APP_BACK_DOMAIN:-}" ]] || { echo "APP_BACK_DOMAIN is empty"; exit 1; }
+
+            # 대상 프록시 호스트 ID 조회(도메인 매칭)
+            PROXY_ID=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              | jq ".[] | select(.domain_names[]==\"${APP_BACK_DOMAIN}\") | .id")
+
+            [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_BACK_DOMAIN}"; exit 1; }
+
+            # 현재 프록시가 바라보는 업스트림(컨테이너명) 조회
+            CURRENT_HOST=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              | jq -r '.forward_host')
+
+            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}"
+
+            # ---------------------------------------------------------
+            # 3) 역할(blue/green) 판정
+            #    - blue : 현재 운영 중(CURRENT_HOST)
+            #    - green: 다음 운영(교체 대상)
+            # ---------------------------------------------------------
+            if [[ "${CURRENT_HOST:-}" == "${SLOT1}" ]]; then
+              BLUE="${SLOT1}"
+              GREEN="${SLOT2}"
+            elif [[ "${CURRENT_HOST:-}" == "${SLOT2}" ]]; then
+              BLUE="${SLOT2}"
+              GREEN="${SLOT1}"
+            else
+              BLUE="none"   # 초기 배포
+              GREEN="${SLOT1}"
+            fi
+            echo "🎨 role -> blue(now): ${BLUE}, green(next): ${GREEN}"
+
+            # ---------------------------------------------------------
+            # 4) green 역할 컨테이너 재기동
+            #    - 같은 네트워크 상에서 NPM이 컨테이너명:PORT로 프록시하므로 -p 불필요
+            # ---------------------------------------------------------
+            docker rm -f "${GREEN}" >/dev/null 2>&1 || true
+            echo "🚀 run new container → ${GREEN}"
+            docker run -d --name "${GREEN}" \
+              --restart unless-stopped \
+              --network "${NET}" \
+              --env-file "${ENV_FILE}" \
+              -e TZ=Asia/Seoul \
+              "${IMAGE}"
+
+            # ---------------------------------------------------------
+            # 5) 헬스체크 (/actuator/health 200 OK까지 대기)
+            # ---------------------------------------------------------
+            echo "⏱ health-check: ${GREEN}"
+            TIMEOUT=120
+            INTERVAL=3
+            ELAPSED=0
+            sleep 8  # 초기 부팅 여유
+
+            while (( ELAPSED < TIMEOUT )); do
+              CODE=$(docker exec "${GREEN}" curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT_IN}/actuator/health" || echo 000)
+              if [[ "${CODE}" == "200" ]]; then
+                echo "✅ ${GREEN} is healthy"
+                break
+              fi
+            
+              echo "⏳ waiting for container... (${ELAPSED}/${TIMEOUT}s)"
+              sleep "${INTERVAL}"
+              ELAPSED=$((ELAPSED + INTERVAL))
+            done
+            
+            if [[ "${CODE:-000}" != "200" ]]; then
+              echo "❌ ${GREEN} health failed"
+              docker logs --tail=200 "${GREEN}" || true
+              docker rm -f "${GREEN}" || true
+              exit 1;
+            fi
+
+            # ---------------------------------------------------------
+            # 6) 업스트림 전환 (forward_host/forward_port만 업데이트)
+            # ---------------------------------------------------------
+            NEW_CFG=$(jq -n --arg host "${GREEN}" --argjson port ${PORT_IN} '{forward_host:$host, forward_port:$port}')
+            
+            HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null \
+              -X PUT "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${NEW_CFG}")
+            
+            if [[ "${HTTP_CODE}" -eq 200 || "${HTTP_CODE}" -eq 201 ]]; then
+              echo "✅ Upstream switch successful with status code ${HTTP_CODE}."
+            else
+              echo "❌ Failed to switch upstream! Received HTTP status code: ${HTTP_CODE}"
+              # [수정] 전환 실패 시, 새로 띄운 Green 컨테이너는 즉시 제거하고 실패 처리
+              docker logs --tail=200 "${GREEN}" || true
+              docker rm -f "${GREEN}" || true
+              exit 1
+            fi
+
+            # ---------------------------------------------------------
+            # 7) 이전 blue 종료(최초 배포면 생략) 및 임시 파일 삭제
+            # ---------------------------------------------------------
+            if [[ "${BLUE}" != "none" ]]; then
+              docker stop "${BLUE}" >/dev/null 2>&1 || true
+              docker rm "${BLUE}" >/dev/null 2>&1 || true
+              echo "🧹 Removed old blue: ${BLUE}"
+            fi
+            
+            rm -f "${ENV_FILE}"
+            echo "🧹 Removed temporary env file."
+            
+            # ---------------------------------------------------------
+            # 8) 이미지 정리(현재 태그/ latest 제외) - 결과 없음도 오류 아님
+            #     - pipefail과 grep의 종료코드(1)를 고려해 블록 전체에 || true 적용
+            # ---------------------------------------------------------
+            {
+              docker images --format '{{.Repository}}:{{.Tag}}' \
+                | grep -F "ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:" \
+                | grep -v -F ":${IMAGE_TAG}" \
+                | grep -v -F ":latest" \
+                | xargs -r docker rmi
+            } || true
+
+            echo "🏁 Blue/Green switch complete. now blue is ${GREEN}"
