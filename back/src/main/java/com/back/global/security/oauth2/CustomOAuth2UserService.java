@@ -1,8 +1,9 @@
-package com.back.global.config;
+package com.back.global.security.oauth2;
 
 import com.back.domain.user.entity.AuthProvider;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.service.UserService;
+import com.back.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;

@@ -8,7 +8,7 @@ import com.back.domain.user.entity.User;
 import com.back.domain.user.service.GuestService;
 import com.back.domain.user.service.UserService;
 import com.back.global.common.ApiResponse;
-import com.back.global.config.CustomUserDetails;
+import com.back.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security;
 
 import com.back.domain.user.entity.User;
 import lombok.Getter;

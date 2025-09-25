@@ -1,6 +1,7 @@
-package com.back.global.config;
+package com.back.global.security.oauth2;
 
 import com.back.domain.user.entity.User;
+import com.back.global.security.CustomUserDetails;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -1,5 +1,8 @@
-package com.back.global.config;
+package com.back.global.security;
 
+import com.back.global.security.oauth2.CustomOAuth2UserService;
+import com.back.global.security.oauth2.OAuth2FailureHandler;
+import com.back.global.security.oauth2.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

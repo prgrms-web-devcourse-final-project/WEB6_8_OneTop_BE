@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

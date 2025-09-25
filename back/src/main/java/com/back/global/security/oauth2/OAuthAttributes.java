@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security.oauth2;
 
 import lombok.Builder;
 import lombok.Getter;

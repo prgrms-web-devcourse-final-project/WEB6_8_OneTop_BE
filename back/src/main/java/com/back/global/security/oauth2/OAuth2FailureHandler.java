@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security.oauth2;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

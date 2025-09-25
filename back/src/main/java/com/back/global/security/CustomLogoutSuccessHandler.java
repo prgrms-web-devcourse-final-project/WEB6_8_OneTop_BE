@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security;
 
 import com.back.global.common.ApiResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
