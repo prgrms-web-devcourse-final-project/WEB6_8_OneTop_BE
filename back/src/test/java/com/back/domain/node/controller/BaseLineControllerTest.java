@@ -48,7 +48,6 @@ public class BaseLineControllerTest {
     void initUser() {
         String uid = UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder()
-                .loginId("login_" + uid)
                 .email("user_" + uid + "@test.local")
                 .role(Role.GUEST)
                 .birthdayAt(LocalDateTime.now().minusYears(25))
@@ -312,6 +311,116 @@ public class BaseLineControllerTest {
             assertThat(pivots.get(1).get("ageYear").asInt()).isEqualTo(22);
         }
     }
+
+
+    // ===========================
+    // 트리 조회 (라인 단위)
+    // ===========================
+    @Nested
+    @DisplayName("트리 조회(라인 단위)")
+    class Tree_Read_For_BaseLine {
+
+        // 가장 중요한 테스트: 특정 BaseLine의 전체 트리를 조회하면 Base/Decision이 분리 리스트로 반환된다
+        @Test
+        @DisplayName("성공 : /{baseLineId}/tree — 결정 라인이 없으면 baseNodes만, decisionNodes는 빈 배열로 반환한다")
+        void success_tree_noDecision() throws Exception {
+            Long baseLineId = saveAndGetBaseLineId();
+
+            var res = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.baseNodes.length()").value(4))
+                    .andExpect(jsonPath("$.decisionNodes.length()").value(0))
+                    .andReturn();
+
+            JsonNode body = om.readTree(res.getResponse().getContentAsString());
+            assertThat(body.get("baseNodes").get(0).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(body.get("baseNodes").get(3).get("ageYear").asInt()).isEqualTo(24);
+        }
+
+        @Test
+        @DisplayName("성공 : /{baseLineId}/tree — from-base + next 추가 후 결정 노드가 정렬되어 함께 반환된다")
+        void success_tree_withDecisions() throws Exception {
+            Long baseLineId = saveAndGetBaseLineId();
+
+            // (가장 많이 사용하는) 피벗: 중간 나이 20을 사용 (헤더/꼬리 제외)
+            // 가장 중요한 호출: from-base 생성 요청 (신규 슬림 계약 사용)
+            String fromBasePayload = """
+                {
+                  "userId": %d,
+                  "baseLineId": %d,
+                  "pivotAge": 20,
+                  "selectedAltIndex": 0,
+                  "category": "%s",
+                  "situation": "분기 시작",
+                  "options": ["선택-A"],
+                  "selectedIndex": 0
+                }
+                """.formatted(userId, baseLineId, NodeCategory.CAREER);
+
+                        var fb = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(fromBasePayload))
+                                .andExpect(status().isCreated())
+                                .andReturn();
+
+            JsonNode fbBody = om.readTree(fb.getResponse().getContentAsString());
+            long decisionLineId = fbBody.get("decisionLineId").asLong();
+            long headDecisionNodeId = fbBody.get("id").asLong();
+            assertThat(decisionLineId).isPositive();
+            assertThat(headDecisionNodeId).isPositive();
+
+            // 가장 많이 사용하는 호출: next 추가 (나이 22)
+            String nextPayload = """
+                {
+                  "userId": %d,
+                  "parentDecisionNodeId": %d,
+                  "decisionLineId": %d,
+                  "category": "%s",
+                  "situation": "다음 선택",
+                  "decision": "선택-A-후속",
+                  "ageYear": 22
+                }
+                """.formatted(userId, headDecisionNodeId, decisionLineId, NodeCategory.CAREER);
+
+                        mockMvc.perform(post("/api/v1/decision-flow/next")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(nextPayload))
+                                .andExpect(status().isCreated());
+
+            // 트리 조회 → base 4개 + decision 2개(20,22) 정렬 보장
+            var res = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.baseNodes.length()").value(4))
+                    .andExpect(jsonPath("$.decisionNodes.length()").value(2))
+                    .andReturn();
+
+            JsonNode tree = om.readTree(res.getResponse().getContentAsString());
+            assertThat(tree.get("decisionNodes").get(0).get("ageYear").asInt()).isEqualTo(20);
+            assertThat(tree.get("decisionNodes").get(1).get("ageYear").asInt()).isEqualTo(22);
+        }
+
+
+        @Test
+        @DisplayName("실패 : 존재하지 않는 baseLineId로 트리 조회 시 404/N002를 반환한다")
+        void fail_tree_lineNotFound() throws Exception {
+            long unknownId = 9_999_999L;
+            mockMvc.perform(get("/api/v1/base-lines/{id}/tree", unknownId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N002"))
+                    .andExpect(jsonPath("$.message").exists());
+        }
+
+        // 가장 많이 사용하는: 라인 저장 후 baseLineId 반환
+        private Long saveAndGetBaseLineId() throws Exception {
+            var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(sampleLineJson(userId)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            return om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
+        }
+    }
+
 
     // (자주 쓰는) 정상 입력 샘플 JSON 생성
     private String sampleLineJson(Long uid) {

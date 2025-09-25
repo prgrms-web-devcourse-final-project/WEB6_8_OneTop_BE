@@ -1,7 +1,7 @@
 /**
  * DecisionFlowService
- * - from-base: 피벗 해석 + 분기 텍스트 반영 + 선택 슬롯 링크 + 첫 결정 생성
- * - next     : 부모 기준 다음 피벗/나이 해석 + 매칭 + 연속 결정 생성
+ * - from-base: 피벗 해석 + 분기 텍스트 반영(1~2개; 단일 옵션은 선택 슬롯만) + 선택 슬롯 링크 + 첫 결정 생성
+ * - next     : 부모 기준 다음 피벗/나이 해석 + 매칭 + 연속 결정 생성(옵션 1~3개)
  * - cancel/complete: 라인 상태 전이
  */
 package com.back.domain.node.service;
@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +28,12 @@ class DecisionFlowService {
     private final BaseNodeRepository baseNodeRepository;
     private final NodeDomainSupport support;
 
-    // 가장 중요한: from-base 서버 해석(피벗 슬롯 텍스트 입력 허용 + 선택 슬롯만 링크)
+    // 가장 중요한: from-base 서버 해석(옵션 1~2개 허용; 단일 옵션은 선택 슬롯에만 반영)
     public DecLineDto createDecisionNodeFromBase(DecisionNodeFromBaseRequest request) {
         if (request == null || request.baseLineId() == null)
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "baseLineId is required");
 
+        // 피벗 해석
         List<BaseNode> ordered = support.getOrderedBaseNodes(request.baseLineId());
         int pivotAge = support.resolvePivotAge(request.pivotOrd(), request.pivotAge(),
                 support.allowedPivotAges(ordered));
@@ -41,23 +41,37 @@ class DecisionFlowService {
 
         int sel = support.requireAltIndex(request.selectedAltIndex());
 
+        // 이미 링크된 슬롯은 시작 불가
+        Long chosenTarget = (sel == 0) ? pivot.getAltOpt1TargetDecisionId() : pivot.getAltOpt2TargetDecisionId();
+        if (chosenTarget != null) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "branch slot already linked");
+
+        // FromBase 옵션: 1~2개만 허용(단일 옵션은 선택 슬롯에만 반영)
         List<String> opts = request.options();
+        Integer selectedIndex = request.selectedIndex();
         if (opts != null && !opts.isEmpty()) {
-            support.validateOptions(opts, request.selectedIndex(),
-                    request.selectedIndex() != null ? opts.get(request.selectedIndex()) : null);
-            support.ensurePivotAltTexts(pivot, opts);
+            support.validateOptionsForFromBase(opts, selectedIndex);
+            support.upsertPivotAltTextsForFromBase(pivot, opts, sel);
             baseNodeRepository.save(pivot);
         }
 
-        String chosen = (sel == 0) ? pivot.getAltOpt1() : pivot.getAltOpt2();
-        Long chosenTarget = (sel == 0) ? pivot.getAltOpt1TargetDecisionId() : pivot.getAltOpt2TargetDecisionId();
-        if (chosenTarget != null) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "branch slot already linked");
-        boolean hasOptions = opts != null && !opts.isEmpty();
-        if ((chosen == null || chosen.isBlank()) && !hasOptions)
+        // 최종 decision 텍스트 결정
+        String chosenNow = (sel == 0) ? pivot.getAltOpt1() : pivot.getAltOpt2();
+        String finalDecision =
+                (opts != null && !opts.isEmpty() && selectedIndex != null
+                        && selectedIndex >= 0 && selectedIndex < opts.size())
+                        ? opts.get(selectedIndex)
+                        : (opts != null && opts.size() == 1 ? opts.get(0) : chosenNow);
+
+        if (finalDecision == null || finalDecision.isBlank())
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "empty branch slot and no options");
 
+        // 라인 생성
         DecisionLine line = decisionLineRepository.save(
-                DecisionLine.builder().user(pivot.getUser()).baseLine(pivot.getBaseLine()).status(DecisionLineStatus.DRAFT).build()
+                DecisionLine.builder()
+                        .user(pivot.getUser())
+                        .baseLine(pivot.getBaseLine())
+                        .status(DecisionLineStatus.DRAFT)
+                        .build()
         );
 
         String situation = (request.situation() != null) ? request.situation() : pivot.getSituation();
@@ -66,25 +80,23 @@ class DecisionFlowService {
         NodeMappers.DecisionNodeCtxMapper mapper =
                 new NodeMappers.DecisionNodeCtxMapper(pivot.getUser(), line, null, pivot, background);
 
-        String finalDecision = (hasOptions && request.selectedIndex() != null
-                && request.selectedIndex() >= 0 && request.selectedIndex() < opts.size())
-                ? opts.get(request.selectedIndex())
-                : chosen;
-
-        if (hasOptions && request.selectedIndex() != null && !Objects.equals(request.selectedIndex(), sel)) {
-            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "selectedIndex must equal selectedAltIndex");
-        }
+        // 단일 옵션 & selectedIndex 미지정 시 0으로 기록(프론트 편의)
+        Integer normalizedSelected = (opts != null && opts.size() == 1 && selectedIndex == null) ? 0 : selectedIndex;
 
         DecisionNodeCreateRequestDto createReq = new DecisionNodeCreateRequestDto(
                 line.getId(), null, pivot.getId(),
                 request.category() != null ? request.category() : pivot.getCategory(),
                 situation, finalDecision, pivotAge,
-                opts, request.selectedIndex(), null
+                opts, normalizedSelected, null
         );
 
         DecisionNode saved = decisionNodeRepository.save(mapper.toEntity(createReq));
-        if (sel == 0) pivot.setAltOpt1TargetDecisionId(saved.getId()); else pivot.setAltOpt2TargetDecisionId(saved.getId());
+
+        // 선택된 슬롯만 링크
+        if (sel == 0) pivot.setAltOpt1TargetDecisionId(saved.getId());
+        else pivot.setAltOpt2TargetDecisionId(saved.getId());
         baseNodeRepository.save(pivot);
+
         return mapper.toResponse(saved);
     }
 
@@ -106,6 +118,7 @@ class DecisionFlowService {
         BaseNode matchedBase = support.findBaseNodeByAge(ordered, nextAge);
 
         if (request.options() != null && !request.options().isEmpty()) {
+            // Next는 1~3개 허용(기존 규칙)
             support.validateOptions(request.options(), request.selectedIndex(),
                     request.selectedIndex() != null ? request.options().get(request.selectedIndex()) : null);
         }

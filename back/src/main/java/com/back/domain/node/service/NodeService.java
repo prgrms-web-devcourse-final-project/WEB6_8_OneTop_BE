@@ -22,8 +22,8 @@ public class NodeService {
     private final NodeQueryService nodeQueryService;
 
     // 트리 전체 조회 위임
-    public TreeDto getTreeInfo(Long userId) {
-        return nodeQueryService.getTreeInfo(userId);
+    public TreeDto getTreeForBaseLine(Long baseLineId) {
+        return nodeQueryService.getTreeForBaseLine(baseLineId);
     }
 
     // BaseLine 일괄 생성 위임
