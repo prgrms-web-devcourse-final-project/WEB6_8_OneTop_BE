@@ -1,13 +1,12 @@
 /**
  * [API] BaseLine 전용 엔드포인트
  * - 라인 단위 일괄 생성 / 중간 분기점(pivot) 조회
+ * - 전체 노드 목록 조회 / 단일 노드 조회
+ * - 사용자 전체 트리 조회 (베이스/결정 노드 일괄 반환)
  */
 package com.back.domain.node.controller;
 
-import com.back.domain.node.dto.BaseLineBulkCreateRequest;
-import com.back.domain.node.dto.BaseLineBulkCreateResponse;
-import com.back.domain.node.dto.BaseNodeDto;
-import com.back.domain.node.dto.PivotListDto;
+import com.back.domain.node.dto.*;
 import com.back.domain.node.service.NodeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,5 +44,13 @@ public class BaseLineController {
     @GetMapping("/nodes/{baseNodeId}")
     public ResponseEntity<BaseNodeDto> getBaseNode(@PathVariable Long baseNodeId) {
         return ResponseEntity.ok(nodeService.getBaseNode(baseNodeId));
+    }
+
+    // 사용자 전체 트리 조회 (베이스/결정 노드 일괄 반환)
+    @GetMapping("/{baseLineId}/tree")
+    public ResponseEntity<TreeDto> getTreeForBaseLine(@PathVariable Long baseLineId) {
+        // 트리 조회 서비스 호출
+        TreeDto tree = nodeService.getTreeForBaseLine(baseLineId);
+        return ResponseEntity.ok(tree);
     }
 }
