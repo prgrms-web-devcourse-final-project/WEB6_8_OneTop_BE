@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 게시글 관련 API 요청을 처리하는 컨트롤러.
+ * TODO UserId는 추후 인증/인가 기능이 추가되면 인증 객체에서 추출하도록 변경할 예정.
  */
 @Tag(name = "Post", description = "게시글 관련 API")
 @RestController
@@ -32,8 +33,13 @@ public class PostController {
     @PostMapping
     @Operation(summary = "게시글 생성", description = "새 게시글을 생성합니다.")
     public ApiResponse<PostDetailResponse> createPost(
-            @RequestBody @Valid PostRequest request) {
-        Long userId = 1L; // fixme 임시 사용자 ID
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "생성할 게시글 정보",
+                    required = true
+            )
+            @RequestBody @Valid PostRequest request,
+            @RequestParam Long userId
+            ) {
         PostDetailResponse response = postService.createPost(userId, request);
         return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.OK);
     }
@@ -43,8 +49,8 @@ public class PostController {
     @Operation(summary = "게시글 목록 조회", description = "게시글 목록을 조회합니다.")
     public ApiResponse<PageResponse<PostSummaryResponse>> getPosts(
             @Parameter(description = "검색 조건") @ModelAttribute PostSearchCondition condition,
-            @Parameter(description = "페이지 정보") Pageable pageable) {
-        Long userId = 1L;
+            @Parameter(description = "페이지 정보") Pageable pageable,
+            @RequestParam Long userId) {
         Page<PostSummaryResponse> responses = postService.getPosts(userId, condition, pageable);
         return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
@@ -53,8 +59,8 @@ public class PostController {
     @GetMapping("/{postId}")
     @Operation(summary = "게시글 상세 조회", description = "게시글 ID로 게시글을 조회합니다.")
     public ApiResponse<PostDetailResponse> getPost(
-            @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable Long postId) {
-        Long userId = 1L; // fixme 임시 사용자 ID
+            @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable Long postId,
+            @RequestParam Long userId) {
         return ApiResponse.success(postService.getPost(userId, postId), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
@@ -66,16 +72,16 @@ public class PostController {
                     description = "수정할 게시글 정보",
                     required = true
             )
-            @RequestBody @Valid PostRequest request) {
-        Long userId = 1L; // fixme 임시 사용자 ID
+            @RequestBody @Valid PostRequest request,
+            @RequestParam Long userId) {
         return ApiResponse.success(postService.updatePost(userId, postId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
     }
 
     @DeleteMapping("/{postId}")
     @Operation(summary = "게시글 삭제", description = "게시글 ID로 게시글을 삭제합니다.")
     public ApiResponse<Void> deletePost(
-            @Parameter(description = "삭제할 게시글 ID", required = true) @PathVariable Long postId) {
-        Long userId = 1L; // fixme 임시 사용자 ID
+            @Parameter(description = "삭제할 게시글 ID", required = true) @PathVariable Long postId,
+            @RequestParam Long userId) {
         postService.deletePost(userId, postId);
         return ApiResponse.success(null, "성공적으로 삭제되었습니다.", HttpStatus.OK);
     }
