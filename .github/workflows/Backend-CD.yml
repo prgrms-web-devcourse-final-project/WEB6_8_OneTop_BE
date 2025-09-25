@@ -14,7 +14,7 @@
 #      내부적으로 EC2 상에서만 실패로 간주됩니다.
 #  (2) 따라서, 실제 성공 여부는 EC2 내부에서 별도로 생성되는 배포 과정을 담은 로그 파일에서 확인해야 합니다.
 
-name: deploy
+name: Backend CD
 
 env:
   IMAGE_REPOSITORY: onetop-relife-be # GHCR 이미지 리포지토리명(소유자 포함 X)
