@@ -52,6 +52,15 @@ public enum ErrorCode {
     BASE_SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SC006", "Base Scenario Not Found"),
     SCENARIO_TIMELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "SC007", "Scenario Timeline Not Found"),
 
+    // AI Errors
+    AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI001", "AI Service Unavailable"),
+    AI_REQUEST_TIMEOUT(HttpStatus.REQUEST_TIMEOUT, "AI002", "AI Request Timeout"),
+    AI_RESPONSE_PARSING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI003", "AI Response Parsing Error"),
+    AI_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI004", "AI Generation Failed"),
+    AI_INVALID_REQUEST(HttpStatus.BAD_REQUEST, "AI005", "AI Invalid Request"),
+    AI_QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AI006", "AI Quota Exceeded"),
+    AI_MODEL_NOT_AVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI007", "AI Model Not Available"),
+
     // Like Errors
     LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "L001", "Like Not Found"),
 
