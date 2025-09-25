@@ -48,12 +48,14 @@ public class UserAuthController {
     }
 
     @PostMapping("/guest")
-    public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin(){
+    public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin(HttpServletRequest request){
         User savedGuest = guestService.createAndSaveGuest();
 
         CustomUserDetails cud = new CustomUserDetails(savedGuest);
         Authentication auth = new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
+
+        request.getSession(true);
 
         return ResponseEntity.ok(ApiResponse.success(GuestLoginResponse.from(savedGuest), "게스트 로그인 성공"));
     }
