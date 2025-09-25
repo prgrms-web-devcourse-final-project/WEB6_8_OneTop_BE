@@ -26,9 +26,8 @@ public class InitData implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // 애플리케이션 시작 시 초기 사용자 데이터 생성
-        if (userRepository.findByLoginId("admin").isEmpty()) {
+        if (userRepository.findByEmail("admin@example.com").isEmpty()) {
             User admin = User.builder()
-                    .loginId("admin")
                     .email("admin@example.com")
                     .password(passwordEncoder.encode("admin1234!"))
                     .role(Role.ADMIN)
@@ -41,9 +40,8 @@ public class InitData implements CommandLineRunner {
             userRepository.save(admin);
         }
 
-        if (userRepository.findByLoginId("user1").isEmpty()) {
+        if (userRepository.findByEmail("user1@example.com").isEmpty()) {
             User user1 = User.builder()
-                    .loginId("user1")
                     .email("user1@example.com")
                     .password(passwordEncoder.encode("user1234!"))
                     .role(Role.USER)
