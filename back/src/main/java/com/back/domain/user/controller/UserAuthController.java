@@ -35,7 +35,7 @@ public class UserAuthController {
     public ResponseEntity<ApiResponse<UserResponse>> signup(@Valid @RequestBody SignupRequest req){
         User saved = userService.signup(req);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(UserResponse.from(saved), "성공적으로 생성되었습니다.", HttpStatus.CREATED));
+                .body(ApiResponse.success(UserResponse.from(saved), "성공적으로 생성되었습니다."));
     }
 
     @PostMapping("/login")
@@ -44,9 +44,7 @@ public class UserAuthController {
                 new UsernamePasswordAuthenticationToken(req.loginId(), req.password()));
         SecurityContextHolder.getContext().setAuthentication(auth); // 세션에 SecurityContext 저장
         CustomUserDetails cud = (CustomUserDetails) auth.getPrincipal();
-        return ResponseEntity.ok(
-                ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공", HttpStatus.OK)
-        );
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공"));
     }
 
     @PostMapping("/guest")
@@ -58,8 +56,6 @@ public class UserAuthController {
         Authentication auth = new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(GuestLoginResponse.from(savedGuest), "게스트 로그인 성공", HttpStatus.OK)
-        );
+        return ResponseEntity.ok(ApiResponse.success(GuestLoginResponse.from(savedGuest), "게스트 로그인 성공"));
     }
 }

@@ -55,13 +55,13 @@ public class UserService {
     public User upsertOAuthUser(String email, String nickname, AuthProvider provider){
         Optional<User> found = userRepository.findByEmail(email);
         if(found.isPresent()){
-            User u = found.get();
-            if(u.getAuthProvider()==null) u.setAuthProvider(provider);
-            if(u.getNickname()==null) u.setNickname(nickname);
-            return u;
+            User user = found.get();
+            if(user.getAuthProvider()==null) user.setAuthProvider(provider);
+            if(user.getNickname()==null) user.setNickname(nickname);
+            return user;
         }
         // 최초 소셜 로그인 시 필수값 기본 세팅
-        User u = User.builder()
+        User user = User.builder()
                 .loginId(null)
                 .email(email)
                 .password(null)
@@ -73,7 +73,7 @@ public class UserService {
                 .role(Role.USER)
                 .authProvider(provider)
                 .build();
-        return userRepository.save(u);
+        return userRepository.save(user);
     }
 
     public User findByLoginId(String loginId) {

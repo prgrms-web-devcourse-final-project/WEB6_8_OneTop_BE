@@ -1,66 +1,57 @@
 package com.back.global.config;
 
 import com.back.domain.user.entity.AuthProvider;
-import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
-import com.back.domain.user.repository.UserRepository;
+import com.back.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-    private final UserRepository userRepository;
+    private final DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
+    private final UserService userService;
 
     @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
-        OAuth2User oAuth2User = delegate.loadUser(userRequest);
+    public OAuth2User loadUser(OAuth2UserRequest req) throws OAuth2AuthenticationException {
+        try {
+            OAuth2User raw = delegate.loadUser(req);
 
-        String registrationId = userRequest.getClientRegistration().getRegistrationId();
-        String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
+            String registrationId = req.getClientRegistration().getRegistrationId(); // google/github
+            String userNameAttr = req.getClientRegistration()
+                    .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
 
-        OAuthAttributes attributes = OAuthAttributes.of(registrationId, userNameAttributeName, oAuth2User.getAttributes());
+            OAuthAttributes attrs = OAuthAttributes.of(registrationId, userNameAttr, raw.getAttributes());
 
-        User user = saveOrUpdate(attributes, registrationId);
+            String email = attrs.getEmail();
+            if (email == null || email.isBlank()) {
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error("email_not_found", "OAuth2 제공자로부터 이메일을 받을 수 없습니다.", null)
+                );
+            }
 
-        return new CustomUserDetails(user, oAuth2User.getAttributes());
-    }
+            AuthProvider provider = AuthProvider.valueOf(registrationId.toUpperCase());
+            User user = userService.upsertOAuthUser(email, attrs.getName(), provider);
 
-    private User saveOrUpdate(OAuthAttributes attributes, String registrationId) {
-        Optional<User> userOptional = userRepository.findByEmail(attributes.getEmail());
-        User user;
+            return new CustomUserDetails(user, raw.getAttributes());
 
-        if (userOptional.isPresent()) {
-            user = userOptional.get();
-            // 이미 존재하는 유저라면 정보 업데이트 (예: 닉네임, 프로필 이미지 등)
-            // user.update(attributes.getName(), attributes.getPicture());
-        } else {
-            // 새로운 유저라면 회원가입 처리
-            AuthProvider authProvider = AuthProvider.valueOf(registrationId.toUpperCase());
-            user = User.builder()
-                    .loginId(attributes.getEmail()) // OAuth2에서는 이메일을 loginId로 사용
-                    .email(attributes.getEmail())
-                    .nickname(attributes.getName())
-                    .role(Role.USER)
-                    .authProvider(authProvider) // AuthProvider 추가
-                    .password("oauth2_user") // OAuth2 유저는 비밀번호가 필요 없음 (임시 값)
-                    .birthdayAt(LocalDateTime.now()) // 임시 값
-                    .gender(null) // 임시 값
-                    .mbti(null) // 임시 값
-                    .beliefs("OAuth2 User") // 임시 값
-                    .build();
+        } catch (OAuth2AuthenticationException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("OAuth2 사용자 로드 중 오류", ex);
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("server_error", "OAuth2 사용자 정보를 로드할 수 없습니다.", null),
+                    ex
+            );
         }
-        return userRepository.save(user);
     }
 }
