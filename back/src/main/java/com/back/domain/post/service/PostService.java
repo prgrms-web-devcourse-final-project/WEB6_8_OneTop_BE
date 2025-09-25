@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 게시글 관련 비즈니스 로직을 처리하는 서비스.
@@ -48,34 +49,22 @@ public class PostService {
     public PostDetailResponse getPost(Long userId, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
-
-        boolean isLiked = false;
-
-        if (userId != null) {
-            isLiked = postLikeRepository.existsByPostIdAndUserId(userId, postId);
-        }
-
+        boolean isLiked = postLikeRepository.existsByPostIdAndUserId(postId, userId);
         return PostMappers.toDetailResponse(post, isLiked);
     }
 
+    /**
+     * 게시글 목록을 조회하고 사용자의 좋아요 상태를 포함한 응답을 반환.
+     */
     public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
         Page<Post> posts = postRepository.searchPosts(condition, pageable);
 
-        List<Long> postIdsInPage = posts.stream()
-                .map(Post::getId)
-                .toList();
+        Set<Long> likedPostIds = getUserLikedPostIds(userId, posts);
 
-        Set<Long> likedPostIds;
-        if (userId != null && !postIdsInPage.isEmpty()) {
-            likedPostIds = postLikeRepository.findLikedPostIdsByUserAndPostIds(userId, postIdsInPage);
-        } else {
-            likedPostIds = Collections.emptySet();
-        }
-
-        return posts.map(post -> {
-            boolean isLiked = userId != null && likedPostIds.contains(post.getId());
-            return PostMappers.toSummaryResponse(post, isLiked);
-        });
+        return posts.map(post -> PostMappers.toSummaryResponse(
+                post,
+                likedPostIds.contains(post.getId())
+        ));
     }
 
     @Transactional
@@ -106,5 +95,14 @@ public class PostService {
         post.checkUser(requestUser);
 
         return post;
+    }
+
+    private Set<Long> getUserLikedPostIds(Long userId, Page<Post> posts) {
+        Set<Long> postIds = posts.getContent()
+                .stream()
+                .map(Post::getId)
+                .collect(Collectors.toSet());
+
+        return postLikeRepository.findLikedPostIdsByUserAndPostIds(userId, postIds);
     }
 }
