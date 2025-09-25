@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /**
  * 사용자 회원가입 요청 시 필요한 정보를 담는 DTO 클래스.
- * 로그인 ID, 이메일, 비밀번호, 닉네임, 생년월일, 성별, MBTI, 가치관 등을 포함합니다.
+ * 로그인 ID, 이메일, 비밀번호, 사용자 이름, 닉네임, 생년월일을 포함합니다.
  */
 public record SignupRequest(
 

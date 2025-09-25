@@ -22,6 +22,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 사용자 인증/인가 관련 기능을 제공하는 REST 컨트롤러입니다.
+ * - 회원가입 (/signup): 새로운 사용자를 등록합니다.
+ * - 로그인 (/login): 이메일과 비밀번호를 이용해 인증 후 세션을 생성합니다.
+ * - 게스트 로그인 (/guest): 비회원 사용자용 임시 계정을 생성하고 로그인 처리합니다.
+ * - 현재 사용자 조회 (/me): 현재 인증된 사용자의 정보를 반환합니다.
+ */
 @RestController
 @RequestMapping("/api/v1/users-auth")
 @RequiredArgsConstructor
@@ -57,7 +64,7 @@ public class UserAuthController {
     }
 
     @PostMapping("/guest")
-    public ResponseEntity<ApiResponse<UserResponse>> guestLogin(HttpServletRequest request){
+    public ResponseEntity<ApiResponse<UserResponse>> guestLogin(HttpServletRequest request, HttpServletResponse response){
         User savedGuest = guestService.createAndSaveGuest();
 
         CustomUserDetails cud = new CustomUserDetails(savedGuest);
@@ -65,6 +72,8 @@ public class UserAuthController {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         request.getSession(true);
+        new HttpSessionSecurityContextRepository()
+                .saveContext(SecurityContextHolder.getContext(), request, response);
 
         return ResponseEntity.ok(ApiResponse.success(UserResponse.from(savedGuest), "게스트 로그인 성공"));
     }

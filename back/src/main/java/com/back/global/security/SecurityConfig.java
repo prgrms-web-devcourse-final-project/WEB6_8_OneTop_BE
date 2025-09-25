@@ -18,8 +18,8 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 
 /**
- * Spring Security 설정을 정의하는 구성 클래스.
- * 웹 보안, 세션 관리, 인증/인가 규칙, OAuth2 로그인 및 JWT 필터 등을 설정합니다.
+ * Spring Security 설정을 정의하는 구성 클래스입니다.
+ * 웹 보안, 세션 관리, 인증/인가 규칙, OAuth2 로그인 등을 설정합니다.
  */
 @Configuration
 @EnableWebSecurity
@@ -33,7 +33,6 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // HTTP 보안 필터 체인을 구성
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
@@ -63,7 +62,6 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-        // AuthenticationManager를 Bean으로 등록
         return authenticationConfiguration.getAuthenticationManager();
     }
 

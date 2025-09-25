@@ -14,6 +14,10 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
+/**
+ * Spring Security OAuth2 로그인 시 사용자 정보를 가져오고,
+ * 내부 User 엔티티와 매핑하여 처리하는 커스텀 서비스 클래스입니다.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

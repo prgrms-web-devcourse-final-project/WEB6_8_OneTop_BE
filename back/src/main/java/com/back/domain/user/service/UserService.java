@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
- * 사용자 관련 비즈니스 로직을 처리하는 서비스.
- * 사용자 회원가입, 정보 조회 등의 기능을 제공합니다.
+ * 사용자 관련 비즈니스 로직을 처리하는 서비스입니다.
+ * 회원가입(signup), 소셜 로그인 사용자 등록/갱신(upsertOAuthUser)
  */
 @Service
 @RequiredArgsConstructor
@@ -78,7 +78,7 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    // 닉네임 유니크 보장 메서드
+    // 유니크 닉네임 생성
     private String safeUniqueNickname(String base) {
         if (base == null || base.isBlank()) base = "user";
         String nick = base;
@@ -93,6 +93,7 @@ public class UserService {
         return nick;
     }
 
+    // 이메일로부터 username 생성
     private String defaultUsernameFromEmail(String email) {
         String local = (email != null && email.contains("@")) ? email.substring(0, email.indexOf('@')) : "user";
         String candidate = local.replaceAll("[^a-zA-Z0-9._-]", "");

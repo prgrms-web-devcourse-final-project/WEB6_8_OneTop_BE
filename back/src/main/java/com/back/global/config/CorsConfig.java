@@ -8,6 +8,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * 애플리케이션의 CORS(Cross-Origin Resource Sharing) 정책을 설정하는 구성 클래스입니다.
+ */
 @Configuration
 public class CorsConfig {
     @Bean

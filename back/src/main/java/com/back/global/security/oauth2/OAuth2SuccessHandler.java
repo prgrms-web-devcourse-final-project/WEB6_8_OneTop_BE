@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * OAuth2 로그인 성공 시 호출되는 핸들러.
- * 로그인 성공 후 JWT 토큰을 생성하고 클라이언트로 리다이렉트하여 전달합니다.
+ * OAuth2 로그인 성공 시 호출되는 핸들러 클래스입니다.
+ * 로그인 성공시 프론트엔드 클라이언트로 리다이렉트합니다.
  */
 @Component
 @Slf4j

@@ -5,6 +5,9 @@ import com.back.domain.user.entity.User;
 
 import java.time.LocalDateTime;
 
+/**
+ * 사용자 정보를 클라이언트에 반환하기 위한 응답 DTO입니다.
+ */
 public record UserResponse(
         Long id,
         String email,

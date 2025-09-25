@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.Map;
 
+/**
+ * 로그아웃 성공 시 JSON 응답을 내려주는 커스텀 핸들러입니다.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j

@@ -29,6 +29,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * UserAuthController의 주요 인증/인가 기능을 검증하는 통합 테스트 클래스입니다.
+ * SpringBootTest + MockMvc 환경에서 실제 요청/응답 흐름을 시뮬레이션합니다.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -62,7 +66,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("회원가입 성공 → 201 Created + 응답에 email/role")
+    @DisplayName("성공 - 회원가입")
     void t1() throws Exception {
         var body = toJson(new SignupReq(
                 uniqueEmail("join"),
@@ -83,7 +87,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("회원가입 - 중복 이메일 → 4xx")
+    @DisplayName("실패 - 회원가입 중복 이메일")
     void t2() throws Exception {
         String email = uniqueEmail("dup");
         seedLocalUser(email, "Aa!23456");
@@ -104,7 +108,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그인 성공 → 200 OK + 세션 생성 + 응답에 사용자 정보")
+    @DisplayName("성공 - 로그인")
     void t3() throws Exception {
         String email = uniqueEmail("login-ok");
         seedLocalUser(email, "Aa!23456");
@@ -124,7 +128,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그인 실패(비밀번호 오류) → 401 Unauthorized")
+    @DisplayName("실패 - 로그인 비밀번호 오류")
     void t4() throws Exception {
         String email = uniqueEmail("login-fail");
         seedLocalUser(email, "Aa!23456");
@@ -139,7 +143,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("게스트 로그인 → 200 OK + 세션 발급 + 메시지")
+    @DisplayName("성공 - 게스트 로그인")
     void t5() throws Exception {
         var result = mvc.perform(post(BASE + "/guest").with(csrf()))
                 .andExpect(status().isOk())
@@ -151,7 +155,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("/me (익명) → 200 OK + message=anonymous")
+    @DisplayName("성공 - /me (익명)")
     void t6() throws Exception {
         mvc.perform(get(BASE + "/me"))
                 .andExpect(status().isOk())
@@ -160,7 +164,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("/me (인증됨) → 로그인 세션으로 조회")
+    @DisplayName("성공 - /me (인증됨)")
     void t7() throws Exception {
         String email = uniqueEmail("me");
         seedLocalUser(email, "Aa!23456");
@@ -183,7 +187,7 @@ class UserAuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그아웃 → 200 OK + 메시지 확인")
+    @DisplayName("성공 - 로그아웃")
     void t8() throws Exception {
         String email = uniqueEmail("logout");
         seedLocalUser(email, "Aa!23456");

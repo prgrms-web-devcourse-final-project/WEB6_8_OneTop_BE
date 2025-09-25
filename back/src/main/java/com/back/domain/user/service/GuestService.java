@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * 게스트 계정을 DB에 저장합니다.
- * 고유한 loginId/email을 생성하고 ROLE_GUEST로 저장합니다.
+ * 게스트 사용자 계정을 생성하고 DB에 저장하는 서비스 클래스입니다.
+ * 고유한 email을 생성하고 GUEST로 저장합니다.
  */
 @Service
 @RequiredArgsConstructor

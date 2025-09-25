@@ -9,7 +9,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 /**
- * Spring Security에서 사용자 인증을 위해 사용자 정보를 로드하는 서비스.
+ * 스프링 시큐리티가 인증 시 사용자 정보를 불러올 때 호출하는 서비스입니다.
+ * 이 서비스는 AuthenticationManager가 로그인 시도를 처리할 때
+ * UserDetailsService.loadUserByUsername()를 자동으로 호출합니다.
  */
 @Service
 @RequiredArgsConstructor
