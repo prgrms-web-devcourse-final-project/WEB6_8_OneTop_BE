@@ -13,6 +13,7 @@ import org.hibernate.service.spi.ServiceException;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -56,7 +57,8 @@ public class Post extends BaseEntity {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Comment> comments;
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 
     public void updatePost(String title, String content, PostCategory category) {
         this.title = title;
