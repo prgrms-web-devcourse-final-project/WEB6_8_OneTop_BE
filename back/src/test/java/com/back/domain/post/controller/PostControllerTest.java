@@ -227,7 +227,7 @@ class PostControllerTest {
         @Test
         @DisplayName("성공 - 본인 게시글 수정")
         @Sql(statements = {
-                "UPDATE users SET id = 1 WHERE login_id = 'testLoginId'"
+                "UPDATE users SET id = 1 WHERE email = 'testUser@example.com'"
         })
         void success() throws Exception {
             // given
@@ -248,8 +248,8 @@ class PostControllerTest {
         @Test
         @DisplayName("실패 - 다른 사용자 게시글 수정")
         @Sql(statements = {
-                "UPDATE users SET id = 1 WHERE login_id = 'testLoginId'",
-                "UPDATE users SET id = 2 WHERE login_id = 'anotherLoginId'"
+                "UPDATE users SET id = 1 WHERE email = 'testUser@example.com'",
+                "UPDATE users SET id = 2 WHERE email = 'anothertestUser@example.com'"
         })
         void fail_UnauthorizedUser() throws Exception {
             // given

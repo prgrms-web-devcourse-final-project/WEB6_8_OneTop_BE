@@ -56,7 +56,7 @@ public class DecisionLineControllerTest {
                 .beliefs("NONE")
                 .authProvider(AuthProvider.GUEST)
                 .nickname("tester-" + uid)
-                .username("tester-" + uid)
+                .username("name-" + uid)
                 .build();
         userId = userRepository.save(user).getId();
     }
