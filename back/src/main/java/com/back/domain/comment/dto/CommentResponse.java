@@ -1,5 +1,6 @@
 package com.back.domain.comment.dto;
 
+import com.back.global.common.DateFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -25,5 +26,6 @@ public record CommentResponse(
         boolean isLiked,
 
         @Schema(description = "댓글 작성일자", example = "2025.09.23")
-        LocalDateTime createdAt
+        @DateFormat
+        LocalDateTime createdDate
 ) {}
