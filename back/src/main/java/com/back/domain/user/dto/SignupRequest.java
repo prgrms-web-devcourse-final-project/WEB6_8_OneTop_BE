@@ -1,7 +1,5 @@
 package com.back.domain.user.dto;
 
-import com.back.domain.user.entity.Gender;
-import com.back.domain.user.entity.Mbti;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
 
@@ -28,14 +26,5 @@ public record SignupRequest(
         @NotNull(message = "생년월일은 필수 입력 값입니다.")
         @Past(message = "생년월일은 과거 날짜여야 합니다.")
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") // JSON 바인딩용(폼 바인딩이면 @DateTimeFormat)
-        LocalDateTime birthdayAt,
-
-        @NotNull(message = "성별은 필수 입력 값입니다.")
-        Gender gender,
-
-        @NotNull(message = "MBTI는 필수 입력 값입니다.")
-        Mbti mbti,
-
-        @NotBlank(message = "가치관은 필수 입력 값입니다.")
-        String beliefs
+        LocalDateTime birthdayAt
 ) {}

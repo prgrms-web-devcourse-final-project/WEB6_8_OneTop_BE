@@ -51,7 +51,6 @@ public class UserAuthController {
     public ResponseEntity<ApiResponse<GuestLoginResponse>> guestLogin(){
         User savedGuest = guestService.createAndSaveGuest();
 
-
         CustomUserDetails cud = new CustomUserDetails(savedGuest);
         Authentication auth = new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);

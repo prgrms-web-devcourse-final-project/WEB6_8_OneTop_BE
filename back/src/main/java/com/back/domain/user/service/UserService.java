@@ -37,9 +37,6 @@ public class UserService {
                 .password(passwordEncoder.encode(signupRequest.password()))
                 .nickname(signupRequest.nickname())
                 .birthdayAt(signupRequest.birthdayAt())
-                .gender(signupRequest.gender())
-                .mbti(signupRequest.mbti())
-                .beliefs(signupRequest.beliefs())
                 .authProvider(AuthProvider.LOCAL)
                 .role(Role.USER)
                 .build();
@@ -62,9 +59,6 @@ public class UserService {
                 .password(null)
                 .nickname(nickname)
                 .birthdayAt(LocalDateTime.now())
-                .gender(Gender.N)
-                .mbti(Mbti.INFP)
-                .beliefs("자유")
                 .role(Role.USER)
                 .authProvider(provider)
                 .build();

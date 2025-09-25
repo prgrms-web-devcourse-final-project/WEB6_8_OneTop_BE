@@ -41,10 +41,8 @@ public class User extends BaseEntity {
     private Gender gender;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Mbti mbti;
 
-    @Column(nullable = false)
     private String beliefs;
 
     private String lifeSatis;

@@ -25,7 +25,6 @@ public class GuestService {
 
 
         User guest = User.builder()
-                .loginId(guestLoginId)
                 .email(guestEmail)
                 .password(null) // 게스트 비밀번호 없음(추후 전환 시 설정)
                 .nickname("게스트_" + UUID.randomUUID().toString().substring(0, 4))
