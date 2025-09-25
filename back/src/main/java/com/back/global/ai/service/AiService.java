@@ -4,8 +4,8 @@ import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.entity.DecisionNode;
 import com.back.domain.scenario.entity.Scenario;
-import com.back.global.ai.dto.BaseScenarioResult;
-import com.back.global.ai.dto.NewScenarioResult;
+import com.back.global.ai.dto.result.BaseScenarioResult;
+import com.back.global.ai.dto.result.NewScenarioResult;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

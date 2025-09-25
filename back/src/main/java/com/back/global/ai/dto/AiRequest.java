@@ -11,6 +11,6 @@ public record AiRequest(
         int maxTokens
 ) {
     public AiRequest(String prompt, Map<String, Object> parameters) {
-        this(prompt, parameters, 2000);
+        this(prompt, parameters, 2048);
     }
 }

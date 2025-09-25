@@ -1,4 +1,4 @@
-package com.back.global.ai.dto;
+package com.back.global.ai.dto.result;
 
 import com.back.domain.scenario.entity.Type;
 

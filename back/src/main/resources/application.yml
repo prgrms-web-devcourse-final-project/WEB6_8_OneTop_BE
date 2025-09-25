@@ -62,4 +62,20 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# AI Services Configuration
+ai:
+  text:
+    gemini:
+      api-key: ${GEMINI_API_KEY:your-gemini-api-key-here}
+      model: gemini-1.5-flash
+      base-url: https://generativelanguage.googleapis.com
+      timeout-seconds: 30
+      max-retries: 3
+  image:
+    enabled: false
+    provider: placeholder
+    timeout-seconds: 60
+    max-retries: 3
+    # TODO: 추후 이미지 AI 설정 추가 예정
+
 
