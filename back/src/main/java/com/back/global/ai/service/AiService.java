@@ -23,6 +23,8 @@ public interface AiService {
     // 상황 생성 (Trees 도메인용)
     CompletableFuture<String> generateSituation(List<DecisionNode> previousNodes);
 
-    // 이미지 생성 TODO: 추후 구현 예정
-    CompletableFuture<String> generateImage(String prompt);
+    // 이미지 생성 TODO: 이미지 AI 결정 후 구현 예정
+    default CompletableFuture<String> generateImage(String prompt) {
+        return CompletableFuture.completedFuture("placeholder-image-url");
+    }
 }

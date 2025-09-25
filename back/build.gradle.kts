@@ -54,12 +54,6 @@ dependencies {
     testAnnotationProcessor("io.github.openfeign.querydsl:querydsl-apt:7.0:jpa")
     testAnnotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
-    // Spring WebFlux (비동기 HTTP 클라이언트)
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-
-    // Jackson 모듈 강화 (JSON 처리)
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-
     // AI Services - WebFlux for non-blocking HTTP clients
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
