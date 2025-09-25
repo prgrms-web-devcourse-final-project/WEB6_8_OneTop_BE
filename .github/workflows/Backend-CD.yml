@@ -172,7 +172,8 @@ jobs:
             #    - blue/green은 "역할"이며 매 배포마다 바뀜
             # ---------------------------------------------------------
             source /etc/environment || true   # 시스템 전역 변수(+ 비밀) 주입 시도
-            OWNER_LC="${{ env.OWNER_LC }}"
+            OWNER_LC="${{ github.repository_owner }}"
+            OWNER_LC="${OWNER_LC,,}"
             IMAGE_TAG="${{ needs.createTagAndRelease.outputs.tag_name }}"
             IMAGE_REPOSITORY="${{ env.IMAGE_REPOSITORY }}"
             IMAGE="ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:${IMAGE_TAG}"
