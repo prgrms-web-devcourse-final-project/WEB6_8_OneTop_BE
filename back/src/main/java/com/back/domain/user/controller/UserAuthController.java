@@ -9,6 +9,7 @@ import com.back.domain.user.service.UserService;
 import com.back.global.common.ApiResponse;
 import com.back.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -37,11 +39,19 @@ public class UserAuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest req, HttpServletRequest request){
+    public ResponseEntity<ApiResponse<UserResponse>> login(
+            @Valid @RequestBody LoginRequest req,
+            HttpServletRequest request,
+            HttpServletResponse response)
+    {
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.email(), req.password()));
         SecurityContextHolder.getContext().setAuthentication(auth);
+
         request.getSession(true);
+        new HttpSessionSecurityContextRepository()
+                .saveContext(SecurityContextHolder.getContext(), request, response);
+
         CustomUserDetails cud = (CustomUserDetails) auth.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공"));
     }

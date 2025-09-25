@@ -13,8 +13,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -28,7 +26,6 @@ import org.springframework.security.web.csrf.CsrfFilter;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final CustomUserDetailsService customUserDetailsService;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
@@ -52,7 +49,7 @@ public class SecurityConfig {
                         .logoutSuccessHandler(customLogoutSuccessHandler)
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-                        .deleteCookies("SESSIONID")
+                        .deleteCookies("JSESSIONID")
                 )
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(ui -> ui.userService(customOAuth2UserService))
@@ -62,12 +59,6 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(h -> h.disable());
         return http.build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        // 비밀번호 인코더를 제공하는 Bean을 등록
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
     @Bean

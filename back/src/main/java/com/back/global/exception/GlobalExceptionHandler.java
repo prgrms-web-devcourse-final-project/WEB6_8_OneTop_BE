@@ -14,7 +14,10 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.BindException; // NOTE: MVC 바인딩 예외
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -106,5 +109,44 @@ public class GlobalExceptionHandler {
         String traceId = MDC.get("traceId");
         if (traceId != null) pd.setProperty("traceId", traceId);
         return pd;
+    }
+
+    // 아이디 비밀번호 불일치 401
+    @ExceptionHandler(BadCredentialsException.class)
+    public ProblemDetail handleBadCredentials(BadCredentialsException ex, HttpServletRequest req) {
+        return ProblemDetails.of(
+                HttpStatus.UNAUTHORIZED,
+                "BAD_CREDENTIALS",
+                "로그인 실패: 아이디 또는 비밀번호가 올바르지 않습니다.",
+                "BAD_CREDENTIALS",
+                Map.of(),
+                req
+        );
+    }
+
+    // 기타 인증 오류 401
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthentication(AuthenticationException ex, HttpServletRequest req) {
+        return ProblemDetails.of(
+                HttpStatus.UNAUTHORIZED,
+                "UNAUTHORIZED",
+                "인증이 필요하거나 인증에 실패했습니다.",
+                "UNAUTHORIZED",
+                Map.of("reason", ex.getClass().getSimpleName()),
+                req
+        );
+    }
+
+    // 권한 부족 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        return ProblemDetails.of(
+                HttpStatus.FORBIDDEN,
+                "FORBIDDEN",
+                "요청하신 리소스에 대한 권한이 없습니다.",
+                "FORBIDDEN",
+                Map.of(),
+                req
+        );
     }
 }

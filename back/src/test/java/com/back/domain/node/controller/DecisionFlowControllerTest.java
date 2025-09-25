@@ -43,7 +43,6 @@ public class DecisionFlowControllerTest {
     void initUser() {
         String uid = UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder()
-                .loginId("login_" + uid)
                 .email("user_" + uid + "@test.local")
                 .role(Role.GUEST)
                 .birthdayAt(LocalDateTime.now().minusYears(25))
@@ -52,6 +51,7 @@ public class DecisionFlowControllerTest {
                 .beliefs("NONE")
                 .authProvider(AuthProvider.GUEST)
                 .nickname("tester-" + uid)
+                .username("tester-" + uid)
                 .build();
         userId = userRepository.save(user).getId();
     }

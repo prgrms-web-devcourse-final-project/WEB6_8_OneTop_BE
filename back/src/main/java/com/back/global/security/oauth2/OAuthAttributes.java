@@ -48,7 +48,6 @@ public class OAuthAttributes {
         String email = (String) attributes.get("email");
         String name = (String) attributes.get("name");
 
-        // name이 null이면 login을 사용
         if (name == null || name.trim().isEmpty()) {
             name = (String) attributes.get("login");
         }
