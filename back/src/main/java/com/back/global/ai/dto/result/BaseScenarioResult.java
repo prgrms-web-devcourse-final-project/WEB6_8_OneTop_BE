@@ -1,6 +1,8 @@
 package com.back.global.ai.dto.result;
 
-import java.util.List;
+import com.back.domain.scenario.entity.Type;
+
+import java.util.Map;
 
 /**
  * 베이스 시나리오 생성 결과 DTO
@@ -10,7 +12,9 @@ public record BaseScenarioResult(
         String job,
         String summary,
         String description,
-        List<String> timelineTitles,
-        String baselineTitle
+        Map<String, String> timelineTitles,
+        String baselineTitle,
+        Map<Type, Integer> indicatorScores,
+        Map<Type, String> indicatorAnalysis
 ) {
 }

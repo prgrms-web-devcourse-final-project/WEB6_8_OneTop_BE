@@ -12,7 +12,6 @@ import com.back.domain.scenario.entity.Type;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
-import com.back.domain.user.entity.User;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.service.AiService;
@@ -28,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -114,19 +112,21 @@ public class ScenarioService {
         }
     }
 
-    // AI 시나리오 생성
+    // AI 시나리오 생성 (핵심 로직)
     @Transactional
     protected void aiScenarioGeneration(Scenario scenario) {
         try {
             DecisionLine decisionLine = scenario.getDecisionLine();
             BaseLine baseLine = decisionLine.getBaseLine();
 
-            // BaseScenario 존재 확인 및 생성
+            // 1. 베이스 시나리오 확보
             Scenario baseScenario = ensureBaseScenarioExists(baseLine);
 
-            // DecisionScenario 생성
+            // 2. DecisionScenario 생성 (항상 실행)
             DecisionScenarioResult aiResult = aiService
                     .generateDecisionScenario(decisionLine, baseScenario).get();
+
+            // 3. 결과 적용
             applyDecisionScenarioResult(scenario, aiResult);
 
             log.info("AI scenario generation completed successfully for Scenario ID: {}", scenario.getId());
@@ -138,118 +138,86 @@ public class ScenarioService {
         }
     }
 
+    // 베이스 시나리오 확보 (없으면 생성)
     private Scenario ensureBaseScenarioExists(BaseLine baseLine) {
-        return scenarioRepository.findFirstByDecisionLine_BaseLineIdOrderByCreatedDateAsc(baseLine.getId())
+        return scenarioRepository.findByBaseLineIdAndDecisionLineIsNull(baseLine.getId())
                 .orElseGet(() -> createBaseScenario(baseLine));
     }
 
+    // 베이스 시나리오 생성
     private Scenario createBaseScenario(BaseLine baseLine) {
+        log.info("Creating base scenario for BaseLine ID: {}", baseLine.getId());
 
-        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine).get();
+        // 1. AI 호출
+        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine).join();
 
+        // 2. 베이스 시나리오 엔티티 생성
         Scenario baseScenario = Scenario.builder()
                 .user(baseLine.getUser())
-                .decisionLine(null) // 베이스는 DecisionLine 없음
-                .status(ScenarioStatus.COMPLETED) // 베이스는 바로 완료 처리
+                .decisionLine(null) // 베이스 시나리오는 DecisionLine 없음
+                .baseLine(baseLine) // 베이스 시나리오는 BaseLine 연결
+                .status(ScenarioStatus.COMPLETED) // 베이스는 바로 완료
                 .build();
 
         Scenario savedScenario = scenarioRepository.save(baseScenario);
 
+        // 3. AI 결과 적용
         applyBaseScenarioResult(savedScenario, aiResult);
 
         return savedScenario;
     }
 
+    // 베이스 시나리오 결과 적용
     @Transactional
     protected void applyBaseScenarioResult(Scenario scenario, BaseScenarioResult aiResult) {
-
-        scenario.setJob(aiResult.job());
-        scenario.setTotal(calculateBaseScore(aiResult)); // 베이스용 점수 계산
-        scenario.setSummary(aiResult.summary());
-        scenario.setDescription(aiResult.description());
-
-        handleBaseTimelineTitles(scenario, aiResult.timelineTitles());
-
-        // 이미지는 베이스 시나리오에서 제외
-        scenario.setImg(null);
-
-        scenarioRepository.save(scenario);
-
-        // 베이스용 SceneType 생성
-        createSceneTypesFromBase(scenario, aiResult);
-
-        // BaseLine 제목 업데이트
-        updateBaseLineTitle(scenario.getUser(), aiResult.baselineTitle());
-    }
-
-    private int calculateBaseScore(BaseScenarioResult aiResult) {
-        // 베이스는 모든 지표 50점씩 = 250점
-        return 250;
-    }
-
-    private void handleBaseTimelineTitles(Scenario scenario, List<String> timelineTitles) {
-        try {
-            Map<String, String> timelineMap = convertTimelineTitlesToMap(timelineTitles);
-            String timelineTitlesJson = objectMapper.writeValueAsString(timelineMap);
-            scenario.setTimelineTitles(timelineTitlesJson);
-        } catch (Exception e) {
-            log.error("Failed to serialize base timeline titles: {}", e.getMessage());
-            scenario.setTimelineTitles("{}");
-        }
-    }
-
-    private void createSceneTypesFromBase(Scenario scenario, BaseScenarioResult aiResult) {
-        // 베이스는 모든 지표 50점으로 생성
-        List<com.back.domain.scenario.entity.SceneType> sceneTypes = List.of(
-                        com.back.domain.scenario.entity.Type.경제,
-                        com.back.domain.scenario.entity.Type.행복,
-                        com.back.domain.scenario.entity.Type.관계,
-                        com.back.domain.scenario.entity.Type.직업,
-                        com.back.domain.scenario.entity.Type.건강
-                ).stream()
-                .map(type -> com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(type)
-                        .point(50) // 베이스는 모두 50점
-                        .analysis("현재 " + type.name() + " 상황 기준점")
-                        .build())
-                .toList();
-
-        sceneTypeRepository.saveAll(sceneTypes);
-    }
-
-    private void updateBaseLineTitle(User user, String baselineTitle) {
-        // BaseLine 제목 업데이트 로직
-        // baseLineRepository.updateTitleByUserId(user.getId(), baselineTitle);
-    }
-
-    @Transactional
-    protected void applyDecisionScenarioResult(Scenario scenario, DecisionScenarioResult aiResult) {
-
+        // 기본 정보 설정
         scenario.setJob(aiResult.job());
         scenario.setTotal(calculateTotalScore(aiResult.indicatorScores()));
         scenario.setSummary(aiResult.summary());
         scenario.setDescription(aiResult.description());
 
+        // 타임라인 처리
         handleTimelineTitles(scenario, aiResult.timelineTitles());
+
+        // 베이스 시나리오는 이미지 없음
+        scenario.setImg(null);
+
+        scenarioRepository.save(scenario);
+
+        // 베이스용 SceneType 생성
+        createBaseSceneTypes(scenario, aiResult);
+
+        // BaseLine 제목 업데이트
+        updateBaseLineTitle(scenario.getBaseLine(), aiResult.baselineTitle());
+    }
+
+    // DecisionScenario 결과 적용
+    @Transactional
+    protected void applyDecisionScenarioResult(Scenario scenario, DecisionScenarioResult aiResult) {
+        // 기본 정보 설정
+        scenario.setJob(aiResult.job());
+        scenario.setTotal(calculateTotalScore(aiResult.indicatorScores()));
+        scenario.setSummary(aiResult.summary());
+        scenario.setDescription(aiResult.description());
+
+        // 타임라인 처리
+        handleTimelineTitles(scenario, aiResult.timelineTitles());
+
+        // 이미지 생성 처리
         handleImageGeneration(scenario, aiResult.imagePrompt());
 
         scenarioRepository.save(scenario);
 
-        createSceneTypes(scenario, aiResult);
+        // 지표별 SceneType 생성
+        createDecisionSceneTypes(scenario, aiResult);
+
+        // 비교 분석 결과 생성
         createSceneCompare(scenario, aiResult);
     }
 
-    private int calculateTotalScore(Map<Type, Integer> indicatorScores) {
-        return indicatorScores.values().stream()
-                .mapToInt(Integer::intValue)
-                .sum();
-    }
-
-    private void handleTimelineTitles(Scenario scenario, List<String> timelineTitles) {
+    private void handleTimelineTitles(Scenario scenario, Map<String, String> timelineTitles) {
         try {
-            Map<String, String> timelineMap = convertTimelineTitlesToMap(timelineTitles);
-            String timelineTitlesJson = objectMapper.writeValueAsString(timelineMap);
+            String timelineTitlesJson = objectMapper.writeValueAsString(timelineTitles);
             scenario.setTimelineTitles(timelineTitlesJson);
         } catch (Exception e) {
             log.error("Failed to serialize timeline titles for scenario {}: {}",
@@ -258,105 +226,103 @@ public class ScenarioService {
         }
     }
 
-    private Map<String, String> convertTimelineTitlesToMap(List<String> timelineTitles) {
-        // AI 결과 구조에 따라 구현 조정 필요
-        // 예시: 3개 제목을 2020, 2022, 2025년으로 매핑
-        Map<String, String> result = new HashMap<>();
-        if (timelineTitles != null && !timelineTitles.isEmpty()) {
-            for (int i = 0; i < timelineTitles.size() && i < 3; i++) {
-                int year = 2020 + (i * 2); // 2년 간격
-                result.put(String.valueOf(year), timelineTitles.get(i));
-            }
-        }
-        return result;
-    }
-
     private void handleImageGeneration(Scenario scenario, String imagePrompt) {
         try {
             if (imagePrompt != null && !imagePrompt.trim().isEmpty()) {
-                log.debug("Attempting image generation for scenario {} with prompt: {}",
-                        scenario.getId(), imagePrompt.substring(0, Math.min(50, imagePrompt.length())));
-
-                // 이미지 생성 시도 (현재는 placeholder 반환)
                 String imageUrl = aiService.generateImage(imagePrompt).get();
 
-                // Placeholder이거나 null이면 → null로 저장
                 if ("placeholder-image-url".equals(imageUrl) || imageUrl == null || imageUrl.trim().isEmpty()) {
                     scenario.setImg(null);
                     log.info("Image generation not available for scenario {}, stored as null", scenario.getId());
                 } else {
-                    // 실제 이미지 URL 저장
                     scenario.setImg(imageUrl);
                     log.info("Image generated successfully for scenario {}", scenario.getId());
                 }
             } else {
-                // 이미지 프롬프트가 없으면 null
                 scenario.setImg(null);
-                log.debug("No image prompt provided for scenario {}", scenario.getId());
             }
         } catch (Exception e) {
-            // 이미지 생성 실패 → null로 저장하고 경고 로그만 남김
             scenario.setImg(null);
             log.warn("Image generation failed for scenario {}: {}. Continuing without image.",
                     scenario.getId(), e.getMessage());
-            // 예외를 다시 던지지 않음 - 시나리오 생성은 계속
         }
     }
 
-    protected void createSceneTypes(Scenario scenario, DecisionScenarioResult aiResult) {
-        try {
-            List<com.back.domain.scenario.entity.SceneType> sceneTypes = aiResult.indicatorScores()
-                    .entrySet().stream()
-                    .map(entry -> {
-                        Type type = entry.getKey();
-                        int point = entry.getValue();
-                        String analysis = aiResult.indicatorAnalysis().get(type);
-
-                        return com.back.domain.scenario.entity.SceneType.builder()
-                                .scenario(scenario)
-                                .type(type)
-                                .point(point)
-                                .analysis(analysis != null ? analysis : "분석 정보를 가져올 수 없습니다.")
-                                .build();
-                    })
-                    .toList();
-
-            sceneTypeRepository.saveAll(sceneTypes);
-            log.debug("Created {} SceneTypes for scenario {}", sceneTypes.size(), scenario.getId());
-        } catch (Exception e) {
-            log.error("Failed to create SceneTypes for scenario {}: {}", scenario.getId(), e.getMessage());
-            throw e; // SceneType 생성 실패는 전체 실패로 처리
-        }
+    private int calculateTotalScore(Map<Type, Integer> indicatorScores) {
+        return indicatorScores.values().stream()
+                .mapToInt(Integer::intValue)
+                .sum();
     }
 
-    protected void createSceneCompare(Scenario scenario, DecisionScenarioResult aiResult) {
-        try {
-            List<SceneCompare> compares = aiResult.comparisonResults()
-                    .entrySet().stream()
-                    .map(entry -> {
-                        String resultTypeStr = entry.getKey().toUpperCase();
-                        // TOTAL이 있는지 확인하고 없으면 기본값 사용
-                        com.back.domain.scenario.entity.SceneCompareResultType resultType;
-                        try {
-                            resultType = com.back.domain.scenario.entity.SceneCompareResultType.valueOf(resultTypeStr);
-                        } catch (IllegalArgumentException e) {
-                            log.warn("Unknown result type: {}, using TOTAL as fallback", resultTypeStr);
-                            resultType = com.back.domain.scenario.entity.SceneCompareResultType.TOTAL;
-                        }
+    private void createBaseSceneTypes(Scenario scenario, BaseScenarioResult aiResult) {
+        List<com.back.domain.scenario.entity.SceneType> sceneTypes = aiResult.indicatorScores()
+                .entrySet().stream()
+                .map(entry -> {
+                    Type type = entry.getKey();
+                    int point = entry.getValue();
+                    String analysis = aiResult.indicatorAnalysis().get(type);
 
-                        return SceneCompare.builder()
-                                .scenario(scenario)
-                                .resultType(resultType)
-                                .compareResult(entry.getValue())
-                                .build();
-                    })
-                    .toList();
+                    return com.back.domain.scenario.entity.SceneType.builder()
+                            .scenario(scenario)
+                            .type(type)
+                            .point(point) // AI가 분석한 실제 점수
+                            .analysis(analysis != null ? analysis : "현재 " + type.name() + " 상황 분석")
+                            .build();
+                })
+                .toList();
 
-            sceneCompareRepository.saveAll(compares);
-            log.debug("Created {} SceneCompare entries for scenario {}", compares.size(), scenario.getId());
-        } catch (Exception e) {
-            log.error("Failed to create SceneCompare for scenario {}: {}", scenario.getId(), e.getMessage());
-            throw e; // 비교 결과 생성 실패는 전체 실패로 처리
+        sceneTypeRepository.saveAll(sceneTypes);
+    }
+
+    private void createDecisionSceneTypes(Scenario scenario, DecisionScenarioResult aiResult) {
+        List<com.back.domain.scenario.entity.SceneType> sceneTypes = aiResult.indicatorScores()
+                .entrySet().stream()
+                .map(entry -> {
+                    Type type = entry.getKey();
+                    int point = entry.getValue();
+                    String analysis = aiResult.indicatorAnalysis().get(type);
+
+                    return com.back.domain.scenario.entity.SceneType.builder()
+                            .scenario(scenario)
+                            .type(type)
+                            .point(point)
+                            .analysis(analysis != null ? analysis : "분석 정보를 가져올 수 없습니다.")
+                            .build();
+                })
+                .toList();
+
+        sceneTypeRepository.saveAll(sceneTypes);
+    }
+
+    private void createSceneCompare(Scenario scenario, DecisionScenarioResult aiResult) {
+        List<SceneCompare> compares = aiResult.comparisonResults()
+                .entrySet().stream()
+                .map(entry -> {
+                    String resultTypeStr = entry.getKey().toUpperCase();
+                    com.back.domain.scenario.entity.SceneCompareResultType resultType;
+                    try {
+                        resultType = com.back.domain.scenario.entity.SceneCompareResultType.valueOf(resultTypeStr);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Unknown result type: {}, using TOTAL as fallback", resultTypeStr);
+                        resultType = com.back.domain.scenario.entity.SceneCompareResultType.TOTAL;
+                    }
+
+                    return SceneCompare.builder()
+                            .scenario(scenario)
+                            .resultType(resultType)
+                            .compareResult(entry.getValue())
+                            .build();
+                })
+                .toList();
+
+        sceneCompareRepository.saveAll(compares);
+    }
+
+    private void updateBaseLineTitle(BaseLine baseLine, String baselineTitle) {
+        if (baselineTitle != null && !baselineTitle.trim().isEmpty()) {
+            baseLine.setTitle(baselineTitle);
+            baseLineRepository.save(baseLine);
+            log.info("BaseLine title updated for ID: {}", baseLine.getId());
         }
     }
 

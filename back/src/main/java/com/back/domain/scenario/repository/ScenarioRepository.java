@@ -25,6 +25,12 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // 베이스 시나리오 존재 확인
     boolean existsByDecisionLine_BaseLineId(Long baseLineId);
 
+    // 베이스 시나리오 조회
+    Optional<Scenario> findByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
+
+    // 베이스 시나리오 존재 확인
+    boolean existsByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
+
     // 베이스 시나리오 조회 (비교 기준)
     Optional<Scenario> findFirstByDecisionLine_BaseLineIdOrderByCreatedDateAsc(Long baseLineId);
 
