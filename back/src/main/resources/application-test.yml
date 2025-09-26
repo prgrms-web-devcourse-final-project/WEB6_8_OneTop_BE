@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:./db_dev;MODE=PostgreSQL;
+    url: jdbc:h2:mem:db_test;MODE=PostgreSQL;
     username: sa
     password:
     driver-class-name: org.h2.Driver
