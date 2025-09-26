@@ -43,6 +43,8 @@ public class CommentService {
     }
 
     public Page<CommentResponse> getComments(Long userId, Long postId, Pageable pageable) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
         Page<Comment> commentsPage = commentRepository.findCommentsByPostId(postId, pageable);
         return commentsPage.map(CommentMappers.COMMENT_READ::map);
     }
