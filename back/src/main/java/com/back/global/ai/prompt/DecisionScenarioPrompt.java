@@ -12,7 +12,7 @@ import java.util.List;
  * 새로운 시나리오 생성을 위한 프롬프트 템플릿
  * DecisionLine의 선택 경로와 베이스 시나리오를 비교하여 대안 시나리오를 생성한다.
  */
-public class NewScenarioPrompt {
+public class DecisionScenarioPrompt {
 
     private static final String PROMPT_TEMPLATE = """
         당신은 인생 시나리오 분석 전문가입니다. 사용자의 대안 선택 경로를 분석하여 3년 후 예상 시나리오를 생성하고, 기본 시나리오와 비교 분석해주세요.

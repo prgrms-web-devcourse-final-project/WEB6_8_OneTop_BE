@@ -5,7 +5,7 @@ import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.entity.DecisionNode;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.global.ai.dto.result.BaseScenarioResult;
-import com.back.global.ai.dto.result.NewScenarioResult;
+import com.back.global.ai.dto.result.DecisionScenarioResult;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -18,7 +18,7 @@ public interface AiService {
     CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine);
 
     // 새 시나리오 생성
-    CompletableFuture<NewScenarioResult> generateNewScenario(DecisionLine decisionLine, Scenario baseScenario);
+    CompletableFuture<DecisionScenarioResult> generateDecisionScenario(DecisionLine decisionLine, Scenario baseScenario);
 
     // 상황 생성 (Trees 도메인용)
     CompletableFuture<String> generateSituation(List<DecisionNode> previousNodes);

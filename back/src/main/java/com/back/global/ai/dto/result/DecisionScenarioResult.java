@@ -8,7 +8,7 @@ import java.util.Map;
 /**
  * 새 시나리오 생성 결과 DTO
  */
-public record NewScenarioResult(
+public record DecisionScenarioResult(
         String job,
         String summary,
         String description,
