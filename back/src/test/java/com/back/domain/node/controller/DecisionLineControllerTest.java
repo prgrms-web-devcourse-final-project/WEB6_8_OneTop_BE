@@ -48,7 +48,6 @@ public class DecisionLineControllerTest {
     void initUser() {
         String uid = UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder()
-                .loginId("login_" + uid)
                 .email("user_" + uid + "@test.local")
                 .role(Role.GUEST)
                 .birthdayAt(LocalDateTime.now().minusYears(25))
@@ -57,6 +56,7 @@ public class DecisionLineControllerTest {
                 .beliefs("NONE")
                 .authProvider(AuthProvider.GUEST)
                 .nickname("tester-" + uid)
+                .username("name-" + uid)
                 .build();
         userId = userRepository.save(user).getId();
     }
@@ -95,7 +95,6 @@ public class DecisionLineControllerTest {
         void success_emptyListWhenNoLines() throws Exception {
             String uid2 = UUID.randomUUID().toString().substring(0, 8);
             Long newUserId = userRepository.save(User.builder()
-                            .loginId("login_" + uid2)
                             .email("user_" + uid2 + "@test.local")
                             .role(Role.GUEST)
                             .birthdayAt(LocalDateTime.now().minusYears(23))
@@ -104,6 +103,7 @@ public class DecisionLineControllerTest {
                             .beliefs("NONE")
                             .authProvider(AuthProvider.GUEST)
                             .nickname("tester2-" + uid2)
+                            .username("tester2-" + uid2)
                             .build())
                     .getId();
 

@@ -26,13 +26,13 @@ public class InitData implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // 애플리케이션 시작 시 초기 사용자 데이터 생성
-        if (userRepository.findByLoginId("admin").isEmpty()) {
+        if (userRepository.findByEmail("admin@example.com").isEmpty()) {
             User admin = User.builder()
-                    .loginId("admin")
                     .email("admin@example.com")
                     .password(passwordEncoder.encode("admin1234!"))
                     .role(Role.ADMIN)
-                    .nickname("관리자")
+                    .username("관리자")
+                    .nickname("관리자닉네임")
                     .birthdayAt(LocalDateTime.of(1990, 1, 1, 0, 0))
                     .gender(Gender.M)
                     .mbti(Mbti.INTJ)
@@ -41,13 +41,13 @@ public class InitData implements CommandLineRunner {
             userRepository.save(admin);
         }
 
-        if (userRepository.findByLoginId("user1").isEmpty()) {
+        if (userRepository.findByEmail("user1@example.com").isEmpty()) {
             User user1 = User.builder()
-                    .loginId("user1")
                     .email("user1@example.com")
                     .password(passwordEncoder.encode("user1234!"))
                     .role(Role.USER)
-                    .nickname("사용자1")
+                    .username("사용자1")
+                    .nickname("사용자닉네임")
                     .birthdayAt(LocalDateTime.of(1995, 5, 10, 0, 0))
                     .gender(Gender.F)
                     .mbti(Mbti.ENFP)
