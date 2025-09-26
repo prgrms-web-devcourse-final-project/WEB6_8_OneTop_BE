@@ -103,12 +103,10 @@ class PostControllerTest {
             mockMvc.perform(post("/api/v1/posts")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.title").value("테스트 게시글"))
-                    .andExpect(jsonPath("$.data.content").value("테스트 내용입니다."))
-                    .andExpect(jsonPath("$.data.category").value("CHAT"))
-                    .andExpect(jsonPath("$.message").value("성공적으로 생성되었습니다."))
-                    .andExpect(jsonPath("$.status").value(200));
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.title").value("테스트 게시글"))
+                    .andExpect(jsonPath("$.content").value("테스트 내용입니다."))
+                    .andExpect(jsonPath("$.category").value("CHAT"));
         }
 
         @Test
@@ -146,11 +144,9 @@ class PostControllerTest {
         void success() throws Exception {
             mockMvc.perform(get("/api/v1/posts/{postId}", savedPost.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.title").value("조회 테스트 게시글"))
-                    .andExpect(jsonPath("$.data.content").value("조회 테스트 내용입니다."))
-                    .andExpect(jsonPath("$.data.category").value("CHAT"))
-                    .andExpect(jsonPath("$.status").value(200))
-                    .andExpect(jsonPath("$.message").value("성공적으로 조회되었습니다."));
+                    .andExpect(jsonPath("$.title").value("조회 테스트 게시글"))
+                    .andExpect(jsonPath("$.content").value("조회 테스트 내용입니다."))
+                    .andExpect(jsonPath("$.category").value("CHAT"));
         }
 
         @Test
@@ -186,10 +182,8 @@ class PostControllerTest {
         void successWithDefaultParameters() throws Exception {
             mockMvc.perform(get("/api/v1/posts"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.page").value(1))
-                    .andExpect(jsonPath("$.data.size").value(5))
-                    .andExpect(jsonPath("$.status").value(200))
-                    .andExpect(jsonPath("$.message").value("성공적으로 조회되었습니다."));
+                    .andExpect(jsonPath("$.page").value(1))
+                    .andExpect(jsonPath("$.size").value(5));
         }
 
         @Test
@@ -198,9 +192,9 @@ class PostControllerTest {
             mockMvc.perform(get("/api/v1/posts")
                             .param("category", PostCategory.SCENARIO.name()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items[*].category",
+                    .andExpect(jsonPath("$.items[*].category",
                             Matchers.everyItem(Matchers.equalTo("SCENARIO"))))
-                    .andExpect(jsonPath("$.data.items.length()").value(2));
+                    .andExpect(jsonPath("$.items.length()").value(2));
         }
 
         @Test
@@ -210,7 +204,7 @@ class PostControllerTest {
                             .param("searchType", "TITLE_CONTENT")
                             .param("keyword", "게시글"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items.length()").value(5));
+                    .andExpect(jsonPath("$.items.length()").value(5));
         }
 
         @Test
@@ -220,7 +214,7 @@ class PostControllerTest {
                             .param("searchType", "AUTHOR")
                             .param("keyword", "테스트유저"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items[*].author",
+                    .andExpect(jsonPath("$.items[*].author",
                             Matchers.everyItem(Matchers.containsStringIgnoringCase("테스트유저"))));
         }
     }
@@ -249,7 +243,7 @@ class PostControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(updateRequest)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").value(savedPost.getId()));
+                    .andExpect(jsonPath("$").value(savedPost.getId()));
         }
 
         @Test

@@ -1,7 +1,6 @@
 package com.back.domain.like.controller;
 
 import com.back.domain.like.service.LikeService;
-import com.back.global.common.ApiResponse;
 import com.back.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,14 +18,14 @@ public class LikeController {
     private final LikeService likeService;
 
     @PostMapping("/{postId}/likes")
-    public ApiResponse<Void> addLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
+    public ResponseEntity<Void> addLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
         likeService.addLike(cs.getUser().getId(), postId);
-        return ApiResponse.success(null, "좋아요 추가했습니다.", HttpStatus.OK);
+        return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 
     @DeleteMapping("/{postId}/likes")
-    public ApiResponse<Void> removeLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
+    public ResponseEntity<Void> removeLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
         likeService.removeLike(postId, cs.getUser().getId());
-        return ApiResponse.success(null, "좋아요 취소하였습니다.", HttpStatus.OK);
+        return ResponseEntity.ok(null);
     }
 }

@@ -107,9 +107,8 @@ class CommentControllerTest {
             mockMvc.perform(post("/api/v1/posts/{postId}/comments", testPost.getId())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(request)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.content").value("테스트 댓글"))
-                    .andExpect(jsonPath("$.message").value("성공적으로 생성되었습니다."));
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.content").value("테스트 댓글"));
         }
     }
 
@@ -127,10 +126,10 @@ class CommentControllerTest {
             mockMvc.perform(get("/api/v1/posts/{postId}/comments", testPost.getId())
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items").isArray())
-                    .andExpect(jsonPath("$.data.items.length()").value(3))
-                    .andExpect(jsonPath("$.data.totalElements").value(3))
-                    .andExpect(jsonPath("$.data.totalPages").value(1));
+                    .andExpect(jsonPath("$.items").isArray())
+                    .andExpect(jsonPath("$.items.length()").value(3))
+                    .andExpect(jsonPath("$.totalElements").value(3))
+                    .andExpect(jsonPath("$.totalPages").value(1));
         }
 
         @Test
@@ -144,9 +143,9 @@ class CommentControllerTest {
                             .param("sortType", "LATEST")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items[0].content").value("가장 최근 댓글"))
-                    .andExpect(jsonPath("$.data.items[1].content").value("중간 댓글"))
-                    .andExpect(jsonPath("$.data.items[2].content").value("오래된 댓글"));
+                    .andExpect(jsonPath("$.items[0].content").value("가장 최근 댓글"))
+                    .andExpect(jsonPath("$.items[1].content").value("중간 댓글"))
+                    .andExpect(jsonPath("$.items[2].content").value("오래된 댓글"));
         }
 
         @Test
@@ -160,9 +159,9 @@ class CommentControllerTest {
                             .param("sortType", "LIKES")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items[0].likeCount").value(10))
-                    .andExpect(jsonPath("$.data.items[1].likeCount").value(5))
-                    .andExpect(jsonPath("$.data.items[2].likeCount").value(2));
+                    .andExpect(jsonPath("$.items[0].likeCount").value(10))
+                    .andExpect(jsonPath("$.items[1].likeCount").value(5))
+                    .andExpect(jsonPath("$.items[2].likeCount").value(2));
         }
 
         @Test
@@ -171,10 +170,10 @@ class CommentControllerTest {
             mockMvc.perform(get("/api/v1/posts/{postId}/comments", testPost.getId())
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.items").isArray())
-                    .andExpect(jsonPath("$.data.items.length()").value(0))
-                    .andExpect(jsonPath("$.data.totalElements").value(0))
-                    .andExpect(jsonPath("$.data.totalPages").value(0));
+                    .andExpect(jsonPath("$.items").isArray())
+                    .andExpect(jsonPath("$.items.length()").value(0))
+                    .andExpect(jsonPath("$.totalElements").value(0))
+                    .andExpect(jsonPath("$.totalPages").value(0));
         }
 
         @Test
@@ -202,8 +201,7 @@ class CommentControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(request)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.message").value("성공적으로 수정되었습니다."))
-                    .andExpect(jsonPath("$.data").value(testComment.getId()));
+                    .andExpect(jsonPath("$").value(testComment.getId()));
 
             Comment updatedComment = commentRepository.findById(testComment.getId()).orElseThrow();
             assertThat(updatedComment.getContent()).isEqualTo(request.content());
@@ -240,8 +238,7 @@ class CommentControllerTest {
             mockMvc.perform(delete("/api/v1/posts/{postId}/comments/{commentId}",
                             testPost.getId(),
                             testComment.getId()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.message").value("성공적으로 삭제되었습니다."));
+                    .andExpect(status().isOk());
 
             assertThat(commentRepository.findById(testComment.getId())).isEmpty();
         }
