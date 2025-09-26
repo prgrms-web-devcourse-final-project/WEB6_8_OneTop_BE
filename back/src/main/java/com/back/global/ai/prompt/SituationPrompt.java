@@ -53,9 +53,27 @@ public class SituationPrompt {
         - 하지만 전체적으로는 해당 연도의 베이스 상황과 같은 시점
 
         ### 응답 형식
-        새로운 상황만 한 문장으로 응답해주세요. 추가 설명이나 선택지는 포함하지 마세요.
+        반드시 다음 JSON 형식으로 응답해주세요:
+        ```json
+        {
+          "situation": "새로운 상황을 한 문장으로 작성",
+          "recommendedOption": "추천 선택지 (15자 이내)"
+        }
+        ```
 
-        상황:
+        ### 추천 선택지 작성 가이드라인
+        1. **간결성**: 15자 이내로 작성
+        2. **명확성**: 선택의 방향이 명확하게 드러나는 표현
+        3. **현실성**: 해당 상황에서 실제로 선택 가능한 옵션
+        4. **UX 개선**: 사용자가 쉽게 이해하고 선택할 수 있는 표현
+        5. **균형성**: 지나치게 극단적이지 않은 합리적인 선택지
+
+        ### 추천 선택지 예시
+        **"대학원 진학 후 지도교수와 연구 방향 갈등 상황"** → "교수와 직접 대화"
+        **"창업 후 자금 부족 상황"** → "추가 투자 유치"
+        **"해외 취업 후 문화 적응 어려움"** → "현지 커뮤니티 참여"
+        **"승진 기회와 스카우트 제안 동시 상황"** → "현재 회사 승진"
+        **"부모 사업 승계 제안 상황"** → "단계별 승계 논의"
         """;
 
     private static final String INITIAL_SITUATION_TEMPLATE = """
@@ -89,9 +107,27 @@ public class SituationPrompt {
         - "현재 직장에서 승진 기회와 동시에 경쟁 회사의 스카우트 제안을 받았습니다."
 
         ### 응답 형식
-        새로운 상황만 한 문장으로 응답해주세요.
+        반드시 다음 JSON 형식으로 응답해주세요:
+        ```json
+        {
+          "situation": "새로운 상황을 한 문장으로 작성",
+          "recommendedOption": "추천 선택지 (15자 이내)"
+        }
+        ```
 
-        상황:
+        ### 추천 선택지 작성 가이드라인
+        1. **간결성**: 15자 이내로 작성
+        2. **명확성**: 선택의 방향이 명확하게 드러나는 표현
+        3. **현실성**: 해당 상황에서 실제로 선택 가능한 옵션
+        4. **UX 개선**: 사용자가 쉽게 이해하고 선택할 수 있는 표현
+        5. **균형성**: 지나치게 극단적이지 않은 합리적인 선택지
+
+        ### 추천 선택지 예시
+        **"해외 교환학생 프로그램 지원 기회"** → "교환학생 지원"
+        **"새로운 부서 이동 제안"** → "부서 이동 수락"
+        **"창업 동료와의 만남"** → "창업 아이템 논의"
+        **"해외 지사 파견 근무 기회"** → "파견 근무 지원"
+        **"가업 승계 제안"** → "승계 계획 검토"
         """;
 
     /**
@@ -237,7 +273,7 @@ public class SituationPrompt {
 
     /**
      * 프롬프트 응답에서 실제 상황 텍스트만 추출한다.
-     * "상황: " 이후의 텍스트만 반환한다.
+     * JSON 형식 응답에서 situation 필드를 파싱한다.
      *
      * @param aiResponse AI의 전체 응답
      * @return 상황 텍스트만 추출된 결과
@@ -249,13 +285,74 @@ public class SituationPrompt {
 
         String response = aiResponse.trim();
 
+        try {
+            // JSON 형식으로 파싱 시도
+            if (response.contains("\"situation\"")) {
+                int situationStart = response.indexOf("\"situation\"");
+                int valueStart = response.indexOf(":", situationStart);
+                int valueEnd = response.indexOf(",", valueStart);
+                if (valueEnd == -1) {
+                    valueEnd = response.indexOf("}", valueStart);
+                }
+
+                if (valueStart != -1 && valueEnd != -1) {
+                    String situationValue = response.substring(valueStart + 1, valueEnd).trim();
+                    // 따옴표 제거
+                    situationValue = situationValue.replaceAll("^\"|\"$", "");
+                    return situationValue;
+                }
+            }
+        } catch (Exception e) {
+            // JSON 파싱 실패 시 기존 방식으로 fallback
+        }
+
+        // 기존 방식으로 fallback
         // "상황:" 이후의 텍스트 추출
         int situationIndex = response.indexOf("상황:");
         if (situationIndex != -1) {
             return response.substring(situationIndex + 3).trim();
         }
 
-        // "상황:" 없이 바로 상황이 나온 경우
+        // 상황 정보 없이 바로 상황이 나온 경우
         return response;
+    }
+
+    /**
+     * 프롬프트 응답에서 추천 선택지를 추출한다.
+     * JSON 형식 응답에서 recommendedOption 필드를 파싱한다.
+     *
+     * @param aiResponse AI의 전체 응답
+     * @return 추천 선택지 텍스트, 추출 실패 시 null
+     */
+    public static String extractRecommendedOption(String aiResponse) {
+        if (aiResponse == null || aiResponse.trim().isEmpty()) {
+            return null;
+        }
+
+        String response = aiResponse.trim();
+
+        try {
+            // JSON 형식으로 파싱 시도
+            if (response.contains("\"recommendedOption\"")) {
+                int optionStart = response.indexOf("\"recommendedOption\"");
+                int valueStart = response.indexOf(":", optionStart);
+                int valueEnd = response.indexOf(",", valueStart);
+                if (valueEnd == -1) {
+                    valueEnd = response.indexOf("}", valueStart);
+                }
+
+                if (valueStart != -1 && valueEnd != -1) {
+                    String optionValue = response.substring(valueStart + 1, valueEnd).trim();
+                    // 따옴표 제거
+                    optionValue = optionValue.replaceAll("^\"|\"$", "");
+                    return optionValue.isEmpty() ? null : optionValue;
+                }
+            }
+        } catch (Exception e) {
+            // JSON 파싱 실패 시 null 반환
+            return null;
+        }
+
+        return null;
     }
 }
