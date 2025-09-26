@@ -124,7 +124,7 @@ public class ScenarioService {
 
             // 2. DecisionScenario 생성 (항상 실행)
             DecisionScenarioResult aiResult = aiService
-                    .generateDecisionScenario(decisionLine, baseScenario).get();
+                    .generateDecisionScenario(decisionLine, baseScenario).join();
 
             // 3. 결과 적용
             applyDecisionScenarioResult(scenario, aiResult);
@@ -229,7 +229,7 @@ public class ScenarioService {
     private void handleImageGeneration(Scenario scenario, String imagePrompt) {
         try {
             if (imagePrompt != null && !imagePrompt.trim().isEmpty()) {
-                String imageUrl = aiService.generateImage(imagePrompt).get();
+                String imageUrl = aiService.generateImage(imagePrompt).join();
 
                 if ("placeholder-image-url".equals(imageUrl) || imageUrl == null || imageUrl.trim().isEmpty()) {
                     scenario.setImg(null);
@@ -327,7 +327,7 @@ public class ScenarioService {
     }
 
     // 시나리오 생성 상태 조회
-    @Transactional(readOnly = true) // TODO: readonly 쓰는 이유 공부하기
+    @Transactional(readOnly = true)
     public ScenarioStatusResponse getScenarioStatus(Long scenarioId, Long userId) {
         // 권한 검증 및 조회
         Scenario scenario = scenarioRepository.findByIdAndUserId(scenarioId, userId)
