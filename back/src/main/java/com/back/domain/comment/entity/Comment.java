@@ -3,12 +3,10 @@ package com.back.domain.comment.entity;
 import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
+import com.back.global.exception.ApiException;
+import com.back.global.exception.ErrorCode;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.annotation.LastModifiedDate;
 
@@ -24,9 +22,8 @@ import java.util.List;
 @Entity
 @Table(name = "comments")
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
 public class Comment extends BaseEntity {
 
@@ -56,4 +53,13 @@ public class Comment extends BaseEntity {
 
     @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    public void checkUser(Long userId) {
+        if (!user.getId().equals(userId))
+            throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+    }
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
 }

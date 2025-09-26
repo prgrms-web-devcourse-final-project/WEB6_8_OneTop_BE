@@ -30,6 +30,7 @@ public enum ErrorCode {
 
     // Post Errors
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "Post Not Found"),
+    POST_ALREADY_LIKED(HttpStatus.BAD_REQUEST, "P002", "Post Already Liked"),
 
     // Comment Errors
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "Comment Not Found"),
