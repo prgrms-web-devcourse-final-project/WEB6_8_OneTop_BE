@@ -32,7 +32,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
-import static org.mockito.Mockito.*;
 
 /**
  * ScenarioService 단위 테스트.
@@ -89,7 +88,7 @@ class ScenarioServiceTest {
                     .willReturn(false);
             given(scenarioRepository.existsByDecisionLineIdAndStatus(decisionLineId, ScenarioStatus.PROCESSING))
                     .willReturn(false);
-            given(scenarioRepository.existsByDecisionLine_BaseLineId(200L))
+            given(scenarioRepository.existsByBaseLineIdAndDecisionLineIsNull(200L))
                     .willReturn(true); // 베이스 시나리오 이미 존재
             given(scenarioRepository.save(any(Scenario.class)))
                     .willReturn(savedScenario);
@@ -110,7 +109,7 @@ class ScenarioServiceTest {
             verify(decisionLineRepository).findById(decisionLineId);
             verify(scenarioRepository).existsByDecisionLineIdAndStatus(decisionLineId, ScenarioStatus.PENDING);
             verify(scenarioRepository).existsByDecisionLineIdAndStatus(decisionLineId, ScenarioStatus.PROCESSING);
-            verify(scenarioRepository).existsByDecisionLine_BaseLineId(200L);
+            verify(scenarioRepository).existsByBaseLineIdAndDecisionLineIsNull(200L);
             verify(scenarioRepository).save(any(Scenario.class));
 
             // 비동기 메서드가 호출되었는지 확인 (하지만 실행은 되지 않음)

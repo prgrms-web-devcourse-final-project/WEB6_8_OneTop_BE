@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 시나리오 관련 비즈니스 로직을 처리하는 서비스.
@@ -66,6 +67,40 @@ public class ScenarioService {
             throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
         }
 
+        // 중복 생성 방지 - PENDING 또는 PROCESSING 상태 확인
+        boolean alreadyProcessing = scenarioRepository
+                .existsByDecisionLineIdAndStatusIn(
+                        request.decisionLineId(),
+                        List.of(ScenarioStatus.PENDING, ScenarioStatus.PROCESSING)
+                );
+        if (alreadyProcessing) {
+            throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
+                    "해당 선택 경로의 시나리오가 이미 생성 중입니다. 잠시 후 다시 시도해주세요.");
+        }
+
+        // FAILED 상태 시나리오 처리 (재시도 로직)
+        Optional<Scenario> failedScenario = scenarioRepository
+                .findByDecisionLineIdAndStatus(request.decisionLineId(), ScenarioStatus.FAILED);
+
+        if (failedScenario.isPresent()) {
+            // 기존 FAILED 시나리오를 재사용하여 재시도
+            Scenario retryScenario = failedScenario.get();
+            retryScenario.setStatus(ScenarioStatus.PENDING);
+            retryScenario.setErrorMessage(null); // 이전 에러 메시지 클리어
+            retryScenario.setUpdatedDate(LocalDateTime.now());
+
+            Scenario savedScenario = scenarioRepository.save(retryScenario);
+
+            // 비동기 방식으로 AI 시나리오 재생성
+            processScenarioGenerationAsync(savedScenario.getId());
+
+            return new ScenarioStatusResponse(
+                    savedScenario.getId(),
+                    savedScenario.getStatus(),
+                    "시나리오 재생성이 시작되었습니다."
+            );
+        }
+
         // 시나리오 엔티티 생성 및 저장 (초기 상태는 PENDING)
         Scenario scenario = Scenario.builder()
                 .user(decisionLine.getUser())
@@ -96,6 +131,7 @@ public class ScenarioService {
         try {
             // 상태를 PROCESSING으로 업데이트
             scenario.setStatus(ScenarioStatus.PROCESSING);
+            scenario.setUpdatedDate(LocalDateTime.now());
             scenarioRepository.save(scenario);
 
             // AI 시나리오 생성
@@ -103,12 +139,20 @@ public class ScenarioService {
 
             // 상태를 COMPLETED로 업데이트
             scenario.setStatus(ScenarioStatus.COMPLETED);
+            scenario.setUpdatedDate(LocalDateTime.now());
             scenarioRepository.save(scenario);
+
+            log.info("Scenario generation completed successfully for ID: {}", scenarioId);
+
         } catch (Exception e) {
-            // 오류 발생 시 상태를 FAILED로 업데이트하고 오류 메시지 저장
+            // 실패 처리 - 재시도 가능하도록 FAILED 상태로 설정 TODO: 재시도 횟수 제한 로직 추가 및 상태 조회시 재시도 안내 기능
             scenario.setStatus(ScenarioStatus.FAILED);
-            scenario.setErrorMessage(e.getMessage());
+            scenario.setErrorMessage("시나리오 생성 실패: " + e.getMessage());
+            scenario.setUpdatedDate(LocalDateTime.now());
             scenarioRepository.save(scenario);
+
+            log.error("Scenario generation failed for ID: {}, error: {}",
+                    scenarioId, e.getMessage(), e);
         }
     }
 
