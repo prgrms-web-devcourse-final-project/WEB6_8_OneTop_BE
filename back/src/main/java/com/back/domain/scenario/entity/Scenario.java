@@ -1,5 +1,6 @@
 package com.back.domain.scenario.entity;
 
+import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
@@ -32,6 +33,11 @@ public class Scenario extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "decision_line_id", nullable = false)
     private DecisionLine decisionLine;
+
+    // 시나리오 비교 분석 대상 베이스 시나리오 (선택 경로의 베이스라인과 연결)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "base_line_id")
+    private BaseLine baseLine;
 
     // 시나리오 처리 상태 (PENDING, PROCESSING, COMPLETED, FAILED)
     @Enumerated(EnumType.STRING)
