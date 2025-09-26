@@ -3,6 +3,7 @@ package com.back.domain.comment.service;
 import com.back.domain.comment.dto.CommentRequest;
 import com.back.domain.comment.dto.CommentResponse;
 import com.back.domain.comment.entity.Comment;
+import com.back.domain.comment.enums.CommentSortType;
 import com.back.domain.comment.mapper.CommentMappers;
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.post.entity.Post;
@@ -13,6 +14,10 @@ import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 /**
@@ -35,5 +40,10 @@ public class CommentService {
         CommentMappers.CommentCtxMapper ctxMapper = new CommentMappers.CommentCtxMapper(user, post);
         Comment savedComment = commentRepository.save(ctxMapper.toEntity(request));
         return ctxMapper.toResponse(savedComment);
+    }
+
+    public Page<CommentResponse> getComments(Long userId, Long postId, Pageable pageable) {
+        Page<Comment> commentsPage = commentRepository.findCommentsByPostId(postId, pageable);
+        return commentsPage.map(CommentMappers.COMMENT_READ::map);
     }
 }
