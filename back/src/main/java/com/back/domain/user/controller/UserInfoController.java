@@ -1,14 +1,14 @@
 package com.back.domain.user.controller;
 
-import com.back.domain.user.dto.UserInfoRequest;
 import com.back.domain.user.dto.UserInfoResponse;
 import com.back.domain.user.service.UserInfoService;
 import com.back.global.security.CustomUserDetails;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/users-info")
@@ -21,6 +21,7 @@ public class UserInfoController {
         return ResponseEntity.ok(userInfoService.getMyInfo(principal.getId()));
     }
 
+    /*
     @PostMapping
     public ResponseEntity<UserInfoResponse> createMyInfo(@AuthenticationPrincipal CustomUserDetails principal,
                                                          @Valid @RequestBody UserInfoRequest req) {
@@ -32,4 +33,6 @@ public class UserInfoController {
                                                          @Valid @RequestBody UserInfoRequest req) {
         return ResponseEntity.ok(userInfoService.updateMyInfo(principal.getId(), req));
     }
+
+     */
 }

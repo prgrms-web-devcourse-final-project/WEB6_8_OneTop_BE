@@ -35,6 +35,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
         return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
 
+    public Long getId() { return user.getId(); }
+
     @Override
     public String getPassword() {
         return user.getPassword();
