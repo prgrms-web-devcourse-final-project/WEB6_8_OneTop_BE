@@ -5,6 +5,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * 이미지 생성 AI 클라이언트 인터페이스
+ * 텍스트 프롬프트를 기반으로 이미지를 생성하는 AI 서비스 추상화입니다.
  */
 public interface ImageAiClient {
     /**

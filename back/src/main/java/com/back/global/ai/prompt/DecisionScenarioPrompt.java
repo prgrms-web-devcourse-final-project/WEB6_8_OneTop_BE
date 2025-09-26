@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * 새로운 시나리오 생성을 위한 프롬프트 템플릿
- * DecisionLine의 선택 경로와 베이스 시나리오를 비교하여 대안 시나리오를 생성한다.
+ * DecisionLine과 베이스 시나리오를 기반으로 대안 시나리오 생성 프롬프트를 제공합니다.
  */
 public class DecisionScenarioPrompt {
 

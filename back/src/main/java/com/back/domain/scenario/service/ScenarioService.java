@@ -11,11 +11,13 @@ import com.back.domain.scenario.entity.SceneCompare;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
+import com.back.global.ai.service.AiService;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ScenarioService {
 
     // Repository 주입
@@ -46,7 +49,7 @@ public class ScenarioService {
     private final ObjectMapper objectMapper;
 
     // AI Service 주입 (추후 구현 시 필요, AI 호출용)
-    // private final AiService aiService;
+    private final AiService aiService;
 
     // 시나리오 생성
     @Transactional

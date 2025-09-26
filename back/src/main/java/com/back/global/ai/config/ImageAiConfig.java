@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 이미지 생성 AI 서비스 설정 클래스
+ * 이미지 생성 AI의 기본 설정값들을 관리합니다.
  */
 @Configuration
 @ConfigurationProperties(prefix = "ai.image")

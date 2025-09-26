@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Gemini AI 텍스트 생성 클라이언트
+ * Google Gemini API를 통한 비동기 텍스트 생성, 재시도, 에러 처리를 담당합니다.
  */
 @Component
 @Slf4j

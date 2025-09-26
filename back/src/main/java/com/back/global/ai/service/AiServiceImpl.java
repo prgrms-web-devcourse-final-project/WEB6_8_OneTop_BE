@@ -21,6 +21,11 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * AI 서비스 구현체.
+ * Gemini API를 사용하여 시나리오 생성, 상황 생성 등의 AI 기반 기능을 제공합니다.
+ */
+
 @Service
 @RequiredArgsConstructor
 @Slf4j

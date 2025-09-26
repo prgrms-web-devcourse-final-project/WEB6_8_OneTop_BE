@@ -7,6 +7,7 @@ import java.util.Map;
 
 /**
  * 새 시나리오 생성 결과 DTO
+ * AI가 분석한 대안 선택 경로 결과와 베이스 시나리오 비교 분석을 포함합니다.
  */
 public record DecisionScenarioResult(
         String job,
