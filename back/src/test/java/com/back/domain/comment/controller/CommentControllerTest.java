@@ -4,6 +4,7 @@ import com.back.domain.comment.dto.CommentRequest;
 import com.back.domain.comment.entity.Comment;
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.post.entity.Post;
+import com.back.domain.post.fixture.PostFixture;
 import com.back.domain.post.repository.PostRepository;
 import com.back.domain.user.entity.Gender;
 import com.back.domain.user.entity.Mbti;
@@ -23,10 +24,11 @@ import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,23 +55,14 @@ class CommentControllerTest {
     private ObjectMapper objectMapper;
 
     private User testUser;
+    private User anotherUser;
     private Post testPost;
+    private Comment testComment;
 
     @BeforeEach
     void setUp() {
-        String uid = UUID.randomUUID().toString().substring(0, 5);
-
-        User user = User.builder()
-                .email("test" + uid + "@example.com")
-                .password("password")
-                .username("tester_")
-                .nickname("tester_" + uid)
-                .beliefs("도전")
-                .gender(Gender.M)
-                .role(Role.USER)
-                .mbti(Mbti.ISFJ)
-                .birthdayAt(LocalDateTime.of(2000, 1, 1, 0, 0))
-                .build();
+        PostFixture postFixture = new PostFixture(userRepository, postRepository);
+        User user = postFixture.createTestUser();
         testUser = userRepository.save(user);
 
         Post post = Post.builder()
@@ -78,6 +71,9 @@ class CommentControllerTest {
                 .user(user)
                 .build();
         testPost = postRepository.save(post);
+
+        User another = postFixture.createAnotherUser();
+        anotherUser = userRepository.save(another);
     }
 
     @Nested
@@ -187,6 +183,136 @@ class CommentControllerTest {
 
     }
 
+    @Nested
+    @DisplayName("댓글 수정")
+    class UpdateCommentTest {
+
+        @Test
+        @DisplayName("성공 - 유효한 요청으로 댓글 수정")
+        void updateComment_Success() throws Exception {
+            // Given
+            testComment = Comment.builder()
+                    .content("테스트 댓글")
+                    .user(testUser)
+                    .post(testPost)
+                    .build();
+            testComment = commentRepository.save(testComment);
+            CommentRequest request = new CommentRequest("수정된 댓글입니다.", false);
+
+            // When & Then
+            mockMvc.perform(put("/api/v1/posts/{postId}/comments/{commentId}",
+                            testPost.getId(),
+                            testComment.getId())
+                            .param("userId", testUser.getId().toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("성공적으로 수정되었습니다."))
+                    .andExpect(jsonPath("$.data").value(testComment.getId()))
+                    .andDo(print());
+
+            Comment updatedComment = commentRepository.findById(testComment.getId()).orElseThrow();
+            assertThat(updatedComment.getContent()).isEqualTo(request.content());
+            assertThat(updatedComment.getUpdatedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("실패 - 빈 내용으로 댓글 수정 시도")
+        void updateComment_EmptyContent_Fail() throws Exception {
+            // Given
+            testComment = Comment.builder()
+                    .content("테스트 댓글")
+                    .user(testUser)
+                    .post(testPost)
+                    .build();
+            testComment = commentRepository.save(testComment);
+            CommentRequest request = new CommentRequest("", false);
+
+            // When & Then
+            mockMvc.perform(put("/api/v1/posts/{postId}/comments/{commentId}",
+                            testPost.getId(),
+                            testComment.getId())
+                            .param("userId", testUser.getId().toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andDo(print());
+
+            Comment unchangedComment = commentRepository.findById(testComment.getId()).orElseThrow();
+            assertThat(unchangedComment.getContent()).isEqualTo("테스트 댓글");
+        }
+    }
+
+    @Nested
+    @DisplayName("댓글 삭제")
+    class DeleteCommentTest {
+
+        @Test
+        @DisplayName("성공 - 유효한 요청으로 댓글 삭제")
+        void deleteComment_Success() throws Exception {
+            testComment = Comment.builder()
+                    .content("테스트 댓글")
+                    .user(testUser)
+                    .post(testPost)
+                    .build();
+            testComment = commentRepository.save(testComment);
+
+            // When & Then
+            mockMvc.perform(delete("/api/v1/posts/{postId}/comments/{commentId}",
+                            testPost.getId(),
+                            testComment.getId())
+                            .param("userId", testUser.getId().toString()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("성공적으로 삭제되었습니다."))
+                    .andDo(print());
+
+            // 실제 DB에서 삭제 확인
+            Optional<Comment> deletedComment = commentRepository.findById(testComment.getId());
+            assertThat(deletedComment).isEmpty();
+        }
+
+        @Test
+        @DisplayName("실패 - 다른 사용자의 댓글 삭제 시도")
+        void deleteComment_Unauthorized_Fail() throws Exception {
+            testComment = Comment.builder()
+                    .content("테스트 댓글")
+                    .user(testUser)
+                    .post(testPost)
+                    .build();
+            testComment = commentRepository.save(testComment);
+
+            // When & Then
+            mockMvc.perform(delete("/api/v1/posts/{postId}/comments/{commentId}",
+                            testPost.getId(),
+                            testComment.getId())
+                            .param("userId", anotherUser.getId().toString()))
+                    .andExpect(status().isUnauthorized())
+                    .andDo(print());
+
+            Optional<Comment> existingComment = commentRepository.findById(testComment.getId());
+            assertThat(existingComment).isPresent();
+        }
+
+        @Test
+        @DisplayName("실패 - 존재하지 않는 댓글 삭제 시도")
+        void deleteComment_CommentNotFound_Fail() throws Exception {
+            testComment = Comment.builder()
+                    .content("테스트 댓글")
+                    .user(testUser)
+                    .post(testPost)
+                    .build();
+            testComment = commentRepository.save(testComment);
+
+            // When & Then
+            mockMvc.perform(delete("/api/v1/posts/{postId}/comments/{commentId}",
+                            testPost.getId(),
+                            999L)
+                            .param("userId", testUser.getId().toString()))
+                    .andExpect(status().isNotFound())
+                    .andDo(print());
+        }
+    }
+
     private void createTestComments() {
         for (int i = 1; i <= 3; i++) {
             Comment comment = Comment.builder()
@@ -262,17 +388,5 @@ class CommentControllerTest {
                 .likeCount(10)
                 .build();
         commentRepository.save(comment3);
-    }
-
-    private void createManyTestComments(int count) {
-        for (int i = 1; i <= count; i++) {
-            Comment comment = Comment.builder()
-                    .content("댓글 " + i)
-                    .post(testPost)
-                    .user(testUser)
-                    .hide(false)
-                    .build();
-            commentRepository.save(comment);
-        }
     }
 }
