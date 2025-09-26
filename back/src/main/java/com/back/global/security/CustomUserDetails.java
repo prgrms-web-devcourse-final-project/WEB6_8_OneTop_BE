@@ -1,4 +1,4 @@
-package com.back.global.config;
+package com.back.global.security;
 
 import com.back.domain.user.entity.User;
 import lombok.Getter;
@@ -42,7 +42,7 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
 
     @Override
     public String getUsername() {
-        return user.getLoginId();
+        return user.getEmail();
     }
 
     @Override
@@ -70,8 +70,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
         return attributes;
     }
 
-    @Override
-    public String getName() {
-        return user.getLoginId();
+    @Override public String getName() {
+        if (user.getNickname()!=null && !user.getNickname().isBlank()) return user.getNickname();
+        return user.getEmail();
     }
 }

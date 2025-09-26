@@ -33,18 +33,18 @@ public class PostFixture {
 
     // User 생성
     public User createTestUser() {
-        return createUser("testLoginId", "test@example.com", "testPassword", "작성자1", Gender.M);
+        return createUser("testLoginId", "test@example.com", "testPassword", "작성자1", "닉네임1", Gender.M);
     }
 
     public User createAnotherUser() {
-        return createUser("anotherLoginId", "another@example.com", "another", "작성자2", Gender.F);
+        return createUser("anotherLoginId", "another@example.com", "another", "작성자2", "닉네임2", Gender.F);
     }
 
-    private User createUser(String loginId, String email, String password, String nickname, Gender gender) {
+    private User createUser(String loginId, String email, String password, String username, String nickname, Gender gender) {
         return userRepository.save(User.builder()
-                .loginId(loginId)
                 .email(email)
                 .password(password)
+                .username(username)
                 .nickname(nickname)
                 .beliefs("도전")
                 .gender(gender)

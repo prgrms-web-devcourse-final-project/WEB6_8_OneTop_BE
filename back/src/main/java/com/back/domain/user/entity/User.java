@@ -3,7 +3,6 @@ package com.back.domain.user.entity;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
@@ -21,35 +20,31 @@ import java.time.LocalDateTime;
 @Builder
 public class User extends BaseEntity {
 
-    @Column(unique = true)
-    private String loginId;
-
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @ColumnDefault("'GUEST'")
     private Role role;
 
     @Column(nullable = true)
     private String password;
 
-    @Column(length = 80)
+    @Column(nullable = false, length = 30)
+    private String username;
+
+    @Column(nullable = false, unique = true, length = 80)
     private String nickname;
 
     @Column(nullable = false)
     private LocalDateTime birthdayAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Gender gender;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Mbti mbti;
 
-    @Column(nullable = false)
     private String beliefs;
 
     private String lifeSatis;
