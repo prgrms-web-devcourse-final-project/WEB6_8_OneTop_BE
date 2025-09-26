@@ -14,6 +14,7 @@ import com.back.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 테스트에 필요한 데이터 관리 클래스
@@ -33,14 +34,16 @@ public class PostFixture {
 
     // User 생성
     public User createTestUser() {
-        return createUser("testLoginId", "test@example.com", "testPassword", "작성자1", "닉네임1", Gender.M);
+        String uid = UUID.randomUUID().toString().substring(0, 5);
+        return createUser(uid + "@example.com", "testPassword", "작성자", uid, Gender.M);
     }
 
     public User createAnotherUser() {
-        return createUser("anotherLoginId", "another@example.com", "another", "작성자2", "닉네임2", Gender.F);
+        String uid = UUID.randomUUID().toString().substring(0, 5);
+        return createUser(uid + "@example.com", "anotherPassword", "another", uid, Gender.F);
     }
 
-    private User createUser(String loginId, String email, String password, String username, String nickname, Gender gender) {
+    private User createUser(String email, String password, String username, String nickname, Gender gender) {
         return userRepository.save(User.builder()
                 .email(email)
                 .password(password)

@@ -90,6 +90,7 @@ class LikeControllerTest {
                         return User.builder()
                                 .email("test" + i + uid + "@example.com")
                                 .password("password")
+                                .username("tester")
                                 .nickname("nickname" + uid)
                                 .beliefs("도전")
                                 .gender(Gender.M)

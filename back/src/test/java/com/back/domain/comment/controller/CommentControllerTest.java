@@ -56,9 +56,9 @@ class CommentControllerTest {
         String uid = UUID.randomUUID().toString().substring(0, 5);
 
         User user = User.builder()
-                .loginId("loginId_" + uid)
                 .email("test" + uid + "@example.com")
                 .password("password")
+                .username("tester_")
                 .nickname("tester_" + uid)
                 .beliefs("도전")
                 .gender(Gender.M)
