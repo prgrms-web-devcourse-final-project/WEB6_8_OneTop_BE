@@ -36,6 +36,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 테스트 환경 추상화
+ * SpringBootTest - 테스트에 사용할 빈들만 등록
+ */
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
@@ -86,7 +90,6 @@ class LikeControllerTest {
         void AddLikeConcurrent() throws InterruptedException {
             List<User> testUsers = IntStream.rangeClosed(1, CONCURRENT_USERS)
                     .mapToObj(i -> User.builder()
-                            .loginId("loginId" + i)
                             .email("test" + i + "@example.com")
                             .password("password")
                             .nickname("nickname" + i)

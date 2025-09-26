@@ -21,7 +21,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @Transactional
-class
-PostControllerTest {
+class PostControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -74,7 +72,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(post(PostFixture.API_BASE_PATH)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.title").value("테스트 게시글"))
                     .andExpect(jsonPath("$.data.content").value("테스트 내용입니다."))
@@ -92,7 +91,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(post(PostFixture.API_BASE_PATH)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()))
                     .andExpect(jsonPath("$.message").exists());
@@ -107,7 +107,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(post(PostFixture.API_BASE_PATH)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(request))
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
         }
@@ -124,7 +125,8 @@ PostControllerTest {
             Post savedPost = fixture.createPostForDetail(testUser);
 
             // when & then
-            mockMvc.perform(get(PostFixture.API_BASE_PATH + "/{postId}", savedPost.getId()))
+            mockMvc.perform(get(PostFixture.API_BASE_PATH + "/{postId}", savedPost.getId())
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.title").value("조회 테스트 게시글"))
                     .andExpect(jsonPath("$.data.content").value("조회 테스트 내용입니다."))
@@ -137,7 +139,8 @@ PostControllerTest {
         @DisplayName("실패 - 존재하지 않는 게시글 ID")
         void fail_NotFound() throws Exception {
             // when & then
-            mockMvc.perform(get(PostFixture.API_BASE_PATH + "/{postId}", PostFixture.NON_EXISTENT_POST_ID))
+            mockMvc.perform(get(PostFixture.API_BASE_PATH + "/{postId}", PostFixture.NON_EXISTENT_POST_ID)
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(HttpStatus.NOT_FOUND.value()))
                     .andExpect(jsonPath("$.code").value(ErrorCode.POST_NOT_FOUND.getCode()))
@@ -154,7 +157,8 @@ PostControllerTest {
         @DisplayName("성공 - 페이징 파라미터가 없는 경우")
         void successWithDefaultParameters() throws Exception {
             // when & then
-            mockMvc.perform(get(PostFixture.API_BASE_PATH))
+            mockMvc.perform(get(PostFixture.API_BASE_PATH)
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.page").value(1))
                     .andExpect(jsonPath("$.data.size").value(5))
@@ -168,7 +172,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(get(PostFixture.API_BASE_PATH)
                             .param("page", "1")
-                            .param("size", "5"))
+                            .param("size", "5")
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.items.length()").value(5))
                     .andExpect(jsonPath("$.data.items[0].title").value("시나리오 게시글 2"))
@@ -186,7 +191,8 @@ PostControllerTest {
         void successWithCategoryFilter() throws Exception {
             // when & then
             mockMvc.perform(get(PostFixture.API_BASE_PATH)
-                            .param("category", PostCategory.SCENARIO.name()))
+                            .param("category", PostCategory.SCENARIO.name())
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.items[*].category").value(
                             Matchers.everyItem(Matchers.equalTo("SCENARIO"))
@@ -201,7 +207,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(get(PostFixture.API_BASE_PATH)
                             .param("searchType", SearchType.TITLE_CONTENT.name())
-                            .param("keyword", "시나리오"))
+                            .param("keyword", "시나리오")
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.items.length()").value(2))
                     .andDo(print());
@@ -213,7 +220,8 @@ PostControllerTest {
             // when & then
             mockMvc.perform(get(PostFixture.API_BASE_PATH)
                             .param("searchType", SearchType.AUTHOR.name())
-                            .param("keyword", "작성자1"))
+                            .param("keyword", "작성자1")
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.items[*].author",
                             Matchers.everyItem(Matchers.containsStringIgnoringCase("작성자1"))))
@@ -227,41 +235,34 @@ PostControllerTest {
 
         @Test
         @DisplayName("성공 - 본인 게시글 수정")
-        @Sql(statements = {
-                "UPDATE users SET id = 1 WHERE email = 'testUser@example.com'"
-        })
         void success() throws Exception {
             // given
-            User user1 = userRepository.findById(1L).orElseThrow();
+            User user1 = userRepository.findById(testUser.getId()).orElseThrow();
             Post savedPost = fixture.createPostForUpdate(user1);
             PostRequest updateRequest = fixture.createUpdateRequest();
 
             // when & then
             mockMvc.perform(put(PostFixture.API_BASE_PATH + "/{postId}", savedPost.getId())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(updateRequest)))
+                            .content(objectMapper.writeValueAsString(updateRequest))
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.title").value("수정된 제목"))
-                    .andExpect(jsonPath("$.data.content").value("수정된 내용"))
-                    .andExpect(jsonPath("$.data.category").value("CHAT"));
+                    .andExpect(jsonPath("$.data").value(savedPost.getId()))
+                    .andDo(print());
         }
 
         @Test
         @DisplayName("실패 - 다른 사용자 게시글 수정")
-        @Sql(statements = {
-                "UPDATE users SET id = 1 WHERE email = 'testUser@example.com'",
-                "UPDATE users SET id = 2 WHERE email = 'anothertestUser@example.com'"
-        })
         void fail_UnauthorizedUser() throws Exception {
             // given
-            User user2 = userRepository.findById(2L).orElseThrow();
-            Post savedPost = fixture.createPostForUpdate(user2);
+            Post savedPost = fixture.createPostForUpdate(anotherUser);
             PostRequest updateRequest = fixture.createUpdateRequest();
 
             // when & then
             mockMvc.perform(put(PostFixture.API_BASE_PATH + "/{postId}", savedPost.getId())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(updateRequest)))
+                            .content(objectMapper.writeValueAsString(updateRequest))
+                            .param("userId", String.valueOf(testUser.getId())))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED_USER.getCode()));
         }

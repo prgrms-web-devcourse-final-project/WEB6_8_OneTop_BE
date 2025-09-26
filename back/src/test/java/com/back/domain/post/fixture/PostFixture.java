@@ -85,7 +85,7 @@ public class PostFixture {
 
     // PostRequest 생성
     public PostRequest createPostRequest(String title, String content, PostCategory category) {
-        return new PostRequest(title, content, category);
+        return new PostRequest(title, content, category, false);
     }
 
     public PostRequest createPostRequest() {
