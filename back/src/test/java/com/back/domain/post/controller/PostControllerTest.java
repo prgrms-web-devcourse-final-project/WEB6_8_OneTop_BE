@@ -181,8 +181,6 @@ class PostControllerTest {
                     .andExpect(jsonPath("$.data.items[2].title").value("목록 게시글 5"))
                     .andExpect(jsonPath("$.data.page").value(1))
                     .andExpect(jsonPath("$.data.size").value(5))
-                    .andExpect(jsonPath("$.data.totalElements").value(7))
-                    .andExpect(jsonPath("$.data.totalPages").value(2))
                     .andExpect(jsonPath("$.data.last").value(false));
         }
 

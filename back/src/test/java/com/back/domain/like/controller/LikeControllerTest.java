@@ -11,7 +11,10 @@ import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ErrorCode;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +33,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -74,13 +77,6 @@ class LikeControllerTest {
         postRepository.flush();
     }
 
-    @AfterEach
-    void tearDown() {
-        postLikeRepository.deleteAll();
-        postRepository.deleteAll();
-        userRepository.deleteAll();
-    }
-
     @Nested
     @DisplayName("좋아요 등록 및 취소")
     class LikeFeatureTest {
@@ -89,16 +85,19 @@ class LikeControllerTest {
         @DisplayName("성공 - 50명 동시 좋아요 등록")
         void AddLikeConcurrent() throws InterruptedException {
             List<User> testUsers = IntStream.rangeClosed(1, CONCURRENT_USERS)
-                    .mapToObj(i -> User.builder()
-                            .email("test" + i + "@example.com")
-                            .password("password")
-                            .nickname("nickname" + i)
-                            .beliefs("도전")
-                            .gender(Gender.M)
-                            .role(Role.USER)
-                            .mbti(Mbti.ISFJ)
-                            .birthdayAt(LocalDateTime.of(2000, 1, 1, 0, 0))
-                            .build())
+                    .mapToObj(i -> {
+                        String uid = UUID.randomUUID().toString().substring(0, 5);
+                        return User.builder()
+                                .email("test" + i + uid + "@example.com")
+                                .password("password")
+                                .nickname("nickname" + uid)
+                                .beliefs("도전")
+                                .gender(Gender.M)
+                                .role(Role.USER)
+                                .mbti(Mbti.ISFJ)
+                                .birthdayAt(LocalDateTime.of(2000, 1, 1, 0, 0))
+                                .build();
+                    })
                     .collect(Collectors.toList());
 
             userRepository.saveAll(testUsers);
