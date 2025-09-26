@@ -7,6 +7,7 @@ import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.service.PostService;
 import com.back.global.common.ApiResponse;
 import com.back.global.common.PageResponse;
+import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,11 +16,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 게시글 관련 API 요청을 처리하는 컨트롤러.
- * TODO UserId는 추후 인증/인가 기능이 추가되면 인증 객체에서 추출하도록 변경할 예정.
  */
 @Tag(name = "Post", description = "게시글 관련 API")
 @RestController
@@ -38,9 +39,9 @@ public class PostController {
                     required = true
             )
             @RequestBody @Valid PostRequest request,
-            @RequestParam Long userId
+            @AuthenticationPrincipal CustomUserDetails cs
             ) {
-        PostDetailResponse response = postService.createPost(userId, request);
+        PostDetailResponse response = postService.createPost(cs.getUser().getId(), request);
         return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.OK);
     }
 
@@ -50,8 +51,8 @@ public class PostController {
     public ApiResponse<PageResponse<PostSummaryResponse>> getPosts(
             @Parameter(description = "검색 조건") @ModelAttribute PostSearchCondition condition,
             @Parameter(description = "페이지 정보") Pageable pageable,
-            @RequestParam Long userId) {
-        Page<PostSummaryResponse> responses = postService.getPosts(userId, condition, pageable);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        Page<PostSummaryResponse> responses = postService.getPosts(cs.getUser().getId(), condition, pageable);
         return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
@@ -60,8 +61,8 @@ public class PostController {
     @Operation(summary = "게시글 상세 조회", description = "게시글 ID로 게시글을 조회합니다.")
     public ApiResponse<PostDetailResponse> getPost(
             @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable Long postId,
-            @RequestParam Long userId) {
-        return ApiResponse.success(postService.getPost(userId, postId), "성공적으로 조회되었습니다.", HttpStatus.OK);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        return ApiResponse.success(postService.getPost(cs.getUser().getId(), postId), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
     @PutMapping("/{postId}")
@@ -73,16 +74,16 @@ public class PostController {
                     required = true
             )
             @RequestBody @Valid PostRequest request,
-            @RequestParam Long userId) {
-        return ApiResponse.success(postService.updatePost(userId, postId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        return ApiResponse.success(postService.updatePost(cs.getUser().getId(), postId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
     }
 
     @DeleteMapping("/{postId}")
     @Operation(summary = "게시글 삭제", description = "게시글 ID로 게시글을 삭제합니다.")
     public ApiResponse<Void> deletePost(
             @Parameter(description = "삭제할 게시글 ID", required = true) @PathVariable Long postId,
-            @RequestParam Long userId) {
-        postService.deletePost(userId, postId);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        postService.deletePost(cs.getUser().getId(), postId);
         return ApiResponse.success(null, "성공적으로 삭제되었습니다.", HttpStatus.OK);
     }
 }

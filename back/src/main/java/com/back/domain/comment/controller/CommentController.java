@@ -6,6 +6,7 @@ import com.back.domain.comment.enums.CommentSortType;
 import com.back.domain.comment.service.CommentService;
 import com.back.global.common.ApiResponse;
 import com.back.global.common.PageResponse;
+import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -38,9 +40,9 @@ public class CommentController {
             )
             @RequestBody @Valid CommentRequest request,
             @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable("postId") Long postId,
-            @RequestParam Long userId
+            @AuthenticationPrincipal CustomUserDetails cs
     ) {
-        CommentResponse response = commentService.createComment(userId, postId, request);
+        CommentResponse response = commentService.createComment(cs.getUser().getId(), postId, request);
         return ApiResponse.success(response, "성공적으로 생성되었습니다.", HttpStatus.OK);
     }
 
@@ -51,7 +53,7 @@ public class CommentController {
             @Parameter(description = "페이지 정보") Pageable pageable,
             @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable("postId") Long postId,
             @Parameter(description = "정렬 조건 LATEST or LIKES") @RequestParam(defaultValue = "LATEST") CommentSortType sortType,
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal CustomUserDetails cs) {
 
         Sort sort = Sort.by(Sort.Direction.DESC, sortType.getProperty());
 
@@ -61,7 +63,7 @@ public class CommentController {
                 sort
         );
 
-        Page<CommentResponse> responses = commentService.getComments(userId, postId, sortedPageable);
+        Page<CommentResponse> responses = commentService.getComments(cs.getUser().getId(), postId, sortedPageable);
         return ApiResponse.success(PageResponse.of(responses), "성공적으로 조회되었습니다.", HttpStatus.OK);
     }
 
@@ -75,16 +77,16 @@ public class CommentController {
                     required = true
             )
             @RequestBody @Valid CommentRequest request,
-            @RequestParam Long userId) {
-        return ApiResponse.success(commentService.updateComment(userId, commentId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        return ApiResponse.success(commentService.updateComment(cs.getUser().getId(), commentId, request), "성공적으로 수정되었습니다.", HttpStatus.OK);
     }
 
     @DeleteMapping("/{commentId}")
     @Operation(summary = "댓글 삭제", description = "자신의 댓글을 삭제합니다.")
     public ApiResponse<Void> deletePost(
             @Parameter(description = "삭제할 댓글 ID", required = true) @PathVariable Long commentId,
-            @RequestParam Long userId) {
-        commentService.deleteComment(userId, commentId);
+            @AuthenticationPrincipal CustomUserDetails cs) {
+        commentService.deleteComment(cs.getUser().getId(), commentId);
         return ApiResponse.success(null, "성공적으로 삭제되었습니다.", HttpStatus.OK);
     }
 }
