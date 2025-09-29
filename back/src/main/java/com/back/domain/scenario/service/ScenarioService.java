@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,62 +68,83 @@ public class ScenarioService {
             throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
         }
 
-        // 중복 생성 방지 - PENDING 또는 PROCESSING 상태 확인
-        boolean alreadyProcessing = scenarioRepository
-                .existsByDecisionLineIdAndStatusIn(
-                        request.decisionLineId(),
-                        List.of(ScenarioStatus.PENDING, ScenarioStatus.PROCESSING)
+        // 원자적 조회 + 상태 확인
+        Optional<Scenario> existingScenario = scenarioRepository
+                .findByDecisionLineId(request.decisionLineId());
+
+        if (existingScenario.isPresent()) {
+            Scenario existing = existingScenario.get();
+
+            // PENDING/PROCESSING 상태면 중복 생성 방지
+            if (existing.getStatus() == ScenarioStatus.PENDING ||
+                    existing.getStatus() == ScenarioStatus.PROCESSING) {
+                throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
+                        "해당 선택 경로의 시나리오가 이미 생성 중입니다.");
+            }
+
+            // FAILED 상태면 재시도 로직
+            if (existing.getStatus() == ScenarioStatus.FAILED) {
+                return handleFailedScenarioRetry(existing);
+            }
+
+            // COMPLETED 상태면 기존 시나리오 반환
+            if (existing.getStatus() == ScenarioStatus.COMPLETED) {
+                return new ScenarioStatusResponse(
+                        existing.getId(),
+                        existing.getStatus(),
+                        "이미 완료된 시나리오가 존재합니다."
                 );
-        if (alreadyProcessing) {
-            throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
-                    "해당 선택 경로의 시나리오가 이미 생성 중입니다. 잠시 후 다시 시도해주세요.");
+            }
         }
 
-        // FAILED 상태 시나리오 처리 (재시도 로직)
-        Optional<Scenario> failedScenario = scenarioRepository
-                .findByDecisionLineIdAndStatus(request.decisionLineId(), ScenarioStatus.FAILED);
+        // 새 시나리오 생성 (DataIntegrityViolationException 처리)
+        try {
+            Scenario scenario = Scenario.builder()
+                    .user(decisionLine.getUser())
+                    .decisionLine(decisionLine)
+                    .status(ScenarioStatus.PENDING)
+                    .build();
 
-        if (failedScenario.isPresent()) {
-            // 기존 FAILED 시나리오를 재사용하여 재시도
-            Scenario retryScenario = failedScenario.get();
-            retryScenario.setStatus(ScenarioStatus.PENDING);
-            retryScenario.setErrorMessage(null); // 이전 에러 메시지 클리어
-            retryScenario.setUpdatedDate(LocalDateTime.now());
-
-            Scenario savedScenario = scenarioRepository.save(retryScenario);
-
-            // 비동기 방식으로 AI 시나리오 재생성
+            Scenario savedScenario = scenarioRepository.save(scenario);
             processScenarioGenerationAsync(savedScenario.getId());
 
             return new ScenarioStatusResponse(
                     savedScenario.getId(),
                     savedScenario.getStatus(),
-                    "시나리오 재생성이 시작되었습니다."
+                    "시나리오 생성이 시작되었습니다."
             );
+
+        } catch (DataIntegrityViolationException e) {
+            // 동시성으로 인한 중복 생성 시 기존 시나리오 조회 후 반환
+            return scenarioRepository.findByDecisionLineId(request.decisionLineId())
+                    .map(existing -> new ScenarioStatusResponse(
+                            existing.getId(),
+                            existing.getStatus(),
+                            "기존 시나리오를 반환합니다."
+                    ))
+                    .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_CREATION_FAILED));
         }
+    }
 
-        // 시나리오 엔티티 생성 및 저장 (초기 상태는 PENDING)
-        Scenario scenario = Scenario.builder()
-                .user(decisionLine.getUser())
-                .decisionLine(decisionLine)
-                .status(ScenarioStatus.PENDING)
-                .build();
-        Scenario savedScenario = scenarioRepository.save(scenario);
+    // FAILED 시나리오 재시도 로직 분리
+    private ScenarioStatusResponse handleFailedScenarioRetry(Scenario failedScenario) {
+        failedScenario.setStatus(ScenarioStatus.PENDING);
+        failedScenario.setErrorMessage(null);
+        failedScenario.setUpdatedDate(LocalDateTime.now());
 
-        // 비동기 방식으로 AI 시나리오 생성
+        Scenario savedScenario = scenarioRepository.save(failedScenario);
         processScenarioGenerationAsync(savedScenario.getId());
 
-        // DTO 변환 및 반환
         return new ScenarioStatusResponse(
                 savedScenario.getId(),
                 savedScenario.getStatus(),
-                "시나리오 생성이 시작되었습니다."
+                "시나리오 재생성이 시작되었습니다."
         );
     }
 
     // 비동기 방식으로 AI 시나리오 생성
     @Async
-    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요
+    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요, 중복 생성 방지 및 재시도 로직 리뷰, ResponseEntity로 변경, 테스트코드, 타 도메인 연동
     public void processScenarioGenerationAsync(Long scenarioId) {
         // 시나리오 조회
         Scenario scenario = scenarioRepository.findById(scenarioId)

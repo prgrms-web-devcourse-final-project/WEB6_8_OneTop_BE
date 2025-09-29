@@ -30,13 +30,13 @@ public class Scenario extends BaseEntity {
     private User user;
 
     // 시나리오 생성의 기반이 된 선택 경로
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "decision_line_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "decision_line_id", unique = true)
     private DecisionLine decisionLine;
 
     // 시나리오 비교 분석 대상 베이스 시나리오 (선택 경로의 베이스라인과 연결)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "base_line_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "base_line_id", unique = true)
     private BaseLine baseLine;
 
     // 시나리오 처리 상태 (PENDING, PROCESSING, COMPLETED, FAILED)
@@ -53,8 +53,8 @@ public class Scenario extends BaseEntity {
     private LocalDateTime updatedDate;
 
     // 시나리오와 연결된 게시글 (시나리오 공유 시 생성)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "post_id", unique = true)
     private Post post;
 
     // AI가 생성한 직업 정보

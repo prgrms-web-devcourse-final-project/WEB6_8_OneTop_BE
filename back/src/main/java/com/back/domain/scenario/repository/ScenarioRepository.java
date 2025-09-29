@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -28,11 +27,9 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // 베이스 시나리오 존재 확인
     boolean existsByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
 
-    // DecisionLine 기반 시나리오 존재 확인 (시나리오 중복 생성 방지)
-    boolean existsByDecisionLineIdAndStatusIn(Long decisionLineId, List<ScenarioStatus> statuses);
-
-    // FAILED 상태 시나리오 조회 (재시도용)
-    Optional<Scenario> findByDecisionLineIdAndStatus(Long decisionLineId, ScenarioStatus status);
+    // DecisionLine 기반 시나리오 조회 (중복 생성 방지 및 재시도용)
+    @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
+    Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
 
     // 사용자별 베이스라인 시나리오 제외 시나리오 목록 조회 (MyPage용, 페이징구현 및 N+1 방지)
     @EntityGraph(attributePaths = {"user", "decisionLine", "decisionLine.baseLine"})
