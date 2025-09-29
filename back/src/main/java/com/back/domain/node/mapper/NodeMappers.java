@@ -6,10 +6,14 @@
  */
 package com.back.domain.node.mapper;
 
+import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseNodeCreateRequestDto;
+import com.back.domain.node.dto.base.BaseNodeDto;
+import com.back.domain.node.dto.decision.DecNodeDto;
+import com.back.domain.node.dto.decision.DecisionNodeCreateRequestDto;
 import com.back.global.mapper.Mapper;
 import com.back.global.mapper.TwoWayMapper;
 import com.back.global.mapper.MappingException;
-import com.back.domain.node.dto.*;
 import com.back.domain.node.entity.*;
 import com.back.domain.user.entity.User;
 
@@ -20,7 +24,7 @@ public final class NodeMappers {
 
     private NodeMappers() {}
 
-    // BaseNode → BaseLineDto
+    // BaseNode -> BaseLineDto
     public static final Mapper<BaseNode, BaseNodeDto> BASE_READ = e -> {
         if (e == null) throw new MappingException("BaseNode is null");
         return new BaseNodeDto(
@@ -38,18 +42,19 @@ public final class NodeMappers {
                 e.getAltOpt1(),
                 e.getAltOpt2(),
                 e.getAltOpt1TargetDecisionId(),
-                e.getAltOpt2TargetDecisionId()
+                e.getAltOpt2TargetDecisionId(),
+                e.getDescription()
         );
     };
 
-    // DecisionNode → DecLineDto
-    public static final Mapper<DecisionNode, DecLineDto> DECISION_READ = e -> {
+    // DecisionNode -> DecLineDto
+    public static final Mapper<DecisionNode, DecNodeDto> DECISION_READ = e -> {
         if (e == null) throw new MappingException("DecisionNode is null");
         List<String> opts = new ArrayList<>(3);
         if (e.getOption1() != null) opts.add(e.getOption1());
         if (e.getOption2() != null) opts.add(e.getOption2());
         if (e.getOption3() != null) opts.add(e.getOption3());
-        return new DecLineDto(
+        return new DecNodeDto(
                 e.getId(),
                 e.getUser() != null ? e.getUser().getId() : null,
                 e.getNodeKind() != null ? e.getNodeKind().name() : NodeType.DECISION.name(),
@@ -63,7 +68,8 @@ public final class NodeMappers {
                 e.getBackground(),
                 opts.isEmpty() ? null : List.copyOf(opts),
                 e.getSelectedIndex(),
-                e.getParentOptionIndex()
+                e.getParentOptionIndex(),
+                e.getDescription()
         );
     };
 
@@ -102,14 +108,14 @@ public final class NodeMappers {
             return entity;
         }
 
-        // BaseNode → BaseLineDto
+        // BaseNode -> BaseLineDto
         @Override
         public BaseNodeDto toResponse(BaseNode entity) {
             return BASE_READ.map(entity);
         }
     }
 
-    public static final class DecisionNodeCtxMapper implements TwoWayMapper<DecisionNodeCreateRequestDto, DecisionNode, DecLineDto> {
+    public static final class DecisionNodeCtxMapper implements TwoWayMapper<DecisionNodeCreateRequestDto, DecisionNode, DecNodeDto> {
         private final User user;
         private final DecisionLine decisionLine;
         private final DecisionNode parentDecision;
@@ -135,21 +141,41 @@ public final class NodeMappers {
                     .parentOptionIndex(req.parentOptionIndex())
                     .build();
             List<String> opts = req.options();
-            if (opts != null && !opts.isEmpty()) {
-                d.setOption1(opts.size() > 0 ? opts.get(0) : null);
-                d.setOption2(opts.size() > 1 ? opts.get(1) : null);
-                d.setOption3(opts.size() > 2 ? opts.get(2) : null);
-                d.setSelectedIndex(req.selectedIndex());
-                if (req.selectedIndex() != null && req.selectedIndex() >= 0 && req.selectedIndex() < opts.size()) {
-                    if (d.getDecision() == null) d.setDecision(opts.get(req.selectedIndex()));
+            if (opts == null || opts.isEmpty()) {
+                d.setOption1(null);
+                d.setOption2(null);
+                d.setOption3(null);
+                d.setSelectedIndex(null);
+            } else {
+                final int size = Math.min(3, opts.size());
+                final String o1 = (size >= 1 && opts.get(0) != null && !opts.get(0).isBlank()) ? opts.get(0).trim() : null;
+                final String o2 = (size >= 2 && opts.get(1) != null && !opts.get(1).isBlank()) ? opts.get(1).trim() : null;
+                final String o3 = (size >= 3 && opts.get(2) != null && !opts.get(2).isBlank()) ? opts.get(2).trim() : null;
+
+                d.setOption1(o1);
+                d.setOption2(o2);
+                d.setOption3(o3);
+
+                Integer sel = req.selectedIndex();
+                if (sel == null && size == 1) sel = 0;
+                if (sel != null && (sel < 0 || sel >= size)) sel = null;
+                d.setSelectedIndex(sel);
+
+                if ((d.getDecision() == null || d.getDecision().isBlank()) && sel != null) {
+                    switch (sel) {
+                        case 0 -> d.setDecision(o1);
+                        case 1 -> d.setDecision(o2);
+                        case 2 -> d.setDecision(o3);
+                    }
                 }
             }
+
             return d;
         }
 
-        // DecisionNode → DecLineDto
+        // DecisionNode -> DecLineDto
         @Override
-        public DecLineDto toResponse(DecisionNode entity) {
+        public DecNodeDto toResponse(DecisionNode entity) {
             return DECISION_READ.map(entity);
         }
     }

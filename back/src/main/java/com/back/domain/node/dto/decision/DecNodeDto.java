@@ -2,12 +2,12 @@
  * [DTO-RES] DecisionNode 응답
  * - options/selectedIndex/parentOptionIndex를 포함해 프론트 렌더 정보를 제공한다
  */
-package com.back.domain.node.dto;
+package com.back.domain.node.dto.decision;
 
 import com.back.domain.node.entity.NodeCategory;
 import java.util.List;
 
-public record DecLineDto(
+public record DecNodeDto(
         Long id,
         Long userId,
         String type,
@@ -21,5 +21,6 @@ public record DecLineDto(
         String background,
         List<String> options,
         Integer selectedIndex,
-        Integer parentOptionIndex
+        Integer parentOptionIndex,
+        String description
 ) {}

@@ -62,6 +62,9 @@ public class BaseNode extends BaseEntity {
 
     private Long altOpt2TargetDecisionId; // 분기2 연결 대상 결정노드 id
 
+    @Column(columnDefinition = "TEXT")
+    private String description; // 추가 설명
+
     // 헤더 판단 헬퍼
     public boolean isHeaderOf(BaseLine baseLine) {
         if (baseLine == null) return false;

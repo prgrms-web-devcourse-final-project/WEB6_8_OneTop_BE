@@ -16,6 +16,7 @@ public record PivotListDto(
             Long baseNodeId,
             NodeCategory category,
             String situation,
-            Integer ageYear
+            Integer ageYear,
+            String description
     ) {}
 }

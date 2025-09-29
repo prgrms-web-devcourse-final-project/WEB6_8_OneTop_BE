@@ -2,7 +2,7 @@
  * [DTO-RES] BaseLine 일괄 생성 응답
  * - 생성된 BaseLine id와 각 노드의 id/인덱스 반환
  */
-package com.back.domain.node.dto;
+package com.back.domain.node.dto.base;
 
 import java.util.List;
 

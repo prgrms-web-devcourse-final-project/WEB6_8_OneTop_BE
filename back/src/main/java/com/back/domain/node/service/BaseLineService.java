@@ -5,8 +5,8 @@
  */
 package com.back.domain.node.service;
 
-import com.back.domain.node.dto.BaseLineBulkCreateRequest;
-import com.back.domain.node.dto.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.dto.PivotListDto;
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.BaseNode;
@@ -18,12 +18,14 @@ import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 class BaseLineService {
 
     private final BaseLineRepository baseLineRepository;
@@ -31,7 +33,7 @@ class BaseLineService {
     private final UserRepository userRepository;
     private final NodeDomainSupport support;
 
-    // 가장 많이 사용하는: 일괄 생성(save chain)
+    // 노드 일괄 생성(save chain)
     public BaseLineBulkCreateResponse createBaseLineWithNodes(BaseLineBulkCreateRequest request) {
         support.validateBulkRequest(request);
         User user = userRepository.findById(request.userId())
@@ -40,10 +42,14 @@ class BaseLineService {
 
         BaseLine baseLine = baseLineRepository.save(BaseLine.builder().user(user).title(title).build());
 
+        List<BaseLineBulkCreateRequest.BaseNodePayload> normalized = support.normalizeWithEnds(request.nodes());
+        log.debug("[BL] normalized size = {}", normalized.size());
+
+
         BaseNode prev = null;
         List<BaseLineBulkCreateResponse.CreatedNode> created = new ArrayList<>();
-        for (int i = 0; i < request.nodes().size(); i++) {
-            BaseLineBulkCreateRequest.BaseNodePayload payload = request.nodes().get(i);
+        for (int i = 0; i < normalized.size(); i++) {
+            BaseLineBulkCreateRequest.BaseNodePayload payload = normalized.get(i);
             BaseNode entity = new NodeMappers.BaseNodeCtxMapper(user, baseLine, prev).toEntity(payload);
             entity.guardBaseOptionsValid();
             BaseNode saved = baseNodeRepository.save(entity);
@@ -67,7 +73,7 @@ class BaseLineService {
         List<PivotListDto.PivotDto> list = new ArrayList<>();
         int idx = 0;
         for (BaseNode n : uniqByAge.values()) {
-            list.add(new PivotListDto.PivotDto(idx++, n.getId(), n.getCategory(), n.getSituation(), n.getAgeYear()));
+            list.add(new PivotListDto.PivotDto(idx++, n.getId(), n.getCategory(), n.getSituation(), n.getAgeYear(), n.getDescription()));
         }
         return new PivotListDto(baseLineId, list);
     }

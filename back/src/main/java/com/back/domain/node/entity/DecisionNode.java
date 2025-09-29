@@ -72,6 +72,9 @@ public class DecisionNode extends BaseEntity {
 
     private Integer parentOptionIndex; // 부모 결정의 어떤 옵션(0..2)에서 파생됐는지
 
+    @Column(columnDefinition = "TEXT")
+    private String description; // 추가 설명
+
     // 다음 나이 검증
     public void guardNextAgeValid(int nextAge) {
         if (nextAge <= this.getAgeYear()) {
