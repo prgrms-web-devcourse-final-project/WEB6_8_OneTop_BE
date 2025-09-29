@@ -42,9 +42,7 @@ public class Post extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    /**
-     * JSON 데이터를 단순 문자열로 저장 (예: {"option1": 10, "option2": 5})
-     */
+    @Column(columnDefinition = "jsonb")
     private String voteContent;
 
     @Column(nullable = false)

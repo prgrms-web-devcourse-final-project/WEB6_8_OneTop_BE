@@ -34,23 +34,23 @@ public class PostService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
+    private final PostMappers postMappers;
 
     @Transactional
     public PostDetailResponse createPost(Long userId, PostRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
-        Post post = PostMappers.toEntity(request, user);
+        Post post = postMappers.toEntity(request, user);
         Post savedPost = postRepository.save(post);
 
-        return PostMappers.toDetailResponse(savedPost, false);
+        return postMappers.toDetailResponse(savedPost, false);
     }
 
     public PostDetailResponse getPost(Long userId, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
         boolean isLiked = postLikeRepository.existsByPostIdAndUserId(postId, userId);
-        return PostMappers.toDetailResponse(post, isLiked);
+        return postMappers.toDetailResponse(post, isLiked);
     }
 
     /**
@@ -61,7 +61,7 @@ public class PostService {
 
         Set<Long> likedPostIds = getUserLikedPostIds(userId, posts);
 
-        return posts.map(post -> PostMappers.toSummaryResponse(
+        return posts.map(post -> postMappers.toSummaryResponse(
                 post,
                 likedPostIds.contains(post.getId())
         ));

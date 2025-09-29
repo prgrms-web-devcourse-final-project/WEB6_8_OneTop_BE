@@ -1,8 +1,10 @@
 package com.back.domain.post.dto;
 
+import com.back.domain.poll.dto.PollResponse;
 import com.back.domain.post.enums.PostCategory;
 import com.back.global.common.DateFormat;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
@@ -32,6 +34,10 @@ public record PostDetailResponse(
 
         @Schema(description = "게시글 작성일자", example = "2025.09.23")
         @DateFormat
-        LocalDateTime createdDate
+        LocalDateTime createdDate,
+
+        @Schema(description = "투표 정보, 투표가 없는 게시글인 경우 null")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        PollResponse polls
 ) {}
 
