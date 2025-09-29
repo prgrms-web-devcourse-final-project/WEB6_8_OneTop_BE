@@ -8,7 +8,6 @@ import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.SceneCompare;
-import com.back.domain.scenario.entity.Type;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
@@ -55,6 +54,9 @@ public class ScenarioService {
 
     // AI Service 주입
     private final AiService aiService;
+
+    // Scenario Transaction Service 주입
+    private final ScenarioTransactionService scenarioTransactionService;
 
     // 시나리오 생성
     @Transactional
@@ -143,65 +145,47 @@ public class ScenarioService {
     }
 
     // 비동기 방식으로 AI 시나리오 생성
-    @Async
-    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요, 테스트코드, 타 도메인 연동
+    @Async // TODO: 테스트코드, 타 도메인 연동
     public void processScenarioGenerationAsync(Long scenarioId) {
-        // 시나리오 조회
-        Scenario scenario = scenarioRepository.findById(scenarioId)
-                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
-
         try {
-            // 상태를 PROCESSING으로 업데이트
-            scenario.setStatus(ScenarioStatus.PROCESSING);
-            scenario.setUpdatedDate(LocalDateTime.now());
-            scenarioRepository.save(scenario);
+            // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
 
-            // AI 시나리오 생성
-            aiScenarioGeneration(scenario);
+            // 2. AI 시나리오 생성 (트랜잭션 외부에서 실행)
+            AiScenarioGenerationResult result = executeAiGeneration(scenarioId);
 
-            // 상태를 COMPLETED로 업데이트
-            scenario.setStatus(ScenarioStatus.COMPLETED);
-            scenario.setUpdatedDate(LocalDateTime.now());
-            scenarioRepository.save(scenario);
+            // 3. 결과 저장 및 완료 상태 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.saveAiResult(scenarioId, result);
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.COMPLETED, null);
 
             log.info("Scenario generation completed successfully for ID: {}", scenarioId);
 
         } catch (Exception e) {
-            // 실패 처리 - 재시도 가능하도록 FAILED 상태로 설정 TODO: 재시도 횟수 제한 로직 추가 및 상태 조회시 재시도 안내 기능
-            scenario.setStatus(ScenarioStatus.FAILED);
-            scenario.setErrorMessage("시나리오 생성 실패: " + e.getMessage());
-            scenario.setUpdatedDate(LocalDateTime.now());
-            scenarioRepository.save(scenario);
-
+            // 4. 실패 상태 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.FAILED,
+                    "시나리오 생성 실패: " + e.getMessage());
             log.error("Scenario generation failed for ID: {}, error: {}",
                     scenarioId, e.getMessage(), e);
         }
     }
 
-    // AI 시나리오 생성 (핵심 로직)
-    @Transactional
-    protected void aiScenarioGeneration(Scenario scenario) {
-        try {
-            DecisionLine decisionLine = scenario.getDecisionLine();
-            BaseLine baseLine = decisionLine.getBaseLine();
+    // AI 호출 전용 메서드 (트랜잭션 없음)
+    private AiScenarioGenerationResult executeAiGeneration(Long scenarioId) {
+        Scenario scenario = scenarioRepository.findById(scenarioId)
+                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-            // 1. 베이스 시나리오 확보
-            Scenario baseScenario = ensureBaseScenarioExists(baseLine);
+        // AI 호출 로직 (트랜잭션 외부에서 실행)
+        DecisionLine decisionLine = scenario.getDecisionLine();
+        BaseLine baseLine = decisionLine.getBaseLine();
 
-            // 2. DecisionScenario 생성 (항상 실행)
-            DecisionScenarioResult aiResult = aiService
-                    .generateDecisionScenario(decisionLine, baseScenario).join();
+        // 베이스 시나리오 확보
+        Scenario baseScenario = ensureBaseScenarioExists(baseLine);
 
-            // 3. 결과 적용
-            applyDecisionScenarioResult(scenario, aiResult);
+        // AI 호출 (트랜잭션 외부)
+        DecisionScenarioResult aiResult = aiService
+                .generateDecisionScenario(decisionLine, baseScenario).join();
 
-            log.info("AI scenario generation completed successfully for Scenario ID: {}", scenario.getId());
-
-        } catch (Exception e) {
-            log.error("AI scenario generation failed for Scenario ID: {}, error: {}",
-                    scenario.getId(), e.getMessage(), e);
-            throw new ApiException(ErrorCode.AI_GENERATION_FAILED, "AI 시나리오 생성 실패: " + e.getMessage());
-        }
+        return new AiScenarioGenerationResult(aiResult);
     }
 
     // 베이스 시나리오 확보 (없으면 생성)
@@ -228,168 +212,9 @@ public class ScenarioService {
         Scenario savedScenario = scenarioRepository.save(baseScenario);
 
         // 3. AI 결과 적용
-        applyBaseScenarioResult(savedScenario, aiResult);
+        scenarioTransactionService.applyBaseScenarioResult(savedScenario, aiResult);
 
         return savedScenario;
-    }
-
-    // 베이스 시나리오 결과 적용
-    @Transactional
-    protected void applyBaseScenarioResult(Scenario scenario, BaseScenarioResult aiResult) {
-        // 기본 정보 설정
-        scenario.setJob(aiResult.job());
-        scenario.setTotal(calculateTotalScore(aiResult.indicatorScores()));
-        scenario.setSummary(aiResult.summary());
-        scenario.setDescription(aiResult.description());
-
-        // 타임라인 처리
-        handleTimelineTitles(scenario, aiResult.timelineTitles());
-
-        // 베이스 시나리오는 이미지 없음
-        scenario.setImg(null);
-
-        scenarioRepository.save(scenario);
-
-        // 베이스용 SceneType 생성
-        createBaseSceneTypes(scenario, aiResult);
-
-        // BaseLine 제목 업데이트
-        updateBaseLineTitle(scenario.getBaseLine(), aiResult.baselineTitle());
-    }
-
-    // DecisionScenario 결과 적용
-    @Transactional
-    protected void applyDecisionScenarioResult(Scenario scenario, DecisionScenarioResult aiResult) {
-        // 기본 정보 설정
-        scenario.setJob(aiResult.job());
-        scenario.setTotal(calculateTotalScore(aiResult.indicatorScores()));
-        scenario.setSummary(aiResult.summary());
-        scenario.setDescription(aiResult.description());
-
-        // 타임라인 처리
-        handleTimelineTitles(scenario, aiResult.timelineTitles());
-
-        // 이미지 생성 처리
-        handleImageGeneration(scenario, aiResult.imagePrompt());
-
-        scenarioRepository.save(scenario);
-
-        // 지표별 SceneType 생성
-        createDecisionSceneTypes(scenario, aiResult);
-
-        // 비교 분석 결과 생성
-        createSceneCompare(scenario, aiResult);
-    }
-
-    private void handleTimelineTitles(Scenario scenario, Map<String, String> timelineTitles) {
-        try {
-            String timelineTitlesJson = objectMapper.writeValueAsString(timelineTitles);
-            scenario.setTimelineTitles(timelineTitlesJson);
-        } catch (Exception e) {
-            log.error("Failed to serialize timeline titles for scenario {}: {}",
-                    scenario.getId(), e.getMessage());
-            scenario.setTimelineTitles("{}");
-        }
-    }
-
-    private void handleImageGeneration(Scenario scenario, String imagePrompt) {
-        try {
-            if (imagePrompt != null && !imagePrompt.trim().isEmpty()) {
-                String imageUrl = aiService.generateImage(imagePrompt).join();
-
-                if ("placeholder-image-url".equals(imageUrl) || imageUrl == null || imageUrl.trim().isEmpty()) {
-                    scenario.setImg(null);
-                    log.info("Image generation not available for scenario {}, stored as null", scenario.getId());
-                } else {
-                    scenario.setImg(imageUrl);
-                    log.info("Image generated successfully for scenario {}", scenario.getId());
-                }
-            } else {
-                scenario.setImg(null);
-            }
-        } catch (Exception e) {
-            scenario.setImg(null);
-            log.warn("Image generation failed for scenario {}: {}. Continuing without image.",
-                    scenario.getId(), e.getMessage());
-        }
-    }
-
-    private int calculateTotalScore(Map<Type, Integer> indicatorScores) {
-        return indicatorScores.values().stream()
-                .mapToInt(Integer::intValue)
-                .sum();
-    }
-
-    private void createBaseSceneTypes(Scenario scenario, BaseScenarioResult aiResult) {
-        List<com.back.domain.scenario.entity.SceneType> sceneTypes = aiResult.indicatorScores()
-                .entrySet().stream()
-                .map(entry -> {
-                    Type type = entry.getKey();
-                    int point = entry.getValue();
-                    String analysis = aiResult.indicatorAnalysis().get(type);
-
-                    return com.back.domain.scenario.entity.SceneType.builder()
-                            .scenario(scenario)
-                            .type(type)
-                            .point(point) // AI가 분석한 실제 점수
-                            .analysis(analysis != null ? analysis : "현재 " + type.name() + " 상황 분석")
-                            .build();
-                })
-                .toList();
-
-        sceneTypeRepository.saveAll(sceneTypes);
-    }
-
-    private void createDecisionSceneTypes(Scenario scenario, DecisionScenarioResult aiResult) {
-        List<com.back.domain.scenario.entity.SceneType> sceneTypes = aiResult.indicatorScores()
-                .entrySet().stream()
-                .map(entry -> {
-                    Type type = entry.getKey();
-                    int point = entry.getValue();
-                    String analysis = aiResult.indicatorAnalysis().get(type);
-
-                    return com.back.domain.scenario.entity.SceneType.builder()
-                            .scenario(scenario)
-                            .type(type)
-                            .point(point)
-                            .analysis(analysis != null ? analysis : "분석 정보를 가져올 수 없습니다.")
-                            .build();
-                })
-                .toList();
-
-        sceneTypeRepository.saveAll(sceneTypes);
-    }
-
-    private void createSceneCompare(Scenario scenario, DecisionScenarioResult aiResult) {
-        List<SceneCompare> compares = aiResult.comparisonResults()
-                .entrySet().stream()
-                .map(entry -> {
-                    String resultTypeStr = entry.getKey().toUpperCase();
-                    com.back.domain.scenario.entity.SceneCompareResultType resultType;
-                    try {
-                        resultType = com.back.domain.scenario.entity.SceneCompareResultType.valueOf(resultTypeStr);
-                    } catch (IllegalArgumentException e) {
-                        log.warn("Unknown result type: {}, using TOTAL as fallback", resultTypeStr);
-                        resultType = com.back.domain.scenario.entity.SceneCompareResultType.TOTAL;
-                    }
-
-                    return SceneCompare.builder()
-                            .scenario(scenario)
-                            .resultType(resultType)
-                            .compareResult(entry.getValue())
-                            .build();
-                })
-                .toList();
-
-        sceneCompareRepository.saveAll(compares);
-    }
-
-    private void updateBaseLineTitle(BaseLine baseLine, String baselineTitle) {
-        if (baselineTitle != null && !baselineTitle.trim().isEmpty()) {
-            baseLine.setTitle(baselineTitle);
-            baseLineRepository.save(baseLine);
-            log.info("BaseLine title updated for ID: {}", baseLine.getId());
-        }
     }
 
     // 시나리오 생성 상태 조회
@@ -556,5 +381,30 @@ public class ScenarioService {
                         LocalDateTime.of(2024, 6, 10, 16, 20)
                 )
         );
+    }
+
+    // AI 생성 결과를 담는 래퍼 클래스 (트랜잭션 분리용)
+    static class AiScenarioGenerationResult {
+        private final boolean isBaseScenario;
+        private final BaseScenarioResult baseResult;
+        private final DecisionScenarioResult decisionResult;
+
+        // 베이스 시나리오용 생성자
+        public AiScenarioGenerationResult(BaseScenarioResult baseResult) {
+            this.isBaseScenario = true;
+            this.baseResult = baseResult;
+            this.decisionResult = null;
+        }
+
+        // 결정 시나리오용 생성자
+        public AiScenarioGenerationResult(DecisionScenarioResult decisionResult) {
+            this.isBaseScenario = false;
+            this.baseResult = null;
+            this.decisionResult = decisionResult;
+        }
+
+        public boolean isBaseScenario() { return isBaseScenario; }
+        public BaseScenarioResult getBaseResult() { return baseResult; }
+        public DecisionScenarioResult getDecisionResult() { return decisionResult; }
     }
 }
