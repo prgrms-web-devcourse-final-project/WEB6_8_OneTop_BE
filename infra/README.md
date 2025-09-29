@@ -23,7 +23,7 @@ infra/
 ## Infrastructure Diagrams
 
 <details>
-<summary>🔧 개발 환경 구성도 (Development Mode)</summary>
+<summary> 환경 구성도 </summary>
 
 > **주의**: 개발 목적으로 RDS 포트(5432)와 NPM 관리 포트(81)가 외부에 노출되어 있습니다.
 
@@ -129,131 +129,16 @@ graph TB
 - RDS 외부 접근
   - `publicly_accessible = true`
 
-</details>
-
-<details>
-<summary>🔒 프로덕션 환경 구성도 (Production Mode)</summary>
-
-> **보안**: 프로덕션 환경에서는 RDS와 NPM 관리 포트가 내부에서만 접근 가능합니다.
-
-**프로덕션 권장 설정값:**
-- PORT
-  - `expose_rds_port = false` 🔒
-  - `expose_npm_config = false` 🔒
-- RDS 외부 접근
-  - `publicly_accessible = false`
-
-**접근 방법:**
-- RDS: EC2를 통한 터널링 또는 VPN
-- NPM 관리: EC2 SSH 터널링
-
-```mermaid
-graph TB
-    %% External
-    Internet([Internet])
-    User([사용자])
-
-    %% AWS Cloud boundary
-    subgraph AWS["AWS Cloud"]
-        %% VPC
-        subgraph VPC["VPC (10.0.0.0/16)"]
-            IGW[Internet Gateway]
-            RT[Route Table]
-
-            %% Subnets in different AZs
-            subgraph AZ1["AZ-a (EC2, RDS 배치)"]
-                Subnet1["Public Subnet 1<br/>(10.0.0.0/24)"]
-                EC2["EC2 Instance<br/>(t3.micro)<br/>Amazon Linux 2023<br/>Docker, Redis, NPM"]
-                RDS["🔒 PostgreSQL RDS<br/>db.t3.micro Single-AZ<br/>PRIVATE ACCESS<br/>AZ-a 배치"]
-            end
-
-            subgraph AZ2["AZ-b"]
-                Subnet2["Public Subnet 2<br/>(10.0.1.0/24)"]
-            end
-
-            subgraph AZ3["AZ-c"]
-                Subnet3["Public Subnet 3<br/>(10.0.2.0/24)"]
-            end
-
-            subgraph AZ4["AZ-d"]
-                Subnet4["Public Subnet 4<br/>(10.0.3.0/24)"]
-            end
-
-            %% Security Groups
-            SG_MAIN["Main Security Group (sg_1)<br/>HTTP-80, HTTPS-443 항상 허용<br/>🔒 RDS-5432, NPM-81 차단<br/>EC2와 RDS 모두 적용"]
-            SG_EC2_RDS[EC2-RDS 전용 Security Groups<br/>EC2 ↔ RDS 내부 통신<br/>Port 5432]
-
-            %% RDS Subnet Group
-            RDS_SG[RDS Subnet Group<br/>Subnet1 + Subnet2]
-
-            %% IAM Role
-            IAM_ROLE[IAM Role<br/>S3FullAccess<br/>SSM Access]
-        end
-
-        %% S3 and CloudFront
-        S3[S3 Bucket<br/>Static Files]
-        CF[CloudFront<br/>CDN Distribution]
-        OAI[Origin Access Identity]
-
-        %% EIP
-        EIP[Elastic IP]
-    end
-
-    %% Connections
-    User --> Internet
-    Internet --> CF
-    Internet --> IGW
-    IGW --> RT
-    RT --> Subnet1
-    RT --> Subnet2
-    RT --> Subnet3
-    RT --> Subnet4
-
-    EC2 --> EIP
-    EIP --> Internet
-
-    EC2 --> SG_MAIN
-    EC2 --> SG_EC2_RDS
-    RDS --> SG_MAIN
-    RDS --> SG_EC2_RDS
-    RDS --> RDS_SG
-
-    CF --> OAI
-    OAI --> S3
-
-    EC2 -.->|IAM Role| IAM_ROLE
-    IAM_ROLE -.->|Access| S3
-    EC2 -.->|Internal Connect| RDS
-
-    %% Styling
-    classDef aws fill:#ff9900,stroke:#232f3e,stroke-width:2px,color:#fff
-    classDef compute fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px,color:#fff
-    classDef storage fill:#4ecdc4,stroke:#2b8a3e,stroke-width:2px,color:#fff
-    classDef network fill:#74c0fc,stroke:#1864ab,stroke-width:2px,color:#fff
-    classDef database fill:#51cf66,stroke:#2b8a3e,stroke-width:2px,color:#fff
-    classDef secure fill:#51cf66,stroke:#2b8a3e,stroke-width:3px,color:#fff
-
-    class AWS aws
-    class EC2,EIP,IAM_ROLE compute
-    class S3,CF storage
-    class VPC,IGW,RT,Subnet1,Subnet2,Subnet3,Subnet4,SG_MAIN,SG_EC2_RDS network
-    class RDS,RDS_SG secure
-```
-
 **프로덕션 권장 설정값:**
 - `expose_rds_port = false` 🔒
 - `expose_npm_config = false` 🔒
 - `publicly_accessible = false` (RDS)
 
-**접근 방법:**
-- RDS: EC2를 통한 터널링 또는 VPN
-- NPM 관리: EC2 SSH 터널링
-
 </details>
 
 ## Variables Configuration
 
-### terraform.tfvars 설정 가이드
+### - terraform.tfvars 설정 가이드
 
 `terraform.tfvars.default` 파일을 복사하여 `terraform.tfvars` 파일을 생성한 후, 아래 변수들을 설정하세요.
 
@@ -269,16 +154,21 @@ graph TB
 | `db_username` | 데이터베이스 사용자명 | `"db_user"`                 |
 | `nginx_admin_email` | Nginx Proxy Manager 관리자 이메일 | `"admin@example.com"`       |
 
-#### 보안 토글 변수
-| 변수명 | 기본값 | 설명 |
-|--------|--------|------|
-| `expose_rds_port` | `true` | 🔓 개발용 / `false` 🔒 프로덕션용 |
-| `expose_npm_config` | `true` | 🔓 개발용 / `false` 🔒 프로덕션용 |
-
 > ⚠️ **보안 주의사항**
 > * 해당 파일은 민감한 정보를 포함합니다
 > * 절대 Git 저장소에 커밋하지 마세요
 > * 외부로 유출되지 않도록 주의하세요
+
+### - variables.tf 설정 가이드
+#### 보안 토글 변수
+| 변수명                  | 기본값     | 설명                       |
+|----------------------|---------|--------------------------|
+| `expose_rds_port`    | `true`  | RDS 포트를 외부에 개방합니다.       |
+| `expose_npm_config`  | `true`  | NPM 포트를 외부에 개방합니다.       |
+| `bucket_key_enabled` | `false` | false 시 기본 암호화가 적용됩니다.   |
+| `is_s3_private`      | `true`  | 외부와 S3 간 상호작용 여부를 결정합니다. |
+| `enable_s3_acl`      | `false` | S3 버킷 ACL 활성화 여부를 결정합니다. |
+
 
 ## Usage
 #### 1. AWS 자격 증명 설정
@@ -352,6 +242,9 @@ terraform apply -target=aws_instance.main
    * CloudFrontFullAccess
    * IAMFullAccess
    * VPCFullAccess
+
+   or
+   * AdministratorAccess
 
 </details>
 
