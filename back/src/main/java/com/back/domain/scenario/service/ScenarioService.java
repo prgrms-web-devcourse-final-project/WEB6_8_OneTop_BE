@@ -144,7 +144,7 @@ public class ScenarioService {
 
     // 비동기 방식으로 AI 시나리오 생성
     @Async
-    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요, 중복 생성 방지 및 재시도 로직 리뷰, ResponseEntity로 변경, 테스트코드, 타 도메인 연동
+    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요, 테스트코드, 타 도메인 연동
     public void processScenarioGenerationAsync(Long scenarioId) {
         // 시나리오 조회
         Scenario scenario = scenarioRepository.findById(scenarioId)
