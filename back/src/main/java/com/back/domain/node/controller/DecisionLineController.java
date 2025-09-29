@@ -5,8 +5,8 @@
  */
 package com.back.domain.node.controller;
 
-import com.back.domain.node.dto.DecisionLineDetailDto;
-import com.back.domain.node.dto.DecisionLineListDto;
+import com.back.domain.node.dto.decision.DecisionLineDetailDto;
+import com.back.domain.node.dto.decision.DecisionLineListDto;
 import com.back.domain.node.service.NodeQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

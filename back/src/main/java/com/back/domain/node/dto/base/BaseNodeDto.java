@@ -2,7 +2,7 @@
  * [DTO-RES] BaseNode 응답
  * - 고정 선택과 분기 2칸 및 각 타겟 링크를 포함한다
  */
-package com.back.domain.node.dto;
+package com.back.domain.node.dto.base;
 
 import com.back.domain.node.entity.NodeCategory;
 
@@ -21,5 +21,6 @@ public record BaseNodeDto(
         String altOpt1,
         String altOpt2,
         Long altOpt1TargetDecisionId,
-        Long altOpt2TargetDecisionId
+        Long altOpt2TargetDecisionId,
+        String description
 ) {}

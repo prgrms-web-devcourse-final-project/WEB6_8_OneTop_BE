@@ -6,6 +6,10 @@
 package com.back.domain.node.service;
 
 import com.back.domain.node.dto.*;
+import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.base.BaseNodeDto;
+import com.back.domain.node.dto.decision.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,12 +41,12 @@ public class NodeService {
     }
 
     // from-base 생성 위임
-    public DecLineDto createDecisionNodeFromBase(DecisionNodeFromBaseRequest request) {
+    public DecNodeDto createDecisionNodeFromBase(DecisionNodeFromBaseRequest request) {
         return decisionFlowService.createDecisionNodeFromBase(request);
     }
 
     // next 생성 위임
-    public DecLineDto createDecisionNodeNext(DecisionNodeNextRequest request) {
+    public DecNodeDto createDecisionNodeNext(DecisionNodeNextRequest request) {
         return decisionFlowService.createDecisionNodeNext(request);
     }
 
@@ -64,5 +68,10 @@ public class NodeService {
     // BaseNode 단건 조회 위임
     public BaseNodeDto getBaseNode(Long baseNodeId) {
         return nodeQueryService.getBaseNode(baseNodeId);
+    }
+
+    // 가장 중요한: 결정 노드에서 세계선 포크
+    public DecNodeDto forkFromDecision(ForkFromDecisionRequest request) {
+        return decisionFlowService.forkFromDecision(request);
     }
 }

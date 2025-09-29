@@ -24,8 +24,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
@@ -362,6 +364,188 @@ public class DecisionFlowControllerTest {
                     .andExpect(jsonPath("$.code").value("C001"));
         }
     }
+
+
+    // 세계선 포크(fork) — DecisionNode에서 다른 선택지로 새 DecisionLine 생성
+    @Nested
+    @DisplayName("세계선 포크(fork)")
+    class ForkBranch {
+
+        // 가장 중요한: 헤드 결정 노드에서 다른 선택을 골라 새 라인을 만든다
+        @Test
+        @DisplayName("성공 : 헤드 결정에서 다른 선택지로 fork 하면 새 decisionLineId와 교체된 decision을 반환한다")
+        void success_forkFromHead_changesSelection_createsNewLine() throws Exception {
+            var head = startDecisionFromBase(userId); // 기존 헬퍼: options ["선택 A","선택 B"], selectedIndex=0
+
+            String req = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "targetOptionIndex": 1,
+          "keepUntilParent": true,
+          "lineTitle": "fork-1"
+        }
+        """.formatted(userId, head.decisionNodeId);
+
+            // 가장 많이 쓰는 호출: /decision-flow/fork 엔드포인트 POST
+            var res = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(req))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.type").value("DECISION"))
+                    .andExpect(jsonPath("$.decisionLineId").exists())
+                    .andExpect(jsonPath("$.id").exists())
+                    .andReturn();
+
+            JsonNode body = om.readTree(res.getResponse().getContentAsString());
+            long newLineId = body.get("decisionLineId").asLong();
+            String decision = body.get("decision").asText();
+            int age = body.get("ageYear").asInt();
+
+            assertThat(newLineId).isNotEqualTo(head.decisionLineId);
+            assertThat(decision).isEqualTo("선택 B");
+            assertThat(age).isEqualTo(head.ageYear);
+            assertThat(body.get("parentId").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("성공 : 같은 노드에서 여러 번 fork 하면 각기 다른 decisionLineId가 발급된다(무한 세계선)")
+        void success_multipleForksFromSameNode() throws Exception {
+            var head = startDecisionFromBase(userId);
+
+            String fork0 = """
+        {"userId": %d, "parentDecisionNodeId": %d, "targetOptionIndex": 0, "keepUntilParent": true}
+        """.formatted(userId, head.decisionNodeId);
+            String fork1 = """
+        {"userId": %d, "parentDecisionNodeId": %d, "targetOptionIndex": 1, "keepUntilParent": true}
+        """.formatted(userId, head.decisionNodeId);
+
+            var r0 = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fork0))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            var r1 = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fork1))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            long line0 = om.readTree(r0.getResponse().getContentAsString()).get("decisionLineId").asLong();
+            long line1 = om.readTree(r1.getResponse().getContentAsString()).get("decisionLineId").asLong();
+
+            assertThat(line0).isNotEqualTo(head.decisionLineId);
+            assertThat(line1).isNotEqualTo(head.decisionLineId);
+            assertThat(line0).isNotEqualTo(line1);
+        }
+
+        @Test
+        @DisplayName("성공 : fork로 생성된 새 라인을 /next로 계속 이어갈 수 있다")
+        void success_forkThenContinueWithNext() throws Exception {
+            var head = startDecisionFromBase(userId);
+
+            String fork = """
+        {"userId": %d, "parentDecisionNodeId": %d, "targetOptionIndex": 1, "keepUntilParent": true}
+        """.formatted(userId, head.decisionNodeId);
+
+            var forkRes = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fork))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            JsonNode forkNode = om.readTree(forkRes.getResponse().getContentAsString());
+            long forkHeadId = forkNode.get("id").asLong();
+
+            String nextReq = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "fork 이후 진행",
+          "options": ["수락","보류","거절"],
+          "selectedIndex": 2
+        }
+        """.formatted(userId, forkHeadId, NodeCategory.CAREER);
+
+            var nextRes = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(nextReq))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            JsonNode nextNode = om.readTree(nextRes.getResponse().getContentAsString());
+            assertThat(nextNode.get("parentId").asLong()).isEqualTo(forkHeadId);
+            assertThat(nextNode.get("decision").asText()).isEqualTo("거절");
+        }
+
+        @Test
+        @DisplayName("실패 : targetOptionIndex가 옵션 수를 초과하면 400/C001을 반환한다")
+        void fail_targetOptionIndexOutOfRange() throws Exception {
+            var head = startDecisionFromBase(userId); // 헤드는 옵션 2개
+
+            String bad = """
+        {"userId": %d, "parentDecisionNodeId": %d, "targetOptionIndex": 2, "keepUntilParent": true}
+        """.formatted(userId, head.decisionNodeId);
+
+            mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(bad))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+        @Test
+        @DisplayName("실패 : 옵션이 없는 결정 노드에서 fork 시도 시 400/C001을 반환한다")
+        void fail_forkOnNodeWithoutOptions() throws Exception {
+            // 헤드 생성(옵션 2개) 후, 옵션 없이 다음 노드 생성
+            var head = startDecisionFromBase(userId);
+
+            String nextNoOptions = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "옵션 없는 노드",
+          "ageYear": null
+        }
+        """.formatted(userId, head.decisionNodeId, NodeCategory.ETC);
+
+            var nextRes = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(nextNoOptions))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            long nodeId = om.readTree(nextRes.getResponse().getContentAsString()).get("id").asLong();
+
+            String fork = """
+        {"userId": %d, "parentDecisionNodeId": %d, "targetOptionIndex": 0, "keepUntilParent": true}
+        """.formatted(userId, nodeId);
+
+            mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fork))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+        @Test
+        @DisplayName("실패 : 존재하지 않는 결정 노드로 fork 시 404/N001을 반환한다")
+        void fail_parentDecisionNotFound_onFork() throws Exception {
+            String req = """
+        {"userId": %d, "parentDecisionNodeId": 9999999, "targetOptionIndex": 0, "keepUntilParent": true}
+        """.formatted(userId);
+
+            mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(req))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N001"))
+                    .andExpect(jsonPath("$.message").exists());
+        }
+    }
+
 
     // ===========================
     // 공통 헬퍼

@@ -10,6 +10,10 @@
 package com.back.domain.node.service;
 
 import com.back.domain.node.dto.*;
+import com.back.domain.node.dto.base.BaseNodeDto;
+import com.back.domain.node.dto.decision.DecNodeDto;
+import com.back.domain.node.dto.decision.DecisionLineDetailDto;
+import com.back.domain.node.dto.decision.DecisionLineListDto;
 import com.back.domain.node.entity.BaseNode;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.entity.DecisionNode;
@@ -50,7 +54,7 @@ public class NodeQueryService {
 
         List<DecisionLine> lines = decisionLineRepository.findByBaseLine_Id(baseLineId);
 
-        List<DecLineDto> decDtos = new ArrayList<>();
+        List<DecNodeDto> decDtos = new ArrayList<>();
         for (DecisionLine line : lines) {
             List<DecisionNode> ordered = decisionNodeRepository
                     .findByDecisionLine_IdOrderByAgeYearAscIdAsc(line.getId());
@@ -112,7 +116,7 @@ public class NodeQueryService {
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND, "DecisionLine not found: " + decisionLineId));
 
         List<DecisionNode> nodes = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(decisionLineId);
-        List<DecLineDto> nodeDtos = new ArrayList<>(nodes.size());
+        List<DecNodeDto> nodeDtos = new ArrayList<>(nodes.size());
         for (DecisionNode n : nodes) nodeDtos.add(NodeMappers.DECISION_READ.map(n));
 
         return new DecisionLineDetailDto(
