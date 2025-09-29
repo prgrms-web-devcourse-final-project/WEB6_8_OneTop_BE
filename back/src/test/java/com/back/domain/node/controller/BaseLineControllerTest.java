@@ -7,7 +7,7 @@
  */
 package com.back.domain.node.controller;
 
-import com.back.domain.node.dto.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.BaseNodeRepository;
@@ -26,8 +26,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
@@ -88,18 +90,52 @@ public class BaseLineControllerTest {
         }
 
         @Test
-        @DisplayName("실패 : nodes 길이가 2 미만이면 400/C001을 반환한다")
-        void fail_nodesTooShort() throws Exception {
-            // decision 필수 → 단건 샘플에도 decision 채움
+        @DisplayName("실패 : nodes가 비어있으면 400/C001을 반환한다")
+        void fail_nodesEmpty() throws Exception {
             String bad = """
-            { "userId": %d, "nodes": [ { "category":"%s", "situation":"단건", "decision":"단건", "ageYear":18 } ] }
-            """.formatted(userId, NodeCategory.EDUCATION);
+                { "userId": %d, "nodes": [] }
+                """.formatted(userId);
 
             mockMvc.perform(post("/api/v1/base-lines/bulk")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(bad))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("C001"));
+        }
+
+
+
+        @Test
+        @DisplayName("성공 : nodes 길이가 1이어도 201(헤더/테일 자동 부착)과 함께 3노드가 생성된다")
+        void success_nodesSinglePivot_autocompleteEnds() throws Exception {
+
+            String one = """
+                { "userId": %d, "nodes": [ { "category":"%s", "situation":"단건 피벗", "decision":"단건 피벗", "ageYear":18 } ] }
+                """.formatted(userId, NodeCategory.EDUCATION);
+
+            var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(one))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            long baseLineId = om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
+
+            var nodesRes = mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", baseLineId))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode nodes = om.readTree(nodesRes.getResponse().getContentAsString());
+            assertThat(nodes).hasSize(3);
+            assertThat(nodes.get(0).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(nodes.get(1).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(nodes.get(2).get("ageYear").asInt()).isEqualTo(18);
+
+            var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
+            assertThat(pivots).hasSize(1);
+            assertThat(pivots.get(0).get("ageYear").asInt()).isEqualTo(18);
         }
 
         @Test
@@ -284,11 +320,11 @@ public class BaseLineControllerTest {
             String withDup = """
             { "userId": %d,
               "nodes": [
-                {"category":"%s","situation":"헤더","decision":"헤더","ageYear":18},
-                {"category":"%s","situation":"중간1","decision":"중간1","ageYear":20},
+                {"category":"%s","situation":"중간1","decision":"중간1","ageYear":18},
+                {"category":"%s","situation":"중간2","decision":"중간2","ageYear":20},
                 {"category":"%s","situation":"중복20","decision":"중복20","ageYear":20},
-                {"category":"%s","situation":"중간2","decision":"중간2","ageYear":22},
-                {"category":"%s","situation":"꼬리","decision":"꼬리","ageYear":24}
+                {"category":"%s","situation":"중간3","decision":"중간3","ageYear":22},
+                {"category":"%s","situation":"중간4","decision":"중간4","ageYear":24}
               ]
             }
             """.formatted(userId,
@@ -304,12 +340,14 @@ public class BaseLineControllerTest {
 
             var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.pivots.length()").value(2))
+                    .andExpect(jsonPath("$.pivots.length()").value(4))
                     .andReturn();
 
             var pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
-            assertThat(pivots.get(0).get("ageYear").asInt()).isEqualTo(20);
-            assertThat(pivots.get(1).get("ageYear").asInt()).isEqualTo(22);
+            assertThat(pivots.get(0).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(pivots.get(1).get("ageYear").asInt()).isEqualTo(20);
+            assertThat(pivots.get(2).get("ageYear").asInt()).isEqualTo(22);
+            assertThat(pivots.get(3).get("ageYear").asInt()).isEqualTo(24);
         }
     }
 

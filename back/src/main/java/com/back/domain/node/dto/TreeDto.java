@@ -7,9 +7,12 @@
  */
 package com.back.domain.node.dto;
 
+import com.back.domain.node.dto.base.BaseNodeDto;
+import com.back.domain.node.dto.decision.DecNodeDto;
+
 import java.util.List;
 
 public record TreeDto(
         List<BaseNodeDto> baseNodes,
-        List<DecLineDto> decisionNodes
+        List<DecNodeDto> decisionNodes
 ) {}

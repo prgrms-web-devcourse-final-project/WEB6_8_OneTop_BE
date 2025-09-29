@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DecisionNodeRepository extends JpaRepository<DecisionNode, Long> {
 
     // 라인별 노드 리스트(나이 ASC, id ASC) — 라인 상세용
     List<DecisionNode> findByDecisionLine_IdOrderByAgeYearAscIdAsc(Long decisionLineId);
+
+    Optional<DecisionNode> findFirstByDecisionLine_IdOrderByAgeYearAscIdAsc(Long decisionLineId);
 }

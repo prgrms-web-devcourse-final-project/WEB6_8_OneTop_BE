@@ -1,7 +1,7 @@
 /**
  * [DTO-RES] 결정 라인 목록(요약) 응답
  */
-package com.back.domain.node.dto;
+package com.back.domain.node.dto.decision;
 
 import com.back.domain.node.entity.DecisionLineStatus;
 import java.time.LocalDateTime;

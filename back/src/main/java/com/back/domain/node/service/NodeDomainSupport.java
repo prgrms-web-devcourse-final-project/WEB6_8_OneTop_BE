@@ -5,7 +5,7 @@
  */
 package com.back.domain.node.service;
 
-import com.back.domain.node.dto.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.entity.*;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.BaseNodeRepository;
@@ -78,7 +78,13 @@ class NodeDomainSupport {
 
     // 피벗 나이로 BaseNode 찾기
     public BaseNode findBaseNodeByAge(List<BaseNode> ordered, int age) {
-        for (BaseNode b : ordered) if (b.getAgeYear() == age) return b;
+        if (ordered == null || ordered.size() <= 2) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "pivot base node not found for age " + age);
+        }
+        for (int i = 1; i < ordered.size() - 1; i++) {
+            BaseNode b = ordered.get(i);
+            if (b.getAgeYear() == age) return b;
+        }
         throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "pivot base node not found for age " + age);
     }
 
@@ -188,11 +194,11 @@ class NodeDomainSupport {
         if (request.userId() == null) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "userId is required");
         if (request.nodes() == null || request.nodes().isEmpty())
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "nodes must not be empty");
-        if (request.nodes().size() < 2)
-            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "nodes length must be >= 2 (header and tail required)");
+
         for (int i = 0; i < request.nodes().size(); i++) {
             BaseLineBulkCreateRequest.BaseNodePayload p = request.nodes().get(i);
-            if (p.category() == null) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "category is required at index=" + i);
+            if (p.category() == null)
+                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "category is required at index=" + i);
             if (p.ageYear() == null || p.ageYear() < 0)
                 throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "ageYear must be >= 0 at index=" + i);
             String s = Optional.ofNullable(p.situation()).orElse("");
@@ -216,4 +222,91 @@ class NodeDomainSupport {
     public String resolveBackground(String situation) {
         return situation == null ? "" : situation;
     }
+
+    public void ensureOwner(Long requestUserId, Long resourceUserId) {
+        if (requestUserId == null || !Objects.equals(requestUserId, resourceUserId)) {
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "owner mismatch");
+        }
+    }
+
+    // BaseLine 기준으로 소유자 검증
+    public void ensureOwnerOfBaseLine(Long requestUserId, BaseLine baseLine) {
+        ensureOwner(requestUserId, baseLine.getUser().getId());
+    }
+
+    // DecisionLine 기준으로 소유자 검증
+    public void ensureOwnerOfDecisionLine(Long requestUserId, DecisionLine line) {
+        ensureOwner(requestUserId, line.getUser().getId());
+    }
+
+    // 엔티티 option1~3 -> List<String> 정규화
+    public List<String> extractOptions(DecisionNode n) {
+        List<String> ops = new ArrayList<>(3);
+        if (n.getOption1() != null && !n.getOption1().isBlank()) ops.add(n.getOption1());
+        if (n.getOption2() != null && !n.getOption2().isBlank()) ops.add(n.getOption2());
+        if (n.getOption3() != null && !n.getOption3().isBlank()) ops.add(n.getOption3());
+        return ops.isEmpty() ? null : ops;
+    }
+
+    // 가장 중요한: 피벗만 들어온 nodes를 헤더/테일 자동 부착하여 정규화
+    public List<BaseLineBulkCreateRequest.BaseNodePayload> normalizeWithEnds(
+            List<BaseLineBulkCreateRequest.BaseNodePayload> raw
+    ) {
+        if (raw == null || raw.isEmpty())
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "nodes must not be empty");
+
+        // 정렬 보장(프론트 정렬 누락 대비)
+        List<BaseLineBulkCreateRequest.BaseNodePayload> pivots = new ArrayList<>(raw);
+        pivots.sort(Comparator.comparing(BaseLineBulkCreateRequest.BaseNodePayload::ageYear));
+
+        // 이미 헤더/테일을 포함해 온 ‘레거시 입력’이라면 그대로 사용(중복 부착 방지)
+        if (looksLikeLegacyWithEnds(pivots)) {
+            return pivots;
+        }
+
+        // 헤더/테일 자동 생성 정책:
+        // - 헤더: 첫 피벗 ageYear, situation/decision = "시작", category = 첫 피벗 category
+        // - 테일: 마지막 피벗 ageYear, situation/decision = "결말", category = 마지막 피벗 category
+        var first = pivots.get(0);
+        var last  = pivots.get(pivots.size() - 1);
+
+        var header = new BaseLineBulkCreateRequest.BaseNodePayload(
+                first.category(),
+                "시작",
+                "시작",
+                first.ageYear(),
+                null
+        );
+        var tail = new BaseLineBulkCreateRequest.BaseNodePayload(
+                last.category(),
+                "결말",
+                "결말",
+                last.ageYear(),
+                null
+        );
+
+        List<BaseLineBulkCreateRequest.BaseNodePayload> normalized = new ArrayList<>(pivots.size() + 2);
+        normalized.add(header);
+        normalized.addAll(pivots);
+        normalized.add(tail);
+        return normalized;
+    }
+
+    // 가장 많이 사용하는: 기존(헤더/테일 포함) 형태 감지 휴리스틱
+    private boolean looksLikeLegacyWithEnds(List<BaseLineBulkCreateRequest.BaseNodePayload> nodes) {
+        if (nodes.size() < 3) return false;
+        String s0 = Optional.ofNullable(nodes.get(0).situation()).orElse("");
+        String d0 = Optional.ofNullable(nodes.get(0).decision()).orElse("");
+        String sZ = Optional.ofNullable(nodes.get(nodes.size() - 1).situation()).orElse("");
+        String dZ = Optional.ofNullable(nodes.get(nodes.size() - 1).decision()).orElse("");
+        if (s0.contains("시작") || d0.contains("시작") || sZ.contains("결말") || dZ.contains("결말")) return true;
+
+        // 중간 구간의 최소/최대 ageYear가 양 끝과 동일하면 이미 가드 노드가 있을 확률 높음
+        int minMid = nodes.get(1).ageYear();
+        int maxMid = nodes.get(nodes.size() - 2).ageYear();
+        return (minMid == nodes.get(0).ageYear()) || (maxMid == nodes.get(nodes.size() - 1).ageYear());
+    }
+
+
+
 }
