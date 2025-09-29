@@ -12,8 +12,8 @@ public record UserInfoRequest(
         Gender gender,
         Mbti mbti,
         String beliefs,
-        String lifeSatis,
-        String relationship,
-        String workLifeBal,
-        String riskAvoid
+        Integer lifeSatis,
+        Integer relationship,
+        Integer workLifeBal,
+        Integer riskAvoid
 ) {}

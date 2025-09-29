@@ -47,13 +47,13 @@ public class User extends BaseEntity {
 
     private String beliefs;
 
-    private String lifeSatis;
+    private Integer lifeSatis;
 
-    private String relationship;
+    private Integer relationship;
 
-    private String workLifeBal;
+    private Integer workLifeBal;
 
-    private String riskAvoid;
+    private Integer riskAvoid;
 
     @Enumerated(EnumType.STRING)
     private AuthProvider authProvider;
