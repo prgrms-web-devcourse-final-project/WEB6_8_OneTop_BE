@@ -1,6 +1,5 @@
 package com.back.domain.post.controller;
 
-import com.back.domain.poll.dto.PollRequest;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
@@ -31,12 +30,9 @@ import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
