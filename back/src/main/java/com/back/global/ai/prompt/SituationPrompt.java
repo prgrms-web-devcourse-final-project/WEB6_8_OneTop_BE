@@ -154,12 +154,18 @@ public class SituationPrompt {
 
         StringBuilder choicesInfo = new StringBuilder();
 
+        // 사용자 출생연도 계산 (모든 노드가 같은 사용자이므로 첫 번째에서 가져옴)
+        int birthYear = previousNodes.get(0).getUser().getBirthdayAt().getYear();
+
         for (int i = 0; i < previousNodes.size(); i++) {
             DecisionNode node = previousNodes.get(i);
+            int actualYear = birthYear + node.getAgeYear() - 1; // 실제 연도 계산
+
             choicesInfo.append(String.format(
-                "%d단계 (%s):\n상황: %s\n선택: %s\n\n",
+                "%d단계 (%d세, %d년):\n상황: %s\n선택: %s\n\n",
                 i + 1,
-                node.getCreatedDate() != null ? node.getCreatedDate().toString() : "날짜 미상",
+                node.getAgeYear(),
+                actualYear,
                 node.getSituation() != null ? node.getSituation() : "상황 정보 없음",
                 node.getDecision() != null ? node.getDecision() : "선택 정보 없음"
             ));

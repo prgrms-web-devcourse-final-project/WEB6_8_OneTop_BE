@@ -8,12 +8,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * 시나리오 관련 API 요청을 처리하는 컨트롤러.
@@ -80,13 +80,14 @@ public class ScenarioController {
     }
 
     @GetMapping("/baselines")
-    @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 조회합니다.")
-    public ResponseEntity<List<BaselineListResponse>> getBaselines(
-            @AuthenticationPrincipal CustomUserDetails userDetails
+    @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 페이지네이션으로 조회합니다.")
+    public ResponseEntity<Page<BaselineListResponse>> getBaselines(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            Pageable pageable
     ) {
         Long userId = userDetails.getUser().getId();
 
-        List<BaselineListResponse> baselines = scenarioService.getBaselines(userId);
+        Page<BaselineListResponse> baselines = scenarioService.getBaselines(userId, pageable);
 
         return ResponseEntity.ok(baselines);
     }

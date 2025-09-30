@@ -17,6 +17,11 @@ public class DecisionScenarioPrompt {
     private static final String PROMPT_TEMPLATE = """
         당신은 인생 시나리오 분석 전문가입니다. 사용자의 대안 선택 경로를 분석하여 3년 후 예상 시나리오를 생성하고, 기본 시나리오와 비교 분석해주세요.
 
+        ## 사용자 정보
+        사용자 ID: {userId}
+        사용자 현재 나이: {currentAge}세
+        현재 연도: {currentYear}년
+
         ## 기본 시나리오 (현재 삶 유지 시)
         직업: {baseJob}
         요약: {baseSummary}
@@ -34,79 +39,76 @@ public class DecisionScenarioPrompt {
 
         ```json
         {
-            "job": "3년 후 예상 직업 (대안 선택의 결과)",
-            "summary": "3년 후 삶의 한 줄 요약 (50자 내외)",
-            "description": "3년 후 상세 시나리오 (500-800자, 선택의 나비효과 포함)",
-            "total": 275,
+            "job": "현재 연도로부터 3년 후 예상 직업 (대안 선택의 결과)",
+            "summary": "현재 연도로부터 3년 후 삶의 한 줄 요약 (50자 내외)",
+            "description": "현재 연도로부터 3년 후 상세 시나리오 (500-800자, 선택의 나비효과 포함)",
+            "total": 250~350,  // 지표 점수 합계 (기본 시나리오보다 향상된 점수로 유동적 조정)
             "imagePrompt": "시나리오 이미지 생성용 프롬프트 (영문, 50단어 내외)",
             "indicators": [
                 {
                     "type": "경제",
-                    "point": 60,
+                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
                     "analysis": "경제적 상황 분석 (200자 내외, 기본 시나리오와 차이점 포함)"
                 },
                 {
                     "type": "행복",
-                    "point": 60,
+                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
                     "analysis": "행복 지수 분석 (200자 내외, 변화된 점 강조)"
                 },
                 {
                     "type": "관계",
-                    "point": 50,
+                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
                     "analysis": "인간관계 변화 분석 (200자 내외)"
                 },
                 {
                     "type": "직업",
-                    "point": 55,
+                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
                     "analysis": "직업/커리어 변화 분석 (200자 내외)"
                 },
                 {
                     "type": "건강",
-                    "point": 50,
+                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
                     "analysis": "건강 상태 변화 분석 (200자 내외)"
                 }
             ],
             "timelineTitles": {
-                 "2024": "선택 시작점 (5단어 이내)",
-                 "2025": "첫 결과 나타남 (5단어 이내)",
-                 "2026": "변화 가속화 (5단어 이내)",
-                 "2027": "최종 성과 (5단어 이내)"
+                 "{timelineYears}": "DecisionNode들에 해당하는 연도별 제목 (5단어 이내)"
             },
             "comparisons": [
                 {
                     "type": "TOTAL",
                     "baseScore": {baseTotal},
-                    "newScore": 300,
+                    "newScore": "indicators의 point 합계와 일치",
                     "analysis": "전체적인 삶의 질 비교 분석 (300자 내외)"
                 },
                 {
                     "type": "경제",
                     "baseScore": {baseEconomyScore},
-                    "newScore": 75,
+                    "newScore": "경제 지표와 동일 (30~96, 75점 초과 시 보수적)",
                     "analysis": "경제적 측면 상세 비교 (300자 내외)"
                 },
                 {
                     "type": "행복",
                     "baseScore": {baseHappinessScore},
-                    "newScore": 85,
+                    "newScore": "행복 지표와 동일 (30~96, 75점 초과 시 보수적)",
                     "analysis": "행복 지수 상세 비교 (300자 내외)"
                 },
                 {
                     "type": "관계",
                     "baseScore": {baseRelationshipScore},
-                    "newScore": 60,
+                    "newScore": "관계 지표와 동일 (30~96, 75점 초과 시 보수적)",
                     "analysis": "인간관계 측면 상세 비교 (300자 내외)"
                 },
                 {
                     "type": "직업",
                     "baseScore": {baseCareerScore},
-                    "newScore": 90,
+                    "newScore": "직업 지표와 동일 (30~96, 75점 초과 시 보수적)",
                     "analysis": "직업/커리어 측면 상세 비교 (300자 내외)"
                 },
                 {
                     "type": "건강",
                     "baseScore": {baseHealthScore},
-                    "newScore": 55,
+                    "newScore": "건강 지표와 동일 (30~96, 75점 초과 시 보수적)",
                     "analysis": "건강 측면 상세 비교 (300자 내외)"
                 }
             ]
@@ -191,19 +193,28 @@ public class DecisionScenarioPrompt {
         StringBuilder decisionNodesInfo = new StringBuilder();
         List<DecisionNode> decisionNodes = decisionLine.getDecisionNodes();
 
-        if (decisionNodes != null && !decisionNodes.isEmpty()) {
-            for (int i = 0; i < decisionNodes.size(); i++) {
-                DecisionNode node = decisionNodes.get(i);
-                decisionNodesInfo.append(String.format(
-                    "%d단계 선택:\n상황: %s\n결정: %s\n선택일자: %s\n\n",
-                    i + 1,
-                    node.getSituation() != null ? node.getSituation() : "상황 정보 없음",
-                    node.getDecision() != null ? node.getDecision() : "결정 정보 없음",
-                    node.getCreatedDate() != null ? node.getCreatedDate().toString() : "날짜 없음"
-                ));
-            }
-        } else {
-            decisionNodesInfo.append("선택 경로 정보가 없습니다.");
+        // DecisionNode 유효성 검증
+        if (decisionNodes == null || decisionNodes.isEmpty()) {
+            throw new AiServiceException(ErrorCode.AI_INVALID_REQUEST, "DecisionNode cannot be null or empty for decision scenario generation");
+        }
+
+        // 사용자 출생연도 계산
+        int birthYear = decisionLine.getUser().getBirthdayAt().getYear();
+        int currentYear = java.time.LocalDate.now().getYear();
+        int userCurrentAge = currentYear - birthYear + 1;
+
+        for (int i = 0; i < decisionNodes.size(); i++) {
+            DecisionNode node = decisionNodes.get(i);
+            int actualYear = birthYear + node.getAgeYear() - 1; // 실제 연도 계산
+
+            decisionNodesInfo.append(String.format(
+                "%d단계 선택 (%d세, %d년):\n상황: %s\n결정: %s\n\n",
+                i + 1,
+                node.getAgeYear(),
+                actualYear,
+                node.getSituation() != null ? node.getSituation() : "상황 정보 없음",
+                node.getDecision() != null ? node.getDecision() : "결정 정보 없음"
+            ));
         }
 
         // 베이스 시나리오 지표 정보 구성
@@ -227,7 +238,19 @@ public class DecisionScenarioPrompt {
         int careerScore = getScoreByType(baseSceneTypes, "직업");
         int healthScore = getScoreByType(baseSceneTypes, "건강");
 
+        // DecisionNode들의 실제 연도들을 타임라인 연도로 사용
+        StringBuilder timelineYears = new StringBuilder();
+        for (int i = 0; i < decisionNodes.size(); i++) {
+            DecisionNode node = decisionNodes.get(i);
+            int actualYear = birthYear + node.getAgeYear() - 1;
+            if (i > 0) timelineYears.append(", ");
+            timelineYears.append('"').append(actualYear).append('"').append(": \"제목 (5단어 이내)\"");
+        }
+
         return PROMPT_TEMPLATE
+                .replace("{userId}", String.valueOf(decisionLine.getUser().getId()))
+                .replace("{currentAge}", String.valueOf(userCurrentAge))
+                .replace("{currentYear}", String.valueOf(currentYear))
                 .replace("{baseJob}", baseScenario.getJob() != null ? baseScenario.getJob() : "직업 정보 없음")
                 .replace("{baseSummary}", baseScenario.getSummary() != null ? baseScenario.getSummary() : "요약 없음")
                 .replace("{baseTotal}", String.valueOf(baseScenario.getTotal()))
@@ -238,7 +261,8 @@ public class DecisionScenarioPrompt {
                 .replace("{baseHappinessScore}", String.valueOf(happinessScore))
                 .replace("{baseRelationshipScore}", String.valueOf(relationshipScore))
                 .replace("{baseCareerScore}", String.valueOf(careerScore))
-                .replace("{baseHealthScore}", String.valueOf(healthScore));
+                .replace("{baseHealthScore}", String.valueOf(healthScore))
+                .replace("{timelineYears}", timelineYears.toString());
     }
 
     /**

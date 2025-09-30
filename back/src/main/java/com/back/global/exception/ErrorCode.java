@@ -54,6 +54,7 @@ public enum ErrorCode {
     BASE_SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SC006", "Base Scenario Not Found"),
     SCENARIO_TIMELINE_NOT_FOUND(HttpStatus.NOT_FOUND, "SC007", "Scenario Timeline Not Found"),
     SCENARIO_CREATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SC008", "Scenario Creation Failed"),
+    SCENARIO_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "SC009", "Scenario Not Completed"),
 
     // AI Errors
     AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI001", "AI Service Unavailable"),

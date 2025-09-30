@@ -2,6 +2,7 @@ package com.back.domain.scenario.service;
 
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
+import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
 import com.back.domain.scenario.dto.*;
@@ -22,6 +23,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -146,7 +149,7 @@ public class ScenarioService {
     }
 
     // 비동기 방식으로 AI 시나리오 생성
-    @Async // TODO: 테스트코드, 타 도메인 연동
+    @Async
     public void processScenarioGenerationAsync(Long scenarioId) {
         try {
             // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
@@ -276,19 +279,26 @@ public class ScenarioService {
         Scenario scenario = scenarioRepository.findByIdAndUserId(scenarioId, userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        // DecisionLine 조회 -> DecisionNodes 추출 (DecisionLine 미구현으로 임시)
-        // TODO: DecisionLine 및 DecisionNode 구현 후 교체
-        List<MockDecisionNode> mockNodes = createMockDecisionNodes();
+        // 시나리오 상태 확인
+        if (scenario.getStatus() != ScenarioStatus.COMPLETED) {
+            throw new ApiException(ErrorCode.SCENARIO_NOT_COMPLETED);
+        }
 
         // TimelineTitles JSON 파싱
         Map<String, String> timelineTitles = parseTimelineTitles(scenario.getTimelineTitles());
 
-        // TimelineEvent 리스트 생성
-        List<TimelineResponse.TimelineEvent> events = mockNodes.stream()
-                .map(node -> new TimelineResponse.TimelineEvent(
-                        node.year,
-                        timelineTitles.getOrDefault(String.valueOf(node.year), "선택 결과")
-                ))
+        // TimelineEvent 리스트 생성 (연도를 key로, 타이틀을 value로 저장된 데이터 활용)
+        List<TimelineResponse.TimelineEvent> events = timelineTitles.entrySet().stream()
+                .map(entry -> {
+                    try {
+                        int year = Integer.parseInt(entry.getKey());
+                        return new TimelineResponse.TimelineEvent(year, entry.getValue());
+                    } catch (NumberFormatException e) {
+                        // 연도가 숫자가 아닌 경우 무시
+                        return null;
+                    }
+                })
+                .filter(event -> event != null)
                 .sorted(Comparator.comparing(TimelineResponse.TimelineEvent::year))
                 .toList();
 
@@ -296,18 +306,6 @@ public class ScenarioService {
         return new TimelineResponse(scenarioId, events);
     }
 
-    // 시나리오 타임라인 조회 Helper
-    // Mock DecisionNode 클래스 (추후 실제 엔티티로 교체)
-    private record MockDecisionNode(int year, String title) {}
-
-    // Mock 데이터 생성 메서드 (추후 실제 데이터로 교체)
-    private List<MockDecisionNode> createMockDecisionNodes() {
-        return List.of(
-                new MockDecisionNode(2020, "창업 도전"),
-                new MockDecisionNode(2022, "해외 진출"),
-                new MockDecisionNode(2025, "상장 성공")
-        );
-    }
 
     // JSON 파싱 Helper 메서드
     private Map<String, String> parseTimelineTitles(String timelineTitles) {
@@ -355,33 +353,49 @@ public class ScenarioService {
         );
     }
 
-    // 베이스라인 목록 조회
+    // 베이스라인 목록 조회 (페이지네이션 지원)
     @Transactional(readOnly = true)
-    public List<BaselineListResponse> getBaselines(Long userId) {
-        // TODO: 실제 구현 시 BaseLineRepository.findAllByUserId(userId) 사용
-        // 현재는 Mock 데이터로 MVP 완성
+    public Page<BaselineListResponse> getBaselines(Long userId, Pageable pageable) {
+        // 사용자별 베이스라인 조회 (BaseNode들과 함께 fetch)
+        Page<BaseLine> baseLines = baseLineRepository.findAllByUserIdWithBaseNodes(userId, pageable);
 
-        // Mock 베이스라인 데이터 생성
-        return List.of(
-                new BaselineListResponse(
-                        1001L,
-                        "대학 졸업 후 진로 선택",
-                        List.of("교육", "진로", "취업"),
-                        LocalDateTime.of(2024, 1, 15, 10, 30)
-                ),
-                new BaselineListResponse(
-                        1002L,
-                        "회사 이직 후 새 시작",
-                        List.of("커리어", "성장", "도전"),
-                        LocalDateTime.of(2024, 3, 22, 14, 45)
-                ),
-                new BaselineListResponse(
-                        1003L,
-                        "결혼 후 인생 설계",
-                        List.of("가족", "관계", "안정"),
-                        LocalDateTime.of(2024, 6, 10, 16, 20)
-                )
+        // BaseLine -> BaselineListResponse 변환
+        return baseLines.map(this::convertToBaselineListResponse);
+    }
+
+    /**
+     * BaseLine 엔티티를 BaselineListResponse DTO로 변환
+     */
+    private BaselineListResponse convertToBaselineListResponse(BaseLine baseLine) {
+        // BaseNode들의 카테고리를 태그로 변환 (중복 제거 및 한글명으로 변환)
+        List<String> tags = baseLine.getBaseNodes().stream()
+                .filter(baseNode -> baseNode.getCategory() != null)
+                .map(baseNode -> convertCategoryToKorean(baseNode.getCategory()))
+                .distinct()
+                .sorted()
+                .toList();
+
+        return new BaselineListResponse(
+                baseLine.getId(),
+                baseLine.getTitle() != null ? baseLine.getTitle() : "제목 없음",
+                tags,
+                baseLine.getCreatedDate()
         );
+    }
+
+    /**
+     * NodeCategory를 한글명으로 변환
+     */
+    private String convertCategoryToKorean(NodeCategory category) {
+        return switch (category) {
+            case EDUCATION -> "교육";
+            case CAREER -> "진로";
+            case RELATIONSHIP -> "관계";
+            case FINANCE -> "경제";
+            case HEALTH -> "건강";
+            case LOCATION -> "거주지";
+            case ETC -> "기타";
+        };
     }
 
     // AI 생성 결과를 담는 래퍼 클래스 (트랜잭션 분리용)
