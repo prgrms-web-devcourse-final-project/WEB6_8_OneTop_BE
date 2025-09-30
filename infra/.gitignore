@@ -1,0 +1,9 @@
+**/.terraform
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/.terraform.tfstate.lock.info
+**/secrets.tf
+**/README_LOCAL.md
+**/*.tfvars
+.idea/

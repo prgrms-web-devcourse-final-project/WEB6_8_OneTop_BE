@@ -1,0 +1,11 @@
+github_token_owner = ""
+github_token = ""
+region = ""
+default_password = ""
+
+s3_bucket_name = ""
+
+db_name = ""
+db_username = ""
+
+nginx_admin_email = ""
