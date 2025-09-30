@@ -6,14 +6,18 @@
  */
 package com.back.domain.node.controller;
 
-import com.back.domain.node.dto.*;
+import com.back.domain.node.dto.PivotListDto;
+import com.back.domain.node.dto.TreeDto;
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.base.BaseLineDto;
 import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.service.NodeService;
+import com.back.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -54,5 +58,14 @@ public class BaseLineController {
     public ResponseEntity<TreeDto> getTreeForBaseLine(@PathVariable Long baseLineId) {
         TreeDto tree = nodeService.getTreeForBaseLine(baseLineId);
         return ResponseEntity.ok(tree);
+    }
+
+    // 내가 만든 베이스라인 목록 조회
+    @GetMapping("/mine")
+    public ResponseEntity<List<BaseLineDto>> getMyBaseLines(
+            @AuthenticationPrincipal CustomUserDetails me
+    ) {
+        List<BaseLineDto> list = nodeService.getMyBaseLines(me.getId());
+        return ResponseEntity.ok(list);
     }
 }

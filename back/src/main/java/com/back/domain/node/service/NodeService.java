@@ -8,6 +8,7 @@ package com.back.domain.node.service;
 import com.back.domain.node.dto.*;
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.base.BaseLineDto;
 import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.dto.decision.*;
 import lombok.RequiredArgsConstructor;
@@ -73,5 +74,9 @@ public class NodeService {
     // 가장 중요한: 결정 노드에서 세계선 포크
     public DecNodeDto forkFromDecision(ForkFromDecisionRequest request) {
         return decisionFlowService.forkFromDecision(request);
+    }
+
+    public List<BaseLineDto> getMyBaseLines(Long id) {
+        return nodeQueryService.getMyBaseLines(id);
     }
 }

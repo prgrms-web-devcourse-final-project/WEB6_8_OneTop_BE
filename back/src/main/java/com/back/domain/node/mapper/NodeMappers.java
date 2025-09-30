@@ -7,15 +7,16 @@
 package com.back.domain.node.mapper;
 
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseLineDto;
 import com.back.domain.node.dto.base.BaseNodeCreateRequestDto;
 import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.dto.decision.DecNodeDto;
 import com.back.domain.node.dto.decision.DecisionNodeCreateRequestDto;
-import com.back.global.mapper.Mapper;
-import com.back.global.mapper.TwoWayMapper;
-import com.back.global.mapper.MappingException;
 import com.back.domain.node.entity.*;
 import com.back.domain.user.entity.User;
+import com.back.global.mapper.Mapper;
+import com.back.global.mapper.MappingException;
+import com.back.global.mapper.TwoWayMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,16 @@ import java.util.List;
 public final class NodeMappers {
 
     private NodeMappers() {}
+
+    // BaseLine -> BaseLineDto
+    public static final Mapper<BaseLine, BaseLineDto> BASELINE_READ = e -> {
+        if (e == null) throw new MappingException("BaseLine is null");
+        return new BaseLineDto(
+                e.getId(),
+                e.getTitle()
+        );
+    };
+
 
     // BaseNode -> BaseLineDto
     public static final Mapper<BaseNode, BaseNodeDto> BASE_READ = e -> {

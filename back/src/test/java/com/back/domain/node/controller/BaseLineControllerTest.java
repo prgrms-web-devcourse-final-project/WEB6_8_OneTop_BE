@@ -13,6 +13,7 @@ import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.BaseNodeRepository;
 import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
+import com.back.global.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
@@ -20,6 +21,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -481,6 +485,70 @@ public class BaseLineControllerTest {
         }
     }
 
+    @Nested
+    @DisplayName("내 베이스라인 목록(/mine)")
+    class BaseLine_Mine {
+
+        @AfterEach
+        void clearCtx() { SecurityContextHolder.clearContext(); }
+
+        @Test
+        @DisplayName("성공 : /base-lines/mine — 최소 1개 라인 생성 후 목록에 id/title이 포함되어 반환된다")
+        void success_mine_returnsList() throws Exception {
+            var created = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(sampleLineJson(userId)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            // ★ 인증 세팅
+            var me = userRepository.findById(userId).orElseThrow();
+            setAuth(new CustomUserDetails(me));
+
+            // when/then
+            mockMvc.perform(get("/api/v1/base-lines/mine"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].id").exists())
+                    .andExpect(jsonPath("$[0].title").exists());
+        }
+
+        @Test
+        @DisplayName("성공 : /base-lines/mine — 라인이 없는 사용자에겐 빈 배열([])을 반환한다")
+        void success_mine_emptyForUserWithoutLines() throws Exception {
+            // given: 라인 없는 사용자
+            String uid = UUID.randomUUID().toString().substring(0, 8);
+            User emptyUser = User.builder()
+                    .email("nouser_" + uid + "@test.local")
+                    .role(Role.USER)
+                    .birthdayAt(LocalDateTime.now().minusYears(20))
+                    .gender(Gender.F)
+                    .mbti(Mbti.INFP)
+                    .beliefs("NONE")
+                    .authProvider(AuthProvider.LOCAL)
+                    .nickname("nouser-" + uid)
+                    .username("nouser-" + uid)
+                    .build();
+            userRepository.save(emptyUser);
+
+            // ★ 인증 세팅
+            setAuth(new CustomUserDetails(emptyUser));
+
+            // when/then
+            mockMvc.perform(get("/api/v1/base-lines/mine"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
+    }
+
+
+    // 가장 중요한 함수 한줄 요약: SecurityContextHolder에 인증 토큰 세팅
+    private void setAuth(CustomUserDetails cud) {
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities()));
+        SecurityContextHolder.setContext(ctx);
+    }
+
+
 
     // (자주 쓰는) 정상 입력 샘플 JSON 생성
     private String sampleLineJson(Long uid) {
@@ -496,4 +564,7 @@ public class BaseLineControllerTest {
         """.formatted(uid,
                 NodeCategory.EDUCATION, NodeCategory.CAREER, NodeCategory.CAREER, NodeCategory.ETC);
     }
+
+
+
 }
