@@ -1,0 +1,22 @@
+package com.back.global.ai.dto.result;
+
+import com.back.domain.scenario.entity.Type;
+
+import java.util.Map;
+
+/**
+ * 새 시나리오 생성 결과 DTO
+ * AI가 분석한 대안 선택 경로 결과와 베이스 시나리오 비교 분석을 포함합니다.
+ */
+public record DecisionScenarioResult(
+        String job,
+        String summary,
+        String description,
+        int total,  // 5개 지표 점수 합계
+        String imagePrompt,
+        Map<String, String> timelineTitles,
+        Map<Type, Integer> indicatorScores, // 각 지표별 점수
+        Map<Type, String> indicatorAnalysis, // 각 지표별 분석 내용
+        Map<String, String> comparisonResults // 비교 분석 결과
+) {
+}

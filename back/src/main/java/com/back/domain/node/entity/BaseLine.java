@@ -17,6 +17,7 @@ import java.util.List;
 @Entity
 @Table(name = "base_lines")
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder

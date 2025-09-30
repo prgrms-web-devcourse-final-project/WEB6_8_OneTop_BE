@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -22,27 +21,15 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // 사용자별 시나리오 조회 (권한 검증)
     Optional<Scenario> findByIdAndUserId(Long id, Long userId);
 
+    // 베이스 시나리오 조회
+    Optional<Scenario> findByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
+
     // 베이스 시나리오 존재 확인
-    boolean existsByDecisionLine_BaseLineId(Long baseLineId);
+    boolean existsByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
 
-    // 베이스 시나리오 조회 (비교 기준)
-    Optional<Scenario> findFirstByDecisionLine_BaseLineIdOrderByCreatedDateAsc(Long baseLineId);
-
-    // 연관 Entity 정보 포함 조회 (EntityGraph로 N+1 쿼리 방지, 확장 기능 대비)
-    @EntityGraph(attributePaths = {"user", "decisionLine", "sceneCompare"})
-    Optional<Scenario> findWithAllRelationsById(Long id);
-
-    // 사용자별 특정 상태 시나리오 목록 조회
-    List<Scenario> findByUserIdAndStatusOrderByCreatedDateDesc(Long userId, ScenarioStatus status);
-
-    // DecisionLine 기반 시나리오 존재 확인 (시나리오 중복 생성 방지)
-    boolean existsByDecisionLineIdAndStatus(Long decisionLineId, ScenarioStatus status);
-
-    // 베이스라인별 완료된 시나리오 조회 (비교용)
-    List<Scenario> findByDecisionLine_BaseLineIdAndStatusOrderByCreatedDateAsc(Long baseLineId, ScenarioStatus status);
-
-    // 사용자의 최신 시나리오 조회 (확장 기능 대비)
-    Optional<Scenario> findTopByUserIdOrderByCreatedDateDesc(Long userId);
+    // DecisionLine 기반 시나리오 조회 (중복 생성 방지 및 재시도용)
+    @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
+    Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
 
     // 사용자별 베이스라인 시나리오 제외 시나리오 목록 조회 (MyPage용, 페이징구현 및 N+1 방지)
     @EntityGraph(attributePaths = {"user", "decisionLine", "decisionLine.baseLine"})
@@ -58,7 +45,4 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
                                                        @Param("baseLineId") Long baseLineId,
                                                        @Param("status") ScenarioStatus status,
                                                        Pageable pageable);
-
-    // 특정 상태의 시나리오들 조회 (상태별 처리용)
-    List<Scenario> findByStatusOrderByCreatedDateAsc(ScenarioStatus status);
 }

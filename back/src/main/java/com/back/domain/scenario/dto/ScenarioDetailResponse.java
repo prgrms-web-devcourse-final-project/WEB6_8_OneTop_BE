@@ -1,5 +1,7 @@
 package com.back.domain.scenario.dto;
 
+import com.back.domain.scenario.entity.Scenario;
+import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
@@ -38,4 +40,21 @@ public record ScenarioDetailResponse(
         @Schema(description = "시나리오 결과 지표 정보", example = "[{\"type\":\"경제\",\"point\":85,\"analysis\":\"안정적인 연구직 수입\"}, {\"type\":\"행복\",\"point\":90,\"analysis\":\"의미 있는 일을 통한 성취감\"}]")
         List<ScenarioTypeDto> indicators
 ) {
+    public static ScenarioDetailResponse from(Scenario scenario, List<SceneType> sceneTypes) {
+        List<ScenarioTypeDto> indicators = sceneTypes.stream()
+                .map(st -> new ScenarioTypeDto(st.getType(), st.getPoint(), st.getAnalysis()))
+                .toList();
+
+        return new ScenarioDetailResponse(
+                scenario.getId(),
+                scenario.getStatus(),
+                scenario.getJob(),
+                scenario.getTotal(),
+                scenario.getSummary(),
+                scenario.getDescription(),
+                scenario.getImg(),
+                scenario.getCreatedDate(),
+                indicators
+        );
+    }
 }

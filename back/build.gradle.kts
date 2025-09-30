@@ -1,6 +1,3 @@
-import org.gradle.kotlin.dsl.annotationProcessor
-import org.gradle.kotlin.dsl.testAnnotationProcessor
-
 plugins {
     java
     id("org.springframework.boot") version "3.5.5"
@@ -33,8 +30,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client") // OAuth2 Client 추가
+
     // Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
+
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
@@ -54,8 +53,13 @@ dependencies {
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
     testAnnotationProcessor("io.github.openfeign.querydsl:querydsl-apt:7.0:jpa")
     testAnnotationProcessor("jakarta.persistence:jakarta.persistence-api")
+
+    // AI Services - WebFlux for non-blocking HTTP clients
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+

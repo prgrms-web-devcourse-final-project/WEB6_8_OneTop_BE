@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * 시나리오 비교 결과를 저장하는 엔티티.
@@ -15,7 +14,6 @@ import lombok.Setter;
 @Entity
 @Table(name = "scene_compare")
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

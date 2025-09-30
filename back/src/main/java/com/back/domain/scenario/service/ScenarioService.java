@@ -2,6 +2,7 @@ package com.back.domain.scenario.service;
 
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
+import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
 import com.back.domain.scenario.dto.*;
@@ -11,19 +12,27 @@ import com.back.domain.scenario.entity.SceneCompare;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
+import com.back.global.ai.dto.result.BaseScenarioResult;
+import com.back.global.ai.dto.result.DecisionScenarioResult;
+import com.back.global.ai.service.AiService;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 시나리오 관련 비즈니스 로직을 처리하는 서비스.
@@ -31,6 +40,7 @@ import java.util.Map;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ScenarioService {
 
     // Repository 주입
@@ -45,8 +55,11 @@ public class ScenarioService {
     // Object Mapper 주입
     private final ObjectMapper objectMapper;
 
-    // AI Service 주입 (추후 구현 시 필요, AI 호출용)
-    // private final AiService aiService;
+    // AI Service 주입
+    private final AiService aiService;
+
+    // Scenario Transaction Service 주입
+    private final ScenarioTransactionService scenarioTransactionService;
 
     // 시나리오 생성
     @Transactional
@@ -60,235 +73,155 @@ public class ScenarioService {
             throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
         }
 
-        // 시나리오 중복 생성 방지 (PENDING 또는 PROCESSING 상태인 시나리오가 이미 존재하는지 확인)
-        if (scenarioRepository.existsByDecisionLineIdAndStatus(request.decisionLineId(), ScenarioStatus.PENDING) ||
-            scenarioRepository.existsByDecisionLineIdAndStatus(request.decisionLineId(), ScenarioStatus.PROCESSING)) {
-            throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS);
+        // 원자적 조회 + 상태 확인
+        Optional<Scenario> existingScenario = scenarioRepository
+                .findByDecisionLineId(request.decisionLineId());
+
+        if (existingScenario.isPresent()) {
+            Scenario existing = existingScenario.get();
+
+            // PENDING/PROCESSING 상태면 중복 생성 방지
+            if (existing.getStatus() == ScenarioStatus.PENDING ||
+                    existing.getStatus() == ScenarioStatus.PROCESSING) {
+                throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
+                        "해당 선택 경로의 시나리오가 이미 생성 중입니다.");
+            }
+
+            // FAILED 상태면 재시도 로직
+            if (existing.getStatus() == ScenarioStatus.FAILED) {
+                return handleFailedScenarioRetry(existing);
+            }
+
+            // COMPLETED 상태면 기존 시나리오 반환
+            if (existing.getStatus() == ScenarioStatus.COMPLETED) {
+                return new ScenarioStatusResponse(
+                        existing.getId(),
+                        existing.getStatus(),
+                        "이미 완료된 시나리오가 존재합니다."
+                );
+            }
         }
 
-        // 베이스 시나리오 존재 여부 확인 및 생성
-        if (!scenarioRepository.existsByDecisionLine_BaseLineId(decisionLine.getBaseLine().getId())) {
-            // 베이스 시나리오가 없으면 새로 생성
-            createBaseScenario(decisionLine.getBaseLine());
+        // 새 시나리오 생성 (DataIntegrityViolationException 처리)
+        try {
+            Scenario scenario = Scenario.builder()
+                    .user(decisionLine.getUser())
+                    .decisionLine(decisionLine)
+                    .status(ScenarioStatus.PENDING)
+                    .build();
+
+            Scenario savedScenario = scenarioRepository.save(scenario);
+            processScenarioGenerationAsync(savedScenario.getId());
+
+            return new ScenarioStatusResponse(
+                    savedScenario.getId(),
+                    savedScenario.getStatus(),
+                    "시나리오 생성이 시작되었습니다."
+            );
+
+        } catch (DataIntegrityViolationException e) {
+            // 동시성으로 인한 중복 생성 시 기존 시나리오 조회 후 반환
+            return scenarioRepository.findByDecisionLineId(request.decisionLineId())
+                    .map(existing -> new ScenarioStatusResponse(
+                            existing.getId(),
+                            existing.getStatus(),
+                            "기존 시나리오를 반환합니다."
+                    ))
+                    .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_CREATION_FAILED));
         }
+    }
 
-        // 시나리오 엔티티 생성 및 저장 (초기 상태는 PENDING)
-        Scenario scenario = Scenario.builder()
-                .user(decisionLine.getUser())
-                .decisionLine(decisionLine)
-                .status(ScenarioStatus.PENDING)
-                .build();
-        Scenario savedScenario = scenarioRepository.save(scenario);
+    // FAILED 시나리오 재시도 로직 분리
+    private ScenarioStatusResponse handleFailedScenarioRetry(Scenario failedScenario) {
+        failedScenario.setStatus(ScenarioStatus.PENDING);
+        failedScenario.setErrorMessage(null);
+        failedScenario.setUpdatedDate(LocalDateTime.now());
 
-        // 비동기 방식으로 AI 시나리오 생성 (현재는 Mock 구현)
+        Scenario savedScenario = scenarioRepository.save(failedScenario);
         processScenarioGenerationAsync(savedScenario.getId());
 
-        // DTO 변환 및 반환
         return new ScenarioStatusResponse(
                 savedScenario.getId(),
                 savedScenario.getStatus(),
-                "시나리오 생성이 시작되었습니다."
+                "시나리오 재생성이 시작되었습니다."
         );
-    }
-
-    // 시나리오 생성 Helper 메서드
-    // 베이스 시나리오 생성 (Mock 구현)
-    @Transactional
-    protected void createBaseScenario(BaseLine baseLine) {
-        // Mock 베이스 시나리오 데이터 생성
-        Scenario baseScenario = Scenario.builder()
-                .user(baseLine.getUser())
-                .decisionLine(null) // 베이스 시나리오는 DecisionLine 없음
-                .status(ScenarioStatus.COMPLETED)
-                .job("현재 직업 상태")
-                .total(50) // 기본 베이스라인 점수
-                .summary("현재 상황을 기반으로 한 베이스 시나리오입니다.")
-                .description("사용자의 현재 삶의 상황을 반영한 기준점이 되는 시나리오입니다.")
-                .timelineTitles("{\"2020\":\"현재 상황\",\"2025\":\"현재 진로 유지\"}")
-                .img("base_scenario_image.jpg")
-                .build();
-
-        scenarioRepository.save(baseScenario);
-
-        // 베이스 시나리오용 SceneType 생성
-        createBaseSceneTypes(baseScenario);
-
-        // TODO: 실제 구현 시 BaseLine.title 업데이트
-        // baseLine.setTitle("AI가 생성한 베이스라인 제목");
-        // baseLineRepository.save(baseLine);
-    }
-
-    // 베이스 시나리오용 SceneType 생성 (Mock 구현)
-    protected void createBaseSceneTypes(Scenario baseScenario) {
-        var baseSceneTypes = List.of(
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(baseScenario)
-                        .type(com.back.domain.scenario.entity.Type.경제)
-                        .point(50)
-                        .analysis("현재 경제 상황 기준점")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(baseScenario)
-                        .type(com.back.domain.scenario.entity.Type.행복)
-                        .point(50)
-                        .analysis("현재 행복 수준 기준점")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(baseScenario)
-                        .type(com.back.domain.scenario.entity.Type.관계)
-                        .point(50)
-                        .analysis("현재 인간관계 기준점")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(baseScenario)
-                        .type(com.back.domain.scenario.entity.Type.직업)
-                        .point(50)
-                        .analysis("현재 직업 상황 기준점")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(baseScenario)
-                        .type(com.back.domain.scenario.entity.Type.건강)
-                        .point(50)
-                        .analysis("현재 건강 상태 기준점")
-                        .build()
-        );
-
-        sceneTypeRepository.saveAll(baseSceneTypes);
     }
 
     // 비동기 방식으로 AI 시나리오 생성
     @Async
-    @Transactional // TODO: AI 연동시 별도 트랜잭션 관리로 변경 필요
     public void processScenarioGenerationAsync(Long scenarioId) {
-        // 시나리오 조회
+        try {
+            // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
+
+            // 2. AI 시나리오 생성 (트랜잭션 외부에서 실행)
+            AiScenarioGenerationResult result = executeAiGeneration(scenarioId);
+
+            // 3. 결과 저장 및 완료 상태 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.saveAiResult(scenarioId, result);
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.COMPLETED, null);
+
+            log.info("Scenario generation completed successfully for ID: {}", scenarioId);
+
+        } catch (Exception e) {
+            // 4. 실패 상태 업데이트 (별도 트랜잭션)
+            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.FAILED,
+                    "시나리오 생성 실패: " + e.getMessage());
+            log.error("Scenario generation failed for ID: {}, error: {}",
+                    scenarioId, e.getMessage(), e);
+        }
+    }
+
+    // AI 호출 전용 메서드 (트랜잭션 없음)
+    private AiScenarioGenerationResult executeAiGeneration(Long scenarioId) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        try {
-            // 상태를 PROCESSING으로 업데이트
-            scenario.setStatus(ScenarioStatus.PROCESSING);
-            scenarioRepository.save(scenario);
+        // AI 호출 로직 (트랜잭션 외부에서 실행)
+        DecisionLine decisionLine = scenario.getDecisionLine();
+        BaseLine baseLine = decisionLine.getBaseLine();
 
-            // AI 시나리오 생성 (현재는 Mock 데이터로 대체)
-            mockAiScenarioGeneration(scenario);
+        // 베이스 시나리오 확보
+        Scenario baseScenario = ensureBaseScenarioExists(baseLine);
 
-            // 상태를 COMPLETED로 업데이트
-            scenario.setStatus(ScenarioStatus.COMPLETED);
-            scenarioRepository.save(scenario);
-        } catch (Exception e) {
-            // 오류 발생 시 상태를 FAILED로 업데이트하고 오류 메시지 저장
-            scenario.setStatus(ScenarioStatus.FAILED);
-            scenario.setErrorMessage(e.getMessage());
-            scenarioRepository.save(scenario);
-        }
+        // AI 호출 (트랜잭션 외부)
+        DecisionScenarioResult aiResult = aiService
+                .generateDecisionScenario(decisionLine, baseScenario).join();
+
+        return new AiScenarioGenerationResult(aiResult);
     }
 
-    // AI 시나리오 생성 (추후 구현 예정, 현재는 Mock 데이터로 대체)
-    @Transactional
-    protected void mockAiScenarioGeneration(Scenario scenario) {
-        // Mock 데이터로 시나리오 완성
-        scenario.setJob("스타트업 CEO");
-        scenario.setTotal(415);
-        scenario.setSummary("혁신적인 기술로 성공한 창업가");
-        scenario.setDescription("상세 시나리오 내용...");
-        scenario.setTimelineTitles("{\"2020\":\"창업 시작\",\"2025\":\"상장 성공\"}");
-        scenario.setStatus(ScenarioStatus.COMPLETED);
-
-        // 5개 지표 SceneType 생성
-        createSceneTypes(scenario);
-
-        // 베이스 시나리오와의 비교 결과 생성
-        createSceneCompare(scenario);
+    // 베이스 시나리오 확보 (없으면 생성)
+    private Scenario ensureBaseScenarioExists(BaseLine baseLine) {
+        return scenarioRepository.findByBaseLineIdAndDecisionLineIsNull(baseLine.getId())
+                .orElseGet(() -> createBaseScenario(baseLine));
     }
 
-    // SceneType 5개 지표 생성 (Mock 구현)
-    protected void createSceneTypes(Scenario scenario) {
-        // TODO: 실제 구현 시 AI가 생성한 지표별 점수와 분석 사용
-        var sceneTypes = List.of(
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(com.back.domain.scenario.entity.Type.경제)
-                        .point(90)
-                        .analysis("창업 성공으로 경제적 안정성 확보")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(com.back.domain.scenario.entity.Type.행복)
-                        .point(85)
-                        .analysis("자아실현을 통한 높은 만족도")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(com.back.domain.scenario.entity.Type.관계)
-                        .point(75)
-                        .analysis("업무 집중으로 인한 관계 관리 필요")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(com.back.domain.scenario.entity.Type.직업)
-                        .point(95)
-                        .analysis("혁신적 기업 리더로서 높은 성취")
-                        .build(),
-                com.back.domain.scenario.entity.SceneType.builder()
-                        .scenario(scenario)
-                        .type(com.back.domain.scenario.entity.Type.건강)
-                        .point(70)
-                        .analysis("스트레스 관리와 건강 관리 필요")
-                        .build()
-        );
+    // 베이스 시나리오 생성
+    private Scenario createBaseScenario(BaseLine baseLine) {
+        log.info("Creating base scenario for BaseLine ID: {}", baseLine.getId());
 
-        sceneTypeRepository.saveAll(sceneTypes);
-    }
+        // 1. AI 호출
+        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine).join();
 
-    // SceneCompare 비교 결과 생성 (Mock 구현)
-    protected void createSceneCompare(Scenario scenario) {
-        // 베이스 시나리오 조회
-        Scenario baseScenario = scenarioRepository
-                .findFirstByDecisionLine_BaseLineIdOrderByCreatedDateAsc(
-                        scenario.getDecisionLine().getBaseLine().getId())
-                .orElse(null);
+        // 2. 베이스 시나리오 엔티티 생성
+        Scenario baseScenario = Scenario.builder()
+                .user(baseLine.getUser())
+                .decisionLine(null) // 베이스 시나리오는 DecisionLine 없음
+                .baseLine(baseLine) // 베이스 시나리오는 BaseLine 연결
+                .status(ScenarioStatus.COMPLETED) // 베이스는 바로 완료
+                .build();
 
-        if (baseScenario != null) {
-            // TODO: 실제 구현 시 AI가 생성한 비교 분석 사용
-            var compareResults = List.of(
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("전반적으로 베이스 시나리오 대비 35점 향상된 결과를 보여줍니다.")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.TOTAL)
-                            .build(),
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("창업을 통한 경제적 성공으로 40점 향상")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.경제)
-                            .build(),
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("자아실현을 통해 35점 향상")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.행복)
-                            .build(),
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("업무 집중으로 인한 관계 관리 필요하지만 25점 향상")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.관계)
-                            .build(),
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("혁신적 기업 리더로서 45점 대폭 향상")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.직업)
-                            .build(),
-                    com.back.domain.scenario.entity.SceneCompare.builder()
-                            .scenario(scenario)
-                            .compareResult("스트레스 증가로 20점 향상에 그쳤으나 관리 가능")
-                            .resultType(com.back.domain.scenario.entity.SceneCompareResultType.건강)
-                            .build()
-            );
+        Scenario savedScenario = scenarioRepository.save(baseScenario);
 
-            sceneCompareRepository.saveAll(compareResults);
-        }
+        // 3. AI 결과 적용
+        scenarioTransactionService.applyBaseScenarioResult(savedScenario, aiResult);
+
+        return savedScenario;
     }
 
     // 시나리오 생성 상태 조회
-    @Transactional(readOnly = true) // TODO: readonly 쓰는 이유 공부하기
+    @Transactional(readOnly = true)
     public ScenarioStatusResponse getScenarioStatus(Long scenarioId, Long userId) {
         // 권한 검증 및 조회
         Scenario scenario = scenarioRepository.findByIdAndUserId(scenarioId, userId)
@@ -323,19 +256,7 @@ public class ScenarioService {
         var sceneTypes = sceneTypeRepository.findByScenarioIdOrderByTypeAsc(scenarioId);
 
         // DTO 변환 및 반환
-        return new ScenarioDetailResponse(
-                scenario.getId(),
-                scenario.getStatus(),
-                scenario.getJob(),
-                scenario.getTotal(),
-                scenario.getSummary(),
-                scenario.getDescription(),
-                scenario.getImg(),
-                scenario.getCreatedDate(),
-                sceneTypes.stream()
-                        .map(st -> new ScenarioTypeDto(st.getType(), st.getPoint(), st.getAnalysis()))
-                        .toList()
-        );
+        return ScenarioDetailResponse.from(scenario, sceneTypes);
     }
 
     // 시나리오 타임라인 조회
@@ -345,38 +266,18 @@ public class ScenarioService {
         Scenario scenario = scenarioRepository.findByIdAndUserId(scenarioId, userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        // DecisionLine 조회 -> DecisionNodes 추출 (DecisionLine 미구현으로 임시)
-        // TODO: DecisionLine 및 DecisionNode 구현 후 교체
-        List<MockDecisionNode> mockNodes = createMockDecisionNodes();
+        // 시나리오 상태 확인
+        if (scenario.getStatus() != ScenarioStatus.COMPLETED) {
+            throw new ApiException(ErrorCode.SCENARIO_NOT_COMPLETED);
+        }
 
         // TimelineTitles JSON 파싱
         Map<String, String> timelineTitles = parseTimelineTitles(scenario.getTimelineTitles());
 
-        // TimelineEvent 리스트 생성
-        List<TimelineResponse.TimelineEvent> events = mockNodes.stream()
-                .map(node -> new TimelineResponse.TimelineEvent(
-                        node.year,
-                        timelineTitles.getOrDefault(String.valueOf(node.year), "선택 결과")
-                ))
-                .sorted(Comparator.comparing(TimelineResponse.TimelineEvent::year))
-                .toList();
-
-        // DTO 변환 및 반환
-        return new TimelineResponse(scenarioId, events);
+        // DTO의 static 메서드를 사용하여 변환
+        return TimelineResponse.fromTimelineTitlesMap(scenarioId, timelineTitles);
     }
 
-    // 시나리오 타임라인 조회 Helper
-    // Mock DecisionNode 클래스 (추후 실제 엔티티로 교체)
-    private record MockDecisionNode(int year, String title) {}
-
-    // Mock 데이터 생성 메서드 (추후 실제 데이터로 교체)
-    private List<MockDecisionNode> createMockDecisionNodes() {
-        return List.of(
-                new MockDecisionNode(2020, "창업 도전"),
-                new MockDecisionNode(2022, "해외 진출"),
-                new MockDecisionNode(2025, "상장 성공")
-        );
-    }
 
     // JSON 파싱 Helper 메서드
     private Map<String, String> parseTimelineTitles(String timelineTitles) {
@@ -424,32 +325,66 @@ public class ScenarioService {
         );
     }
 
-    // 베이스라인 목록 조회
+    // 베이스라인 목록 조회 (페이지네이션 지원)
     @Transactional(readOnly = true)
-    public List<BaselineListResponse> getBaselines(Long userId) {
-        // TODO: 실제 구현 시 BaseLineRepository.findAllByUserId(userId) 사용
-        // 현재는 Mock 데이터로 MVP 완성
+    public Page<BaselineListResponse> getBaselines(Long userId, Pageable pageable) {
+        // 사용자별 베이스라인 조회 (BaseNode들과 함께 fetch)
+        Page<BaseLine> baseLines = baseLineRepository.findAllByUserIdWithBaseNodes(userId, pageable);
 
-        // Mock 베이스라인 데이터 생성
-        return List.of(
-                new BaselineListResponse(
-                        1001L,
-                        "대학 졸업 후 진로 선택",
-                        List.of("교육", "진로", "취업"),
-                        LocalDateTime.of(2024, 1, 15, 10, 30)
-                ),
-                new BaselineListResponse(
-                        1002L,
-                        "회사 이직 후 새 시작",
-                        List.of("커리어", "성장", "도전"),
-                        LocalDateTime.of(2024, 3, 22, 14, 45)
-                ),
-                new BaselineListResponse(
-                        1003L,
-                        "결혼 후 인생 설계",
-                        List.of("가족", "관계", "안정"),
-                        LocalDateTime.of(2024, 6, 10, 16, 20)
-                )
-        );
+        // BaseLine -> BaselineListResponse 변환
+        return baseLines.map(this::convertToBaselineListResponse);
+    }
+
+    /**
+     * BaseLine 엔티티를 BaselineListResponse DTO로 변환
+     */
+    private BaselineListResponse convertToBaselineListResponse(BaseLine baseLine) {
+        // BaseNode들의 카테고리를 태그로 변환 (중복 제거 및 한글명으로 변환)
+        List<String> tags = baseLine.getBaseNodes().stream()
+                .filter(baseNode -> baseNode.getCategory() != null)
+                .map(baseNode -> convertCategoryToKorean(baseNode.getCategory()))
+                .distinct()
+                .sorted()
+                .toList();
+
+        return BaselineListResponse.from(baseLine, tags);
+    }
+
+    /**
+     * NodeCategory를 한글명으로 변환
+     */
+    private String convertCategoryToKorean(NodeCategory category) {
+        return switch (category) {
+            case EDUCATION -> "교육";
+            case CAREER -> "진로";
+            case RELATIONSHIP -> "관계";
+            case FINANCE -> "경제";
+            case HEALTH -> "건강";
+            case LOCATION -> "거주지";
+            case ETC -> "기타";
+        };
+    }
+
+    // AI 생성 결과를 담는 래퍼 클래스 (트랜잭션 분리용)
+    @Getter
+    static class AiScenarioGenerationResult {
+        private final boolean isBaseScenario;
+        private final BaseScenarioResult baseResult;
+        private final DecisionScenarioResult decisionResult;
+
+        // 베이스 시나리오용 생성자
+        public AiScenarioGenerationResult(BaseScenarioResult baseResult) {
+            this.isBaseScenario = true;
+            this.baseResult = baseResult;
+            this.decisionResult = null;
+        }
+
+        // 결정 시나리오용 생성자
+        public AiScenarioGenerationResult(DecisionScenarioResult decisionResult) {
+            this.isBaseScenario = false;
+            this.baseResult = null;
+            this.decisionResult = decisionResult;
+        }
+
     }
 }

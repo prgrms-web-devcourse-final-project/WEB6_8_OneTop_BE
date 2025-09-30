@@ -3,6 +3,7 @@ package com.back.domain.scenario.dto;
 import com.back.domain.node.entity.DecisionNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 시나리오의 타임라인 정보를 담는 응답 DTO.
@@ -32,8 +33,43 @@ public record TimelineResponse(
      * @return TimelineResponse
      */
 
-    // TODO: DecisionNode에서 TimelineEvent로 변환하는 로직 구현 필요
-    public static TimelineResponse from(Long scenarioId, List<DecisionNode> decisionNodes) {
-        throw new UnsupportedOperationException("구현 예정");
+    /**
+     * Scenario의 timelineTitles JSON에서 TimelineResponse를 생성합니다.
+     * @param scenarioId 시나리오 ID
+     * @param timelineTitlesJson AI가 생성한 타임라인 제목 JSON
+     * @return TimelineResponse
+     */
+    public static TimelineResponse fromTimelineTitles(Long scenarioId, String timelineTitlesJson) {
+        // JSON 파싱은 ScenarioService에서 처리하고 Map으로 전달받는 방식으로 변경
+        throw new UnsupportedOperationException("fromTimelineTitles 메서드는 ScenarioService에서 직접 구현됨");
+    }
+
+    /**
+     * 파싱된 타임라인 제목 Map으로부터 TimelineResponse를 생성합니다.
+     * @param scenarioId 시나리오 ID
+     * @param timelineTitlesMap 연도별 제목 Map
+     * @return TimelineResponse
+     */
+    public static TimelineResponse fromTimelineTitlesMap(Long scenarioId, Map<String, String> timelineTitlesMap) {
+        if (timelineTitlesMap == null || timelineTitlesMap.isEmpty()) {
+            return new TimelineResponse(scenarioId, List.of());
+        }
+
+        List<TimelineEvent> events = timelineTitlesMap.entrySet().stream()
+                .map(entry -> {
+                    try {
+                        int year = Integer.parseInt(entry.getKey());
+                        String title = entry.getValue();
+                        return new TimelineEvent(year, title);
+                    } catch (NumberFormatException e) {
+                        // 유효하지 않은 연도는 스킵
+                        return null;
+                    }
+                })
+                .filter(event -> event != null)
+                .sorted((e1, e2) -> Integer.compare(e1.year(), e2.year())) // 연도순 정렬
+                .toList();
+
+        return new TimelineResponse(scenarioId, events);
     }
 }
