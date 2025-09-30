@@ -37,12 +37,12 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
-        log.info("Generating base scenario for BaseLine ID: {}", baseLine.getId());
-
         if (baseLine == null) {
             return CompletableFuture.failedFuture(
                     new AiParsingException("BaseLine cannot be null"));
         }
+
+        log.info("Generating base scenario for BaseLine ID: {}", baseLine.getId());
 
         try {
             // Step 1: 프롬프트 생성
@@ -71,8 +71,6 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public CompletableFuture<DecisionScenarioResult> generateDecisionScenario(DecisionLine decisionLine, Scenario baseScenario) {
-        log.info("Generating Decision scenario for DecisionLine ID: {}", decisionLine.getId());
-
         if (decisionLine == null) {
             return CompletableFuture.failedFuture(
                     new AiParsingException("DecisionLine cannot be null"));
@@ -81,6 +79,8 @@ public class AiServiceImpl implements AiService {
             return CompletableFuture.failedFuture(
                     new AiParsingException("BaseScenario cannot be null"));
         }
+
+        log.info("Generating Decision scenario for DecisionLine ID: {}", decisionLine.getId());
 
         try {
             // Step 1: 프롬프트 생성

@@ -19,8 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -58,20 +60,22 @@ class AiServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // 테스트용 사용자 생성 (ID 제거, LocalDateTime 사용)
+        // 테스트용 사용자 생성 (ID 설정)
         testUser = User.builder()
                 .email("test@example.com")
                 .nickname("testUser")
                 .birthdayAt(LocalDateTime.of(1995, 5, 15, 0, 0))
                 .build();
+        ReflectionTestUtils.setField(testUser, "id", 1L);
 
-        // 테스트용 베이스라인 생성 (ID 제거)
+        // 테스트용 베이스라인 생성 (ID 설정)
         testBaseLine = BaseLine.builder()
                 .user(testUser)
                 .title("대학 졸업 후 진로")
                 .build();
+        ReflectionTestUtils.setField(testBaseLine, "id", 100L);
 
-        // 테스트용 베이스노드 생성 및 추가 (ID 제거)
+        // 테스트용 베이스노드 생성 및 추가 (ID 설정)
         BaseNode baseNode1 = BaseNode.builder()
                 .user(testUser)
                 .baseLine(testBaseLine)
@@ -80,6 +84,7 @@ class AiServiceImplTest {
                 .situation("대학교 4학년, 졸업 준비")
                 .decision("대기업 취업 준비")
                 .build();
+        ReflectionTestUtils.setField(baseNode1, "id", 1001L);
 
         BaseNode baseNode2 = BaseNode.builder()
                 .user(testUser)
@@ -89,17 +94,23 @@ class AiServiceImplTest {
                 .situation("직장 3년차, 업무 적응 완료")
                 .decision("현재 직장 유지")
                 .build();
+        ReflectionTestUtils.setField(baseNode2, "id", 1002L);
 
+        // BaseNodes 컬렉션 초기화 후 추가
+        if (testBaseLine.getBaseNodes() == null) {
+            testBaseLine.setBaseNodes(new ArrayList<>());
+        }
         testBaseLine.getBaseNodes().addAll(List.of(baseNode1, baseNode2));
 
-        // 테스트용 결정라인 생성 (ID 제거, title 필드 제거)
+        // 테스트용 결정라인 생성 (ID 설정)
         testDecisionLine = DecisionLine.builder()
                 .user(testUser)
                 .baseLine(testBaseLine)
                 .status(DecisionLineStatus.DRAFT)
                 .build();
+        ReflectionTestUtils.setField(testDecisionLine, "id", 200L);
 
-        // 테스트용 결정노드 생성 및 추가 (ID 제거)
+        // 테스트용 결정노드 생성 및 추가 (ID 설정)
         DecisionNode decisionNode1 = DecisionNode.builder()
                 .user(testUser)
                 .decisionLine(testDecisionLine)
@@ -108,6 +119,7 @@ class AiServiceImplTest {
                 .situation("대학 졸업 후 진로 고민")
                 .decision("대학원 진학")
                 .build();
+        ReflectionTestUtils.setField(decisionNode1, "id", 2001L);
 
         DecisionNode decisionNode2 = DecisionNode.builder()
                 .user(testUser)
@@ -117,10 +129,15 @@ class AiServiceImplTest {
                 .situation("대학원 2년차, 연구 심화")
                 .decision("박사과정 진학")
                 .build();
+        ReflectionTestUtils.setField(decisionNode2, "id", 2002L);
 
+        // DecisionNodes 컬렉션 초기화 후 추가
+        if (testDecisionLine.getDecisionNodes() == null) {
+            testDecisionLine.setDecisionNodes(new ArrayList<>());
+        }
         testDecisionLine.getDecisionNodes().addAll(List.of(decisionNode1, decisionNode2));
 
-        // 테스트용 시나리오 생성 (ID 제거)
+        // 테스트용 시나리오 생성 (ID 설정)
         testScenario = Scenario.builder()
                 .user(testUser)
                 .baseLine(testBaseLine)
@@ -129,6 +146,7 @@ class AiServiceImplTest {
                 .description("대기업에서 3년간 근무하며 안정적인 성과를 보이고 있습니다.")
                 .total(250)
                 .build();
+        ReflectionTestUtils.setField(testScenario, "id", 300L);
     }
 
     @Nested
@@ -195,11 +213,10 @@ class AiServiceImplTest {
         @Test
         @DisplayName("실패 - BaseLine이 null인 경우")
         void generateBaseScenario_실패_널입력() {
-            // When & Then
-            assertThatThrownBy(() -> aiService.generateBaseScenario(null))
-                    .isInstanceOf(CompletableFuture.class);
-
+            // When
             CompletableFuture<BaseScenarioResult> result = aiService.generateBaseScenario(null);
+
+            // Then
             assertThatThrownBy(result::join)
                     .hasCauseInstanceOf(AiParsingException.class)
                     .hasMessageContaining("BaseLine cannot be null");
@@ -346,15 +363,10 @@ class AiServiceImplTest {
         void generateSituation_성공() throws Exception {
             // Given
             List<DecisionNode> previousNodes = testDecisionLine.getDecisionNodes();
-            String mockAiResponse = """
-                {
-                    "situation": "대학원 진학 후 2년이 지나, 연구 성과에 대한 압박이 커지고 있습니다. 지도교수는 박사과정 진학을 강력히 권유하고 있지만, 경제적 부담과 미래에 대한 불안감도 함께 느끼고 있습니다.",
-                    "recommendedOption": "박사과정 진학 vs 석사 졸업 후 취업"
-                }
-                """;
+            String expectedSituation = "대학원 진학 후 2년이 지나, 연구 성과에 대한 압박이 커지고 있습니다. 지도교수는 박사과정 진학을 강력히 권유하고 있지만, 경제적 부담과 미래에 대한 불안감도 함께 느끼고 있습니다.";
 
             given(textAiClient.generateText(anyString()))
-                    .willReturn(CompletableFuture.completedFuture(mockAiResponse));
+                    .willReturn(CompletableFuture.completedFuture(expectedSituation));
 
             // When
             CompletableFuture<String> result = aiService.generateSituation(previousNodes);

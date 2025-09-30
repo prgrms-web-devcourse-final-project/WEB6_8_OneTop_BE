@@ -15,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,18 +26,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * ScenarioController 통합 테스트.
- * 인증/인가가 구현되지 않은 상태에서 Service를 모킹하여 테스트합니다.
+ * 세션 기반 인증이 구현되었지만 테스트에서는 필터를 비활성화하고
+ * Service를 모킹하여 테스트합니다.
  */
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc(addFilters = false) // 인증 필터 비활성화로 테스트 단순화
 @ActiveProfiles("test")
 @Transactional
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -75,11 +82,10 @@ class ScenarioControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andDo(print())
-                    .andExpect(status().isOk()) // ApiResponse는 실제 HTTP 상태를 설정하지 않음
-                    .andExpect(jsonPath("$.data.scenarioId").value(1001))
-                    .andExpect(jsonPath("$.data.status").value("PENDING"))
-                    .andExpect(jsonPath("$.message").value("시나리오 생성 요청이 접수되었습니다."))
-                    .andExpect(jsonPath("$.status").value(201)); // 응답 본문의 status 필드 검증
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.scenarioId").value(1001))
+                    .andExpect(jsonPath("$.status").value("PENDING"))
+                    .andExpect(jsonPath("$.message").value("시나리오 생성이 시작되었습니다."));
         }
 
         @Test
@@ -136,9 +142,9 @@ class ScenarioControllerTest {
             mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/status", scenarioId))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.scenarioId").value(scenarioId))
-                    .andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                    .andExpect(jsonPath("$.message").value("상태를 성공적으로 조회했습니다."));
+                    .andExpect(jsonPath("$.scenarioId").value(scenarioId))
+                    .andExpect(jsonPath("$.status").value("COMPLETED"))
+                    .andExpect(jsonPath("$.message").value("시나리오 생성이 완료되었습니다."));
         }
 
         @Test
@@ -194,11 +200,11 @@ class ScenarioControllerTest {
             mockMvc.perform(get("/api/v1/scenarios/info/{scenarioId}", scenarioId))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.scenarioId").value(scenarioId))
-                    .andExpect(jsonPath("$.data.job").value("스타트업 CEO"))
-                    .andExpect(jsonPath("$.data.total").value(85))
-                    .andExpect(jsonPath("$.data.indicators").isArray())
-                    .andExpect(jsonPath("$.data.indicators.length()").value(5));
+                    .andExpect(jsonPath("$.scenarioId").value(scenarioId))
+                    .andExpect(jsonPath("$.job").value("스타트업 CEO"))
+                    .andExpect(jsonPath("$.total").value(85))
+                    .andExpect(jsonPath("$.indicators").isArray())
+                    .andExpect(jsonPath("$.indicators.length()").value(5));
         }
     }
 
@@ -227,10 +233,10 @@ class ScenarioControllerTest {
             mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/timeline", scenarioId))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.scenarioId").value(scenarioId))
-                    .andExpect(jsonPath("$.data.events").isArray())
-                    .andExpect(jsonPath("$.data.events[0].year").value(2025))
-                    .andExpect(jsonPath("$.data.events[0].title").value("창업 시작"));
+                    .andExpect(jsonPath("$.scenarioId").value(scenarioId))
+                    .andExpect(jsonPath("$.events").isArray())
+                    .andExpect(jsonPath("$.events[0].year").value(2025))
+                    .andExpect(jsonPath("$.events[0].title").value("창업 시작"));
         }
     }
 
@@ -242,7 +248,7 @@ class ScenarioControllerTest {
         @DisplayName("성공 - 사용자 베이스라인 목록 조회")
         void getBaselines_성공() throws Exception {
             // Given
-            List<BaselineListResponse> mockResponse = List.of(
+            List<BaselineListResponse> content = List.of(
                     new BaselineListResponse(
                             200L,
                             "대학 졸업 이후",
@@ -257,16 +263,22 @@ class ScenarioControllerTest {
                     )
             );
 
-            given(scenarioService.getBaselines(1L))
-                    .willReturn(mockResponse);
+            Page<BaselineListResponse> mockPageResponse = new PageImpl<>(content, PageRequest.of(0, 10), content.size());
+
+            given(scenarioService.getBaselines(eq(1L), any()))
+                    .willReturn(mockPageResponse);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/baselines"))
+            mockMvc.perform(get("/api/v1/scenarios/baselines")
+                            .param("page", "0")
+                            .param("size", "10"))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data[0].baselineId").value(200))
-                    .andExpect(jsonPath("$.data[0].title").value("대학 졸업 이후"));
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content[0].baselineId").value(200))
+                    .andExpect(jsonPath("$.content[0].title").value("대학 졸업 이후"))
+                    .andExpect(jsonPath("$.totalElements").value(2))
+                    .andExpect(jsonPath("$.totalPages").value(1));
         }
     }
 
@@ -303,10 +315,10 @@ class ScenarioControllerTest {
             mockMvc.perform(get("/api/v1/scenarios/compare/{baseId}/{compareId}", baseId, compareId))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.baseScenarioId").value(baseId))
-                    .andExpect(jsonPath("$.data.compareScenarioId").value(compareId))
-                    .andExpect(jsonPath("$.data.overallAnalysis").exists())
-                    .andExpect(jsonPath("$.data.indicators").isArray());
+                    .andExpect(jsonPath("$.baseScenarioId").value(baseId))
+                    .andExpect(jsonPath("$.compareScenarioId").value(compareId))
+                    .andExpect(jsonPath("$.overallAnalysis").exists())
+                    .andExpect(jsonPath("$.indicators").isArray());
         }
     }
 }
