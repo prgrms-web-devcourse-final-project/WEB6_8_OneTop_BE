@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,6 +21,9 @@ public interface BaseLineRepository extends JpaRepository<BaseLine, Long> {
     long countByUser(User user);
     // Guest 베이스라인 1개 제한 확인용
     boolean existsByUser_id(Long userId);
+
+
+    List<BaseLine> findByUser_IdOrderByIdDesc(Long userId);
 
     boolean existsByUserAndTitle(User user, String title);
 
