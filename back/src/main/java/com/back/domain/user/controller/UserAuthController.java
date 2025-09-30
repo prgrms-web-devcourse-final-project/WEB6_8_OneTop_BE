@@ -9,6 +9,7 @@ import com.back.domain.user.service.UserService;
 import com.back.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -69,7 +70,11 @@ public class UserAuthController {
         Authentication auth = new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        request.getSession(true);
+        HttpSession session = request.getSession(true);
+
+        session.setMaxInactiveInterval(600);
+        session.setAttribute("guestId", savedGuest.getId());
+
         new HttpSessionSecurityContextRepository()
                 .saveContext(SecurityContextHolder.getContext(), request, response);
 
