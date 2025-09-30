@@ -147,7 +147,7 @@ class UserAuthControllerTest {
         MvcResult result = mvc.perform(post(BASE + "/guest").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").exists())
-                .andExpect(jsonPath("$.role").exists())
+                .andExpect(jsonPath("$.role").value("GUEST"))
                 .andReturn();
 
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);

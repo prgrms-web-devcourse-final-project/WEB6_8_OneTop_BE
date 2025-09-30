@@ -9,6 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 게스트 세션 종료 리스너
+ * HTTP 세션이 종료될 때 해당 게스트 계정을 즉시 삭제
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
