@@ -12,6 +12,7 @@ public record BaseScenarioResult(
         String job,
         String summary,
         String description,
+        int total,  // 5개 지표 점수 합계
         Map<String, String> timelineTitles,
         String baselineTitle,
         Map<Type, Integer> indicatorScores,

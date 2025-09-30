@@ -12,6 +12,7 @@ public record DecisionScenarioResult(
         String job,
         String summary,
         String description,
+        int total,  // 5개 지표 점수 합계
         String imagePrompt,
         Map<String, String> timelineTitles,
         Map<Type, Integer> indicatorScores, // 각 지표별 점수

@@ -15,7 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class TextAiConfig {
     String apiKey;
     String baseUrl = "https://generativelanguage.googleapis.com";
-    String model = "gemini-2.5-pro"; // 추후 변경 가능
+    String model = "gemini-2.5-flash"; // 추후 변경 가능
     int timeoutSeconds = 30;
     int maxRetries = 3;
 

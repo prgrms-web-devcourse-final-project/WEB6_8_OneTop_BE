@@ -257,19 +257,7 @@ public class ScenarioService {
         var sceneTypes = sceneTypeRepository.findByScenarioIdOrderByTypeAsc(scenarioId);
 
         // DTO 변환 및 반환
-        return new ScenarioDetailResponse(
-                scenario.getId(),
-                scenario.getStatus(),
-                scenario.getJob(),
-                scenario.getTotal(),
-                scenario.getSummary(),
-                scenario.getDescription(),
-                scenario.getImg(),
-                scenario.getCreatedDate(),
-                sceneTypes.stream()
-                        .map(st -> new ScenarioTypeDto(st.getType(), st.getPoint(), st.getAnalysis()))
-                        .toList()
-        );
+        return ScenarioDetailResponse.from(scenario, sceneTypes);
     }
 
     // 시나리오 타임라인 조회
@@ -287,23 +275,8 @@ public class ScenarioService {
         // TimelineTitles JSON 파싱
         Map<String, String> timelineTitles = parseTimelineTitles(scenario.getTimelineTitles());
 
-        // TimelineEvent 리스트 생성 (연도를 key로, 타이틀을 value로 저장된 데이터 활용)
-        List<TimelineResponse.TimelineEvent> events = timelineTitles.entrySet().stream()
-                .map(entry -> {
-                    try {
-                        int year = Integer.parseInt(entry.getKey());
-                        return new TimelineResponse.TimelineEvent(year, entry.getValue());
-                    } catch (NumberFormatException e) {
-                        // 연도가 숫자가 아닌 경우 무시
-                        return null;
-                    }
-                })
-                .filter(event -> event != null)
-                .sorted(Comparator.comparing(TimelineResponse.TimelineEvent::year))
-                .toList();
-
-        // DTO 변환 및 반환
-        return new TimelineResponse(scenarioId, events);
+        // DTO의 static 메서드를 사용하여 변환
+        return TimelineResponse.fromTimelineTitlesMap(scenarioId, timelineTitles);
     }
 
 
@@ -375,12 +348,7 @@ public class ScenarioService {
                 .sorted()
                 .toList();
 
-        return new BaselineListResponse(
-                baseLine.getId(),
-                baseLine.getTitle() != null ? baseLine.getTitle() : "제목 없음",
-                tags,
-                baseLine.getCreatedDate()
-        );
+        return BaselineListResponse.from(baseLine, tags);
     }
 
     /**
