@@ -18,6 +18,7 @@ import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -384,6 +385,7 @@ public class ScenarioService {
     }
 
     // AI 생성 결과를 담는 래퍼 클래스 (트랜잭션 분리용)
+    @Getter
     static class AiScenarioGenerationResult {
         private final boolean isBaseScenario;
         private final BaseScenarioResult baseResult;
@@ -403,8 +405,5 @@ public class ScenarioService {
             this.decisionResult = decisionResult;
         }
 
-        public boolean isBaseScenario() { return isBaseScenario; }
-        public BaseScenarioResult getBaseResult() { return baseResult; }
-        public DecisionScenarioResult getDecisionResult() { return decisionResult; }
     }
 }

@@ -2,8 +2,7 @@ package com.back.domain.scenario.controller;
 
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.service.ScenarioService;
-import com.back.global.exception.ApiException;
-import com.back.global.exception.ErrorCode;
+import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,9 +10,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.List;
 
 /**
@@ -31,9 +30,10 @@ public class ScenarioController {
     @PostMapping
     @Operation(summary = "시나리오 생성", description = "DecisionLine을 기반으로 AI 시나리오를 생성합니다.")
     public ResponseEntity<ScenarioStatusResponse> createScenario(
-            @Valid @RequestBody ScenarioCreateRequest request
+            @Valid @RequestBody ScenarioCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
             ) {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+        Long userId = userDetails.getUser().getId();
 
         ScenarioStatusResponse scenarioCreateResponse = scenarioService.createScenario(userId, request);
 
@@ -43,9 +43,10 @@ public class ScenarioController {
     @GetMapping("/{scenarioId}/status")
     @Operation(summary = "시나리오 상태 조회", description = "시나리오 생성 진행 상태를 조회합니다.")
     public ResponseEntity<ScenarioStatusResponse> getScenarioStatus(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+        Long userId = userDetails.getUser().getId();
 
         ScenarioStatusResponse scenarioStatusResponse = scenarioService.getScenarioStatus(scenarioId, userId);
 
@@ -55,9 +56,10 @@ public class ScenarioController {
     @GetMapping("/info/{scenarioId}")
     @Operation(summary = "시나리오 상세 조회", description = "완성된 시나리오의 상세 정보를 조회합니다.")
     public ResponseEntity<ScenarioDetailResponse> getScenarioDetail(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+        Long userId = userDetails.getUser().getId();
 
         ScenarioDetailResponse scenarioDetailResponse = scenarioService.getScenarioDetail(scenarioId, userId);
 
@@ -67,9 +69,10 @@ public class ScenarioController {
     @GetMapping("/{scenarioId}/timeline")
     @Operation(summary = "시나리오 타임라인 조회", description = "시나리오의 선택 경로를 시간순으로 조회합니다.")
     public ResponseEntity<TimelineResponse> getScenarioTimeline(
-            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId
+            @Parameter(description = "시나리오 ID") @PathVariable Long scenarioId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+        Long userId = userDetails.getUser().getId();
 
         TimelineResponse timelineResponse = scenarioService.getScenarioTimeline(scenarioId, userId);
 
@@ -78,8 +81,10 @@ public class ScenarioController {
 
     @GetMapping("/baselines")
     @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 조회합니다.")
-    public ResponseEntity<List<BaselineListResponse>> getBaselines() {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+    public ResponseEntity<List<BaselineListResponse>> getBaselines(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.getUser().getId();
 
         List<BaselineListResponse> baselines = scenarioService.getBaselines(userId);
 
@@ -90,25 +95,13 @@ public class ScenarioController {
     @Operation(summary = "시나리오 비교 분석 결과 조회", description = "두 시나리오를 비교 분석 결과를 조회합니다.")
     public ResponseEntity<ScenarioCompareResponse> compareScenarios(
             @Parameter(description = "기준 시나리오 ID") @PathVariable Long baseId,
-            @Parameter(description = "비교 시나리오 ID") @PathVariable Long compareId
+            @Parameter(description = "비교 시나리오 ID") @PathVariable Long compareId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        Long userId = 1L; // TODO: Principal에서 추출 예정
+        Long userId = userDetails.getUser().getId();
 
         ScenarioCompareResponse scenarioCompareResponse = scenarioService.compareScenarios(baseId, compareId, userId);
 
         return ResponseEntity.ok(scenarioCompareResponse);
-    }
-
-    // Principal에서 userId 추출하는 Helper 메서드 (Mock 구현)
-    // TODO: JWT 파싱으로 교체 예정
-    private Long getUserIdFromPrincipal(Principal principal) {
-        if (principal == null || principal.getName() == null) {
-            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
-        }
-        // TODO: 실제로는 JWT 토큰에서 userId 추출
-        // String token = principal.getName();
-        // return jwtProvider.getUserIdFromToken(token);
-
-        return 1L; // Mock userId
     }
 }
