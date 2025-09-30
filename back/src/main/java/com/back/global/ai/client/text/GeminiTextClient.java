@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Component
 @Slf4j
+// TODO: AI 예외 처리 api구체화, DTO 구조 구체화
 public class GeminiTextClient implements TextAiClient {
 
     private final WebClient webClient;
