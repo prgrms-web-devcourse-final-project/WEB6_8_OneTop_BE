@@ -29,7 +29,6 @@ public class InitData implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final NodeService nodeService;
 
-    // 가장 중요한 함수 위에 한줄로만 요약
     // user1을 만들고 베이스라인(7)과 결정라인(5)을 시드로 주입한다
     @Override
     public void run(String... args) {
@@ -63,26 +62,25 @@ public class InitData implements CommandLineRunner {
                                 .build()
                 ));
 
-        // 피벗 5개만 전송(서비스가 헤더/테일 자동 부착 -> 총 7노드)
         BaseLineBulkCreateResponse baseRes = nodeService.createBaseLineWithNodes(
                 new BaseLineBulkCreateRequest(
                         user1.getId(),
                         "user1-기본 라인",
                         List.of(
                                 new BaseLineBulkCreateRequest.BaseNodePayload(
-                                        NodeCategory.EDUCATION, "중학교 진학", "일반계 선택", 13, "중등 입학 및 진로 탐색 시작"
+                                        NodeCategory.EDUCATION, "중학교 진학", "일반계 선택", 18, "중등 입학 및 진로 탐색 시작"
                                 ),
                                 new BaseLineBulkCreateRequest.BaseNodePayload(
-                                        NodeCategory.EDUCATION, "고교 진학", "이과 트랙", 16, "수학·물리 집중 선택"
+                                        NodeCategory.EDUCATION, "고교 진학", "이과 트랙", 20, "수학·물리 집중 선택"
                                 ),
                                 new BaseLineBulkCreateRequest.BaseNodePayload(
-                                        NodeCategory.EDUCATION, "대학 합격", "컴공 전공", 19, "알고리즘/네트워크 관심"
+                                        NodeCategory.EDUCATION, "대학 합격", "컴공 전공", 22, "알고리즘/네트워크 관심"
                                 ),
                                 new BaseLineBulkCreateRequest.BaseNodePayload(
-                                        NodeCategory.CAREER, "인턴 경험", "백엔드 인턴", 23, "스프링 부트 실무 체험"
+                                        NodeCategory.CAREER, "인턴 경험", "백엔드 인턴", 24, "스프링 부트 실무 체험"
                                 ),
                                 new BaseLineBulkCreateRequest.BaseNodePayload(
-                                        NodeCategory.CAREER, "첫 직장", "주니어 백엔드", 25, "API/DB 설계 중심"
+                                        NodeCategory.CAREER, "첫 직장", "주니어 백엔드", 26, "API/DB 설계 중심"
                                 )
                         )
                 )
@@ -101,13 +99,13 @@ public class InitData implements CommandLineRunner {
                         0,
                         NodeCategory.CAREER,
                         "개발자 커리어 진입",
-                        List.of("자바/스프링", "파이썬/데이터", "프론트/리액트"),
-                        null,
+                        List.of("자바/스프링", "파이썬/데이터"),
+                        0,
                         "백엔드 중심 트랙을 초기 선택지로 제시"
                 )
         );
 
-        nodeService.createDecisionNodeNext(
+        DecNodeDto d1 = nodeService.createDecisionNodeNext(
                 new DecisionNodeNextRequest(
                         user1.getId(),
                         d0.id(),
@@ -124,7 +122,7 @@ public class InitData implements CommandLineRunner {
         DecNodeDto d2 = nodeService.createDecisionNodeNext(
                 new DecisionNodeNextRequest(
                         user1.getId(),
-                        d0.id(),
+                        d1.id(),
                         NodeCategory.CAREER,
                         "보안 기초",
                         null,
@@ -144,7 +142,7 @@ public class InitData implements CommandLineRunner {
                         null,
                         List.of("캐시·큐", "검색"),
                         0,
-                        null,
+                        0,
                         "Redis·Kafka·Elasticsearch 실습"
                 )
         );
@@ -158,7 +156,7 @@ public class InitData implements CommandLineRunner {
                         null,
                         List.of("로그·모니터링", "SLO/알림"),
                         0,
-                        null,
+                        0,
                         "프로덕션 운영 지표와 알림 체계 정착"
                 )
         );
