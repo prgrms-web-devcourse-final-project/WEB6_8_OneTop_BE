@@ -9,7 +9,8 @@
  */
 package com.back.domain.node.service;
 
-import com.back.domain.node.dto.*;
+import com.back.domain.node.dto.TreeDto;
+import com.back.domain.node.dto.base.BaseLineDto;
 import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.dto.decision.DecNodeDto;
 import com.back.domain.node.dto.decision.DecisionLineDetailDto;
@@ -18,6 +19,7 @@ import com.back.domain.node.entity.BaseNode;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.entity.DecisionNode;
 import com.back.domain.node.mapper.NodeMappers;
+import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.BaseNodeRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
 import com.back.domain.node.repository.DecisionNodeRepository;
@@ -42,6 +44,7 @@ public class NodeQueryService {
     private final BaseNodeRepository baseNodeRepository;
     private final DecisionNodeRepository decisionNodeRepository;
     private final DecisionLineRepository decisionLineRepository;
+    private final BaseLineRepository baseLineRepository;
     private final NodeDomainSupport support;
 
     // 가장 중요한: 특정 BaseLine 전체 트리 조회
@@ -126,5 +129,12 @@ public class NodeQueryService {
                 line.getStatus(),
                 nodeDtos
         );
+    }
+
+    public List<BaseLineDto> getMyBaseLines(Long userId) {
+        return baseLineRepository.findByUser_IdOrderByIdDesc(userId)
+                .stream()
+                .map(NodeMappers.BASELINE_READ::map)
+                .toList();
     }
 }
