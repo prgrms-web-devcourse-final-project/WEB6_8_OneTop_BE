@@ -298,6 +298,17 @@ terraform apply -target=aws_instance.main
    ```bash
    echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
    ```
+4. 로그인 확인:
+   ```bash
+   cat ~/.docker/config.json | jq '.auths'
+   
+   # 출력 예시:
+   # {
+   #    "ghcr.io": {
+   #      "auth": "base64-encoded-auth-string"
+   #     }
+   # }
+   ```
 
 </details>
 
