@@ -32,7 +32,7 @@ public class UserService {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATION);
         }
         if (userRepository.existsByNickname(signupRequest.nickname())) {
-            throw new ApiException(ErrorCode.NICKNAME_DUPLICATION); // 없으면 추가(아래 참고)
+            throw new ApiException(ErrorCode.NICKNAME_DUPLICATION);
         }
 
         User user = User.builder()
