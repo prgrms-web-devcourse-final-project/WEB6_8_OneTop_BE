@@ -1,9 +1,8 @@
 package com.back.domain.post.dto;
 
-import com.back.domain.poll.dto.PollResponse;
+import com.back.domain.poll.dto.PollOptionResponse;
 import com.back.domain.post.enums.PostCategory;
 import com.back.global.common.DateFormat;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -38,6 +37,6 @@ public record PostDetailResponse(
 
         @Schema(description = "투표 정보, 투표가 없는 게시글인 경우 null")
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        PollResponse polls
+        PollOptionResponse polls
 ) {}
 

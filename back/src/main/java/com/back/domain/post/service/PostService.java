@@ -1,11 +1,14 @@
 package com.back.domain.post.service;
 
 import com.back.domain.like.repository.PostLikeRepository;
-import com.back.domain.post.dto.PostRequest;
+import com.back.domain.poll.converter.PollConverter;
+import com.back.domain.poll.dto.PollOptionResponse;
 import com.back.domain.post.dto.PostDetailResponse;
+import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
+import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.mapper.PostMappers;
 import com.back.domain.post.repository.PostRepository;
 import com.back.domain.user.entity.User;
@@ -18,8 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final PostMappers postMappers;
+    private final PollConverter pollConverter;
 
     @Transactional
     public PostDetailResponse createPost(Long userId, PostRequest request) {
@@ -49,13 +51,17 @@ public class PostService {
     public PostDetailResponse getPost(Long userId, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+
         boolean isLiked = postLikeRepository.existsByPostIdAndUserId(postId, userId);
-        return postMappers.toDetailResponse(post, isLiked);
+
+        if (post.getCategory() == PostCategory.CHAT) {
+            return postMappers.toDetailResponse(post, isLiked);
+        }
+
+        PollOptionResponse pollResponse = pollConverter.fromPollOptionJson(post.getVoteContent());
+        return postMappers.toDetailWithPollsResponse(post, isLiked, pollResponse);
     }
 
-    /**
-     * 게시글 목록을 조회하고 사용자의 좋아요 상태를 포함한 응답을 반환.
-     */
     public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
         Page<Post> posts = postRepository.searchPosts(condition, pageable);
 
@@ -97,6 +103,7 @@ public class PostService {
         return post;
     }
 
+    // 특정 사용자가 해당 페이지 내의 게시글 중에서 좋아요를 누른 게시글 ID 집합 조회
     private Set<Long> getUserLikedPostIds(Long userId, Page<Post> posts) {
         Set<Long> postIds = posts.getContent()
                 .stream()

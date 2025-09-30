@@ -1,14 +1,16 @@
 package com.back.domain.poll.dto;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 투표 결과를 보여주는 DTO
+ */
 public record PollResponse(
-        List<String> options,
-        LocalDateTime endDate
+        String pollUid,
+        List<VoteDetail> options
 ) {
-    public record VoteOption(
-            Long id,
+    public record VoteDetail(
+            int index,
             String text,
             Integer voteCount
     ) {}

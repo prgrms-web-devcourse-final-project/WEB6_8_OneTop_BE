@@ -1,19 +1,18 @@
 package com.back.domain.post.mapper;
 
-import com.back.domain.poll.dto.PollResponse;
+import com.back.domain.poll.converter.PollConverter;
+import com.back.domain.poll.dto.PollOptionResponse;
 import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.user.entity.User;
-import com.back.global.exception.ApiException;
-import com.back.global.exception.ErrorCode;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.UUID;
 
 /**
  * PostMapper
@@ -24,16 +23,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PostMappers {
 
-    private final ObjectMapper objectMapper;
+    private final PollConverter pollConverter;
 
     public Post toEntity(PostRequest request, User user) {
         String voteContent = null;
         if (request.category() == PostCategory.POLL && request.poll() != null) {
-            try {
-                voteContent = objectMapper.writeValueAsString(request.poll());
-            } catch (JsonProcessingException e) {
-                throw new ApiException(ErrorCode.POLL_VOTE_INVALID_FORMAT);
-            }
+            UUID pollUid = UUID.randomUUID();
+            voteContent = pollConverter.toPollContentJson(pollUid, request.poll().options());
         }
 
         return Post.builder()
@@ -57,7 +53,7 @@ public class PostMappers {
                 post.getLikeCount(),
                 isLiked,
                 post.getCreatedDate(),
-                parseVoteContent(post.getVoteContent())
+                pollConverter.fromPollOptionJson(post.getVoteContent())
         );
     }
 
@@ -75,21 +71,17 @@ public class PostMappers {
         );
     }
 
-    // 투표 정보 파싱 헬퍼 메서드
-    private PollResponse parseVoteContent(String voteContent) {
-        log.info("voteContent = {}", voteContent);
-        if (voteContent == null) {
-            return null;
-        }
-        try {
-            log.info("voteContent = {}", voteContent);
-            PollResponse poll = objectMapper.readValue(voteContent, PollResponse.class);
-            log.info("poll = {}", poll);
-            return poll;
-        } catch (JsonProcessingException e) {
-            log.info("e = {}", e.getMessage());
-            return null;
-        }
+    public PostDetailResponse toDetailWithPollsResponse(Post post, Boolean isLiked, PollOptionResponse pollResponse) {
+        return new PostDetailResponse(
+                post.getId(),
+                post.getTitle(),
+                post.getContent(),
+                post.isHide() ? "익명" : post.getUser().getNickname(),
+                post.getCategory(),
+                post.getLikeCount(),
+                isLiked,
+                post.getCreatedDate(),
+                pollResponse
+        );
     }
-
 }

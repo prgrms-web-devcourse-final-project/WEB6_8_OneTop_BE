@@ -46,7 +46,7 @@ public class Post extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String voteContent;
+    private String voteContent; // {"options":[{"index":1,"text":"첫 번째 옵션"},{...}],"pollUid":"xxx"}
 
     @Column(nullable = false)
     @ColumnDefault("true")

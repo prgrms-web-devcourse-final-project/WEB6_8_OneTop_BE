@@ -60,7 +60,8 @@ public enum ErrorCode {
 
     // Poll Errors
     POLL_VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "PV001", "Poll Vote Not Found"),
-    POLL_VOTE_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "PV002", "투표 형식이 올바르지 않습니다.");
+    POLL_VOTE_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "PV002", "투표 형식이 올바르지 않습니다."),
+    POLL_VOTE_INVALID_OPTION(HttpStatus.BAD_REQUEST, "PV003", "존재하지 않는 투표 항목입니다." );
 
 
     private final HttpStatus status;
