@@ -25,6 +25,14 @@ import java.util.List;
  */
 @Entity
 @Getter
+@Table(name = "post",
+        indexes = {
+                @Index(name = "idx_post_category_created",
+                        columnList = "category, created_date DESC"),
+                @Index(name = "idx_post_user_created",
+                        columnList = "user_id, created_date DESC"),
+                @Index(name = "idx_post_title", columnList = "title")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
