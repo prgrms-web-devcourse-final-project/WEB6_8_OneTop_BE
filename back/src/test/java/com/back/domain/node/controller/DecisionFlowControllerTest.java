@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("Re:Life — DecisionFlowController from-base · next · cancel · complete 통합 테스트")
+@SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
+@Sql(
+        statements = {
+                "SET REFERENTIAL_INTEGRITY FALSE",
+                "TRUNCATE TABLE DECISION_NODES",
+                "TRUNCATE TABLE DECISION_LINES",
+                "TRUNCATE TABLE BASE_NODES",
+                "TRUNCATE TABLE BASE_LINES",
+                "TRUNCATE TABLE USERS",
+
+                "ALTER TABLE DECISION_NODES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE DECISION_LINES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASE_NODES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASE_LINES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE USERS ALTER COLUMN ID RESTART WITH 1",
+                "SET REFERENTIAL_INTEGRITY TRUE"
+        },
+        executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
+)
 public class DecisionFlowControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -41,17 +62,17 @@ public class DecisionFlowControllerTest {
 
     private Long userId;
 
-    @BeforeAll
+    @BeforeEach
     void initUser() {
         String uid = UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder()
                 .email("user_" + uid + "@test.local")
-                .role(Role.GUEST)
+                .role(Role.USER)
                 .birthdayAt(LocalDateTime.now().minusYears(25))
                 .gender(Gender.M)
                 .mbti(Mbti.INTJ)
                 .beliefs("NONE")
-                .authProvider(AuthProvider.GUEST)
+                .authProvider(AuthProvider.LOCAL)
                 .nickname("tester-" + uid)
                 .username("name-" + uid)
                 .build();

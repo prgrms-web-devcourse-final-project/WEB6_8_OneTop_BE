@@ -13,7 +13,9 @@ import java.util.Optional;
 @Repository
 public interface BaseLineRepository extends JpaRepository<BaseLine, Long> {
     Optional<BaseLine> findByUser(User user);
-    long countByUser(User user); // 기본 인덱스 계산용
+    long countByUser(User user);
+    // Guest 베이스라인 1개 제한 확인용
+    boolean existsByUser_id(Long userId);
 
-    boolean existsByUserAndTitle(User user, String title); // 충돌 회피용
+    boolean existsByUserAndTitle(User user, String title);
 }

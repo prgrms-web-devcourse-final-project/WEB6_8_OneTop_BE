@@ -52,7 +52,6 @@ public class BaseLineController {
     // 사용자 전체 트리 조회 (베이스/결정 노드 일괄 반환)
     @GetMapping("/{baseLineId}/tree")
     public ResponseEntity<TreeDto> getTreeForBaseLine(@PathVariable Long baseLineId) {
-        // 트리 조회 서비스 호출
         TreeDto tree = nodeService.getTreeForBaseLine(baseLineId);
         return ResponseEntity.ok(tree);
     }
