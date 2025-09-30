@@ -9,7 +9,9 @@ import com.back.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.service.spi.ServiceException;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,14 @@ import java.util.List;
  */
 @Entity
 @Getter
+@Table(name = "post",
+        indexes = {
+                @Index(name = "idx_post_category_created",
+                        columnList = "category, created_date DESC"),
+                @Index(name = "idx_post_user_created",
+                        columnList = "user_id, created_date DESC"),
+                @Index(name = "idx_post_title", columnList = "title")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -42,10 +52,9 @@ public class Post extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    /**
-     * JSON 데이터를 단순 문자열로 저장 (예: {"option1": 10, "option2": 5})
-     */
-    private String voteContent;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String voteContent; // {"options":[{"index":1,"text":"첫 번째 옵션"},{...}],"pollUid":"xxx"}
 
     @Column(nullable = false)
     @ColumnDefault("true")

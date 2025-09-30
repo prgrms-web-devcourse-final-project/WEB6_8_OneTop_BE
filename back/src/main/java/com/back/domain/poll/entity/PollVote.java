@@ -8,7 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -19,14 +20,12 @@ import java.util.UUID;
 @Entity
 @Table(name = "poll_votes",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_logged_in_once", columnNames = {"post_id", "pollUid", "user_id"}),
-        @UniqueConstraint(name = "uq_anonymous_once", columnNames = {"post_id", "pollUid", "userHash"})
+        @UniqueConstraint(name = "uq_logged_in_once", columnNames = {"post_id", "pollUid", "user_id"})
     }
 )
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
+@AllArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Builder
 public class PollVote extends BaseEntity {
 
@@ -41,9 +40,8 @@ public class PollVote extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(length = 128)
-    private String userHash;
-
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String choiceJson;
+
 }
