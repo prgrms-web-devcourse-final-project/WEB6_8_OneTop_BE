@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -145,6 +146,19 @@ public class GlobalExceptionHandler {
                 "FORBIDDEN",
                 "요청하신 리소스에 대한 권한이 없습니다.",
                 "FORBIDDEN",
+                Map.of(),
+                req
+        );
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest req) {
+        String userMessage = "요청을 처리할 수 없습니다.";
+        return ProblemDetails.of(
+                HttpStatus.BAD_REQUEST,
+                "DATA_INTEGRITY_VIOLATION",
+                userMessage,
+                "DATA_INTEGRITY_VIOLATION",
                 Map.of(),
                 req
         );
