@@ -12,6 +12,7 @@ import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,8 +24,9 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
@@ -40,7 +42,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
-@Transactional
+@SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
+@Sql(
+        statements = {
+                "SET REFERENTIAL_INTEGRITY FALSE",
+                "TRUNCATE TABLE COMMENTS",
+                "TRUNCATE TABLE POST",
+                "TRUNCATE TABLE USERS",
+
+                "ALTER TABLE COMMENTS ALTER COLUMN id RESTART WITH 1",
+                "ALTER TABLE POST ALTER COLUMN id RESTART WITH 1",
+                "ALTER TABLE USERS ALTER COLUMN id RESTART WITH 1",
+                "SET REFERENTIAL_INTEGRITY TRUE"
+        },
+        executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
+)
 class CommentControllerTest {
 
     @Autowired private UserRepository userRepository;
@@ -48,11 +64,13 @@ class CommentControllerTest {
     @Autowired private CommentRepository commentRepository;
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private EntityManager em;
 
     private User testUser;
     private User anotherUser;
     private Post testPost;
     private Comment testComment;
+
 
     @BeforeEach
     void setUp() {
