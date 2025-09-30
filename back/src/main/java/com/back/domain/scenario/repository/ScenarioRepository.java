@@ -61,4 +61,9 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
 
     // 특정 상태의 시나리오들 조회 (상태별 처리용)
     List<Scenario> findByStatusOrderByCreatedDateAsc(ScenarioStatus status);
+
+    @Query("SELECT COALESCE(SUM(s.total), 0) FROM Scenario s WHERE s.user.id = :userId")
+    int sumTotalByUserId(Long userId);
+
+    int countByUserId(Long userId);
 }

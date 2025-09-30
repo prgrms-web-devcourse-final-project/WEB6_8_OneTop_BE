@@ -2,6 +2,7 @@ package com.back.domain.user.controller;
 
 import com.back.domain.user.dto.UserInfoRequest;
 import com.back.domain.user.dto.UserInfoResponse;
+import com.back.domain.user.dto.UserStatsResponse;
 import com.back.domain.user.service.UserInfoService;
 import com.back.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -15,6 +16,11 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserInfoController {
     private final UserInfoService userInfoService;
+
+    @GetMapping("/stats")
+    public ResponseEntity<UserStatsResponse> getMyStats(@AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(userInfoService.getMyStats(principal.getId()));
+    }
 
     @GetMapping
     public ResponseEntity<UserInfoResponse> getMyInfo(@AuthenticationPrincipal CustomUserDetails principal) {
