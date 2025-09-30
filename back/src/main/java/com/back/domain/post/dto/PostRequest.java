@@ -1,5 +1,6 @@
 package com.back.domain.post.dto;
 
+import com.back.domain.poll.dto.PollRequest;
 import com.back.domain.post.enums.PostCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,5 +17,7 @@ public record PostRequest(
         @NotNull(message = "카테고리는 필수입니다")
         PostCategory category,
 
-        Boolean hide
+        Boolean hide,
+
+        PollRequest poll
 ) { }

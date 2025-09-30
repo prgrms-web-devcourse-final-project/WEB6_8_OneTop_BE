@@ -20,7 +20,11 @@ import java.util.List;
  * 계층형 댓글 구조를 지원합니다.
  */
 @Entity
-@Table(name = "comments")
+@Table(name = "comments",
+        indexes = {
+                @Index(name = "idx_comment_post_created", columnList = "post_id, created_date desc"),
+                @Index(name = "idx_comment_post_like", columnList = "post_id, like_count desc")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
