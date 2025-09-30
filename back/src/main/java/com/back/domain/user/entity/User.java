@@ -1,11 +1,18 @@
 package com.back.domain.user.entity;
 
+import com.back.domain.node.entity.BaseLine;
+import com.back.domain.node.entity.BaseNode;
+import com.back.domain.node.entity.DecisionLine;
+import com.back.domain.node.entity.DecisionNode;
+import com.back.domain.scenario.entity.Scenario;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 사용자 정보를 저장하는 엔티티.
@@ -47,17 +54,37 @@ public class User extends BaseEntity {
 
     private String beliefs;
 
-    private String lifeSatis;
+    private Integer lifeSatis;
 
-    private String relationship;
+    private Integer relationship;
 
-    private String workLifeBal;
+    private Integer workLifeBal;
 
-    private String riskAvoid;
+    private Integer riskAvoid;
 
     @Enumerated(EnumType.STRING)
     private AuthProvider authProvider;
 
     @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<BaseLine> baseLines = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<BaseNode> baseNodes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DecisionLine> decisionLines = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DecisionNode> decisionNodes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Scenario> scenarios = new ArrayList<>();
 }

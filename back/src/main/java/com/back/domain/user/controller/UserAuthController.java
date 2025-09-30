@@ -6,10 +6,10 @@ import com.back.domain.user.dto.UserResponse;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.service.GuestService;
 import com.back.domain.user.service.UserService;
-import com.back.global.common.ApiResponse;
 import com.back.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -39,14 +39,13 @@ public class UserAuthController {
     private final GuestService guestService;
 
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<UserResponse>> signup(@Valid @RequestBody SignupRequest req){
+    public ResponseEntity<UserResponse> signup(@Valid @RequestBody SignupRequest req){
         User saved = userService.signup(req);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(UserResponse.from(saved), "성공적으로 생성되었습니다."));
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(saved));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> login(
+    public ResponseEntity<UserResponse> login(
             @Valid @RequestBody LoginRequest req,
             HttpServletRequest request,
             HttpServletResponse response)
@@ -60,29 +59,33 @@ public class UserAuthController {
                 .saveContext(SecurityContextHolder.getContext(), request, response);
 
         CustomUserDetails cud = (CustomUserDetails) auth.getPrincipal();
-        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "로그인 성공"));
+        return ResponseEntity.ok(UserResponse.from(cud.getUser()));
     }
 
     @PostMapping("/guest")
-    public ResponseEntity<ApiResponse<UserResponse>> guestLogin(HttpServletRequest request, HttpServletResponse response){
+    public ResponseEntity<UserResponse> guestLogin(HttpServletRequest request, HttpServletResponse response){
         User savedGuest = guestService.createAndSaveGuest();
 
         CustomUserDetails cud = new CustomUserDetails(savedGuest);
         Authentication auth = new UsernamePasswordAuthenticationToken(cud, null, cud.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        request.getSession(true);
+        HttpSession session = request.getSession(true);
+
+        session.setMaxInactiveInterval(600);
+        session.setAttribute("guestId", savedGuest.getId());
+
         new HttpSessionSecurityContextRepository()
                 .saveContext(SecurityContextHolder.getContext(), request, response);
 
-        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(savedGuest), "게스트 로그인 성공"));
+        return ResponseEntity.ok(UserResponse.from(savedGuest));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> me(@AuthenticationPrincipal CustomUserDetails cud) {
+    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal CustomUserDetails cud) {
         if (cud == null) {
-            return ResponseEntity.ok(ApiResponse.success(null, "anonymous"));
+            return ResponseEntity.ok(null); // 익명 사용자
         }
-        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(cud.getUser()), "authenticated"));
+        return ResponseEntity.ok(UserResponse.from(cud.getUser()));
     }
 }
