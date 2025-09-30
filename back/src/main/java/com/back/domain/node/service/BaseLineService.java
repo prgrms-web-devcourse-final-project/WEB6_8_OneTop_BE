@@ -13,6 +13,7 @@ import com.back.domain.node.entity.BaseNode;
 import com.back.domain.node.mapper.NodeMappers;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.BaseNodeRepository;
+import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
@@ -35,9 +36,15 @@ class BaseLineService {
 
     // 노드 일괄 생성(save chain)
     public BaseLineBulkCreateResponse createBaseLineWithNodes(BaseLineBulkCreateRequest request) {
+
         support.validateBulkRequest(request);
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND, "User not found: " + request.userId()));
+
+        // Guest는 베이스라인 1개 제한
+        if (user.getRole() == Role.GUEST && baseLineRepository.existsByUser_id(user.getId())) {
+            throw new ApiException(ErrorCode.GUEST_BASELINE_LIMIT, "Guest user can have only one baseline.");
+        }
         String title = support.normalizeOrAutoTitle(request.title(), user);
 
         BaseLine baseLine = baseLineRepository.save(BaseLine.builder().user(user).title(title).build());

@@ -3,7 +3,6 @@ package com.back.domain.comment.service;
 import com.back.domain.comment.dto.CommentRequest;
 import com.back.domain.comment.dto.CommentResponse;
 import com.back.domain.comment.entity.Comment;
-import com.back.domain.comment.enums.CommentSortType;
 import com.back.domain.comment.mapper.CommentMappers;
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.post.entity.Post;
@@ -12,12 +11,9 @@ import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +56,7 @@ public class CommentService {
         return comment.getId();
     }
 
+    @Transactional
     public void deleteComment(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));

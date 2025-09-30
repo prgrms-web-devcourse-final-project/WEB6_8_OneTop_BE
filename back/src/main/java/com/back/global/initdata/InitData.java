@@ -1,9 +1,14 @@
 package com.back.global.initdata;
 
-import com.back.domain.user.entity.Gender;
-import com.back.domain.user.entity.Mbti;
-import com.back.domain.user.entity.Role;
-import com.back.domain.user.entity.User;
+import com.back.domain.node.dto.PivotListDto;
+import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
+import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
+import com.back.domain.node.dto.decision.DecNodeDto;
+import com.back.domain.node.dto.decision.DecisionNodeFromBaseRequest;
+import com.back.domain.node.dto.decision.DecisionNodeNextRequest;
+import com.back.domain.node.entity.NodeCategory;
+import com.back.domain.node.service.NodeService;
+import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -11,10 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 애플리케이션 시작 시 초기 데이터를 생성하는 컴포넌트.
- * 개발 환경에서 필요한 기본 사용자(관리자, 일반 사용자)를 데이터베이스에 저장합니다.
+ * [요약] 기동 시 admin·user1 생성 → user1에 베이스라인(총7: 헤더+피벗5+테일) 1개와 결정라인(총5 노드) 1개 시드 주입.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,12 +27,13 @@ public class InitData implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NodeService nodeService;
 
+    // user1을 만들고 베이스라인(7)과 결정라인(5)을 시드로 주입한다
     @Override
-    public void run(String... args) throws Exception {
-        // 애플리케이션 시작 시 초기 사용자 데이터 생성
+    public void run(String... args) {
         if (userRepository.findByEmail("admin@example.com").isEmpty()) {
-            User admin = User.builder()
+            var admin = User.builder()
                     .email("admin@example.com")
                     .password(passwordEncoder.encode("admin1234!"))
                     .role(Role.ADMIN)
@@ -41,19 +47,118 @@ public class InitData implements CommandLineRunner {
             userRepository.save(admin);
         }
 
-        if (userRepository.findByEmail("user1@example.com").isEmpty()) {
-            User user1 = User.builder()
-                    .email("user1@example.com")
-                    .password(passwordEncoder.encode("user1234!"))
-                    .role(Role.USER)
-                    .username("사용자1")
-                    .nickname("사용자닉네임")
-                    .birthdayAt(LocalDateTime.of(1995, 5, 10, 0, 0))
-                    .gender(Gender.F)
-                    .mbti(Mbti.ENFP)
-                    .beliefs("개인주의")
-                    .build();
-            userRepository.save(user1);
-        }
+        var user1 = userRepository.findByEmail("user1@example.com")
+                .orElseGet(() -> userRepository.save(
+                        User.builder()
+                                .email("user1@example.com")
+                                .password(passwordEncoder.encode("user1234!"))
+                                .role(Role.USER)
+                                .username("사용자1")
+                                .nickname("사용자닉네임")
+                                .birthdayAt(LocalDateTime.of(1995, 5, 10, 0, 0))
+                                .gender(Gender.F)
+                                .mbti(Mbti.ENFP)
+                                .beliefs("개인주의")
+                                .build()
+                ));
+
+        BaseLineBulkCreateResponse baseRes = nodeService.createBaseLineWithNodes(
+                new BaseLineBulkCreateRequest(
+                        user1.getId(),
+                        "user1-기본 라인",
+                        List.of(
+                                new BaseLineBulkCreateRequest.BaseNodePayload(
+                                        NodeCategory.EDUCATION, "중학교 진학", "일반계 선택", 18, "중등 입학 및 진로 탐색 시작"
+                                ),
+                                new BaseLineBulkCreateRequest.BaseNodePayload(
+                                        NodeCategory.EDUCATION, "고교 진학", "이과 트랙", 20, "수학·물리 집중 선택"
+                                ),
+                                new BaseLineBulkCreateRequest.BaseNodePayload(
+                                        NodeCategory.EDUCATION, "대학 합격", "컴공 전공", 22, "알고리즘/네트워크 관심"
+                                ),
+                                new BaseLineBulkCreateRequest.BaseNodePayload(
+                                        NodeCategory.CAREER, "인턴 경험", "백엔드 인턴", 24, "스프링 부트 실무 체험"
+                                ),
+                                new BaseLineBulkCreateRequest.BaseNodePayload(
+                                        NodeCategory.CAREER, "첫 직장", "주니어 백엔드", 26, "API/DB 설계 중심"
+                                )
+                        )
+                )
+        );
+
+        Long baseLineId = baseRes.baseLineId();
+        PivotListDto pivots = nodeService.getPivotBaseNodes(baseLineId);
+        if (pivots.pivots() == null || pivots.pivots().isEmpty()) return;
+
+        DecNodeDto d0 = nodeService.createDecisionNodeFromBase(
+                new DecisionNodeFromBaseRequest(
+                        user1.getId(),
+                        baseLineId,
+                        0,
+                        null,
+                        0,
+                        NodeCategory.CAREER,
+                        "개발자 커리어 진입",
+                        List.of("자바/스프링", "파이썬/데이터"),
+                        0,
+                        "백엔드 중심 트랙을 초기 선택지로 제시"
+                )
+        );
+
+        DecNodeDto d1 = nodeService.createDecisionNodeNext(
+                new DecisionNodeNextRequest(
+                        user1.getId(),
+                        d0.id(),
+                        NodeCategory.CAREER,
+                        "클라우드 기초",
+                        null,
+                        List.of("AWS 기초", "GCP 기초"),
+                        0,
+                        0,
+                        "EC2/RDS·CI/CD 파이프라인 구축"
+                )
+        );
+
+        DecNodeDto d2 = nodeService.createDecisionNodeNext(
+                new DecisionNodeNextRequest(
+                        user1.getId(),
+                        d1.id(),
+                        NodeCategory.CAREER,
+                        "보안 기초",
+                        null,
+                        List.of("웹 보안", "네트워크 보안"),
+                        0,
+                        0,
+                        "JWT·세션·CSRF/XSS 대응 심화"
+                )
+        );
+
+        DecNodeDto d3 = nodeService.createDecisionNodeNext(
+                new DecisionNodeNextRequest(
+                        user1.getId(),
+                        d2.id(),
+                        NodeCategory.CAREER,
+                        "대용량 처리",
+                        null,
+                        List.of("캐시·큐", "검색"),
+                        0,
+                        0,
+                        "Redis·Kafka·Elasticsearch 실습"
+                )
+        );
+
+        nodeService.createDecisionNodeNext(
+                new DecisionNodeNextRequest(
+                        user1.getId(),
+                        d3.id(),
+                        NodeCategory.CAREER,
+                        "운영/관측성",
+                        null,
+                        List.of("로그·모니터링", "SLO/알림"),
+                        0,
+                        0,
+                        "프로덕션 운영 지표와 알림 체계 정착"
+                )
+        );
     }
 }

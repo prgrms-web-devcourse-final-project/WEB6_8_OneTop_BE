@@ -44,6 +44,7 @@ public enum ErrorCode {
     NODE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "Node Not Found"),
     BASE_LINE_NOT_FOUND(HttpStatus.NOT_FOUND, "N002", "BaseLine Not Found"),
     DECISION_LINE_NOT_FOUND(HttpStatus.NOT_FOUND, "N003", "DecisionLine Not Found"),
+    GUEST_BASELINE_LIMIT(HttpStatus.BAD_REQUEST, "N004" , "Guest Base Line Limit Exceeded"),
 
     // Scenario Errors
     SCENARIO_NOT_FOUND(HttpStatus.NOT_FOUND, "SC001", "Scenario Not Found"),
