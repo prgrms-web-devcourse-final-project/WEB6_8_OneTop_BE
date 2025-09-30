@@ -53,7 +53,7 @@ public class Scenario extends BaseEntity {
     private LocalDateTime updatedDate;
 
     // 시나리오와 연결된 게시글 (시나리오 공유 시 생성)
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", unique = true)
     private Post post;
 
