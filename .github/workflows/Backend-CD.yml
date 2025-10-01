@@ -21,6 +21,7 @@ env:
   CONTAINER_1_NAME: relife_1 # 슬롯1(고정 이름)
   CONTAINER_2_NAME: relife_2 # 슬롯2(고정 이름)
   CONTAINER_PORT: 8080 # 컨테이너 내부 포트(스프링부트)
+  HEALTH_CHECK_PORT: 8090 # 헬스체크용 포트(임시, 추후 필요 시)
   EC2_INSTANCE_TAG_NAME: relife-ec2-1 # 배포 대상 EC2 Name 태그
   DOCKER_NETWORK: common # 도커 네트워크
   BACKEND_DIR: back # Dockerfile 위치
@@ -87,14 +88,72 @@ jobs:
           prerelease: false
 
   # ---------------------------------------------------------
-  # 2) 도커 이미지 빌드/푸시 (캐시 최대 활용)
+  # 2) 커밋 해시 값으로부터 PR 당시 Artifact의 run_id 추출
+  # ---------------------------------------------------------
+  findCorrespondingCIrun:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.find_run.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # .git 히스토리 가져오기
+
+      - name: 연관있는 PR 및 CI workflow 실행 찾기
+        id: find_run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. 현재 push를 유발한 커밋(merge commit) SHA 가져오기
+          MERGE_COMMIT_SHA=${{ github.sha }}
+          echo "Merge commit SHA: $MERGE_COMMIT_SHA"
+
+          # 2. 커밋 SHA를 이용해 병합된 PR 번호 찾기
+          PR_NUMBER=$(gh pr list --search "$MERGE_COMMIT_SHA" --state merged --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "⚠️ Could not find a merged PR for this commit"
+            exit 1
+          fi
+          echo "✅ Found PR number: $PR_NUMBER"
+
+          # 3. PR의 마지막 커밋(head SHA) 알아내기
+          PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+          echo "PR head SHA: $PR_HEAD_SHA"
+
+          # 4. PR의 마지막 커밋과 CI 워크플로우 파일 이름을 이용해 성공한 CI 실행(run)의 ID 찾기
+          # CI 워크플로우 파일명과 일치
+          RUN_ID=$(gh run list --workflow="Backend-CI.yml" --commit="$PR_HEAD_SHA" --status=success --json databaseId --jq '.[0].databaseId')
+          if [ -z "$RUN_ID" ]; then
+            echo "⚠️ Could not find a successful CI run for this PR."
+            exit 1
+          fi
+          echo "✅ Found CI run ID: $RUN_ID"
+
+          # 5. 찾은 RUN_ID를 output으로 내보내기
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+  # ---------------------------------------------------------
+  # 3) 도커 이미지 빌드/푸시
   # ---------------------------------------------------------
   buildImageAndPush:
     name: 도커 이미지 빌드와 푸시
-    needs: createTagAndRelease
+    needs: [createTagAndRelease, findCorrespondingCIrun]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create dist directory
+        working-directory: back
+        run: mkdir -p dist
+
+      - name: CI 상에서 나온 Artifact 다운로드
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          # 앞 단계에서 찾은 run_id 사용
+          workflow: Backend-CI.yml
+          run_id: ${{ needs.findCorrespondingCIrun.outputs.run_id }}
+          name: relife-backend-jar
+          path: '${{ env.BACKEND_DIR }}/dist' # BACKEND_DIR 기준
 
       - name: Docker Buildx 설치
         uses: docker/setup-buildx-action@v3
@@ -126,7 +185,7 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:latest
 
   # ---------------------------------------------------------
-  # 3) Blue/Green 무중단 배포 (EC2 + NPM 스위치)
+  # 4) Blue/Green 무중단 배포 (EC2 + NPM 스위치)
   # ---------------------------------------------------------
   deploy:
     name: Blue/Green 무중단 배포
@@ -187,6 +246,7 @@ jobs:
             SLOT1="${{ env.CONTAINER_1_NAME }}"
             SLOT2="${{ env.CONTAINER_2_NAME }}"
             PORT_IN="${{ env.CONTAINER_PORT }}"
+            HEALTH_PORT="${{ env.HEALTH_CHECK_PORT }}"
             NET="${{ env.DOCKER_NETWORK }}"
             ENV_FILE="/tmp/relife.env"
 
@@ -268,7 +328,7 @@ jobs:
               "${IMAGE}"
 
             # ---------------------------------------------------------
-            # 5) 헬스체크 (/actuator/health 200 OK까지 대기)
+            # 5) 헬스체크 (/actuator/health/readiness 200 OK까지 대기)
             # ---------------------------------------------------------
             echo "⏱ health-check: ${GREEN}"
             TIMEOUT=120
@@ -277,7 +337,7 @@ jobs:
             sleep 8  # 초기 부팅 여유
 
             while (( ELAPSED < TIMEOUT )); do
-              CODE=$(docker exec "${GREEN}" curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT_IN}/actuator/health" || echo 000)
+              CODE=$(docker exec "${GREEN}" curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${HEALTH_PORT}/actuator/health/readiness" || echo 000)
               if [[ "${CODE}" == "200" ]]; then
                 echo "✅ ${GREEN} is healthy"
                 break
