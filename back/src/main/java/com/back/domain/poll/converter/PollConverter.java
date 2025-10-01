@@ -77,4 +77,13 @@ public class PollConverter {
             throw new ApiException(ErrorCode.POLL_VOTE_INVALID_FORMAT);
         }
     }
+
+    public PollOptionResponse.VoteOption fromPollOptionInVoteOptionJson(String voteContent) {
+        if (voteContent == null) return null;
+        try {
+            return objectMapper.readValue(voteContent, PollOptionResponse.VoteOption.class);
+        } catch (JsonProcessingException e) {
+            throw new ApiException(ErrorCode.POLL_VOTE_INVALID_FORMAT);
+        }
+    }
 }

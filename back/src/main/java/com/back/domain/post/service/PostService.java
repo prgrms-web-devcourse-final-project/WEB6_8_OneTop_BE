@@ -3,6 +3,7 @@ package com.back.domain.post.service;
 import com.back.domain.like.repository.PostLikeRepository;
 import com.back.domain.poll.converter.PollConverter;
 import com.back.domain.poll.dto.PollOptionResponse;
+import com.back.domain.poll.repository.PollVoteRepository;
 import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSearchCondition;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
+    private final PollVoteRepository pollVoteRepository;
     private final PostMappers postMappers;
     private final PollConverter pollConverter;
 
@@ -58,7 +62,15 @@ public class PostService {
             return postMappers.toDetailResponse(post, isLiked);
         }
 
-        PollOptionResponse pollResponse = pollConverter.fromPollOptionJson(post.getVoteContent());
+        List<PollOptionResponse.VoteOption> options =
+                pollConverter.fromPollOptionJson(post.getVoteContent()).options();
+
+        List<Integer> selected = pollVoteRepository.findByPostIdAndUserId(postId, userId)
+                .map(vote -> pollConverter.fromChoiceJson(vote.getChoiceJson()))
+                .orElse(Collections.emptyList());
+
+        PollOptionResponse pollResponse = new PollOptionResponse(selected, options);
+
         return postMappers.toDetailWithPollsResponse(post, isLiked, pollResponse);
     }
 
