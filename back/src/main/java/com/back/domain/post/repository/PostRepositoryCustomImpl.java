@@ -30,7 +30,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .selectFrom(post)
                 .leftJoin(post.user, user).fetchJoin()
                 .where(getCategoryCondition(condition.category()),
-                        getSearchCondition(condition.keyword(), condition.searchType()))
+                        getSearchCondition(condition.keyword(), condition.searchType()),
+                        excludeHiddenIfSearch(condition.keyword(), condition.searchType()))
                 .orderBy(post.createdDate.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -41,7 +42,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .from(post)
                 .where(
                         getCategoryCondition(condition.category()),
-                        getSearchCondition(condition.keyword(), condition.searchType())
+                        getSearchCondition(condition.keyword(), condition.searchType()),
+                        excludeHiddenIfSearch(condition.keyword(), condition.searchType())
                 );
 
         return PageableExecutionUtils.getPage(posts, pageable, count::fetchOne);
@@ -70,5 +72,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                     .or(post.content.containsIgnoreCase(searchKeyword));
             case AUTHOR -> post.user.nickname.containsIgnoreCase(searchKeyword);
         };
+    }
+
+    private BooleanExpression excludeHiddenIfSearch(String searchKeyword, SearchType searchType) {
+        if (!StringUtils.hasText(searchKeyword) || searchType != SearchType.AUTHOR) {
+            return null;
+        }
+        return post.hide.eq(false);
     }
 }

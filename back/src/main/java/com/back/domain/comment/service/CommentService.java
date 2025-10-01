@@ -5,6 +5,8 @@ import com.back.domain.comment.dto.CommentResponse;
 import com.back.domain.comment.entity.Comment;
 import com.back.domain.comment.mapper.CommentMappers;
 import com.back.domain.comment.repository.CommentRepository;
+import com.back.domain.like.repository.CommentLikeRepository;
+import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.repository.PostRepository;
 import com.back.domain.user.entity.User;
@@ -17,6 +19,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * 댓글 관련 비즈니스 로직을 처리하는 서비스.
  */
@@ -28,6 +34,7 @@ public class CommentService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final CommentLikeRepository commentLikeRepository;
 
     public CommentResponse createComment(Long userId, Long postId, CommentRequest request) {
         User user = userRepository.findById(userId)
@@ -41,10 +48,23 @@ public class CommentService {
     }
 
     public Page<CommentResponse> getComments(Long userId, Long postId, Pageable pageable) {
+        User user = userId != null
+                ? userRepository.findById(userId).orElse(null)
+                : null;
+
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
         Page<Comment> commentsPage = commentRepository.findCommentsByPostId(postId, pageable);
-        return commentsPage.map(CommentMappers.COMMENT_READ::map);
+
+        Set<Long> userLikedComments = userId != null
+                ? getUserLikedComments(userId, commentsPage)
+                : Collections.emptySet();
+
+        return commentsPage.map(comment -> CommentMappers.toCommentResponse(
+                comment,
+                user,
+                userLikedComments.contains(comment.getId())
+        ));
     }
 
     @Transactional
@@ -62,5 +82,15 @@ public class CommentService {
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
         comment.checkUser(userId);
         commentRepository.delete(comment);
+    }
+
+    // 특정 사용자가 한 게시글 내 댓글에서 좋아요를 누른 댓글 ID 집합 조회
+    private Set<Long> getUserLikedComments(Long userId, Page<Comment> comments) {
+        Set<Long> commentIds = comments.getContent()
+                .stream()
+                .map(Comment::getId)
+                .collect(Collectors.toSet());
+
+        return commentLikeRepository.findLikedCommentsIdsByUserAndCommentIds(userId, commentIds);
     }
 }

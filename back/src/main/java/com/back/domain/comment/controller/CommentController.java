@@ -44,7 +44,6 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // fixme 게시글 목록 조회 - 정렬 조건 최신순, 좋아요순 추가하였는데 변경될 수 있음
     @GetMapping
     @Operation(summary = "댓글 목록 조회", description = "게시글 목록을 조회합니다.")
     public ResponseEntity<PageResponse<CommentResponse>> getPosts(
@@ -61,7 +60,9 @@ public class CommentController {
                 sort
         );
 
-        Page<CommentResponse> responses = commentService.getComments(cs.getUser().getId(), postId, sortedPageable);
+        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
+
+        Page<CommentResponse> responses = commentService.getComments(userId, postId, sortedPageable);
         return ResponseEntity.ok(PageResponse.of(responses));
     }
 

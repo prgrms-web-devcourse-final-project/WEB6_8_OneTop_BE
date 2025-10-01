@@ -34,6 +34,7 @@ public enum ErrorCode {
 
     // Comment Errors
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "Comment Not Found"),
+    COMMENT_ALREADY_LIKED(HttpStatus.BAD_REQUEST, "CM002", "Comment Already Liked"),
 
     // Session Errors
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "Session Not Found"),

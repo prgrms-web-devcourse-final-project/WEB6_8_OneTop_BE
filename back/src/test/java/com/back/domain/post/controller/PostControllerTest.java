@@ -244,6 +244,7 @@ class PostControllerTest {
                         .content("내용 " + i)
                         .category(i % 2 == 0 ? PostCategory.SCENARIO : PostCategory.CHAT)
                         .user(testUser)
+                        .hide(i % 2 == 0)
                         .build();
                 postRepository.save(post);
             }
@@ -259,7 +260,7 @@ class PostControllerTest {
         }
 
         @Test
-        @DisplayName("성공 - 카테고리 필터링")
+        @DisplayName("성공 - 카테고리 필터링, 익명은 검색되지 않아야 한다.")
         void successWithCategoryFilter() throws Exception {
             mockMvc.perform(get("/api/v1/posts")
                             .param("category", PostCategory.SCENARIO.name()))

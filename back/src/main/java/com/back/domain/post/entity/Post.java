@@ -1,7 +1,9 @@
 package com.back.domain.post.entity;
 
 import com.back.domain.comment.entity.Comment;
+import com.back.domain.poll.entity.PollVote;
 import com.back.domain.post.enums.PostCategory;
+import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import com.back.global.exception.ApiException;
@@ -18,11 +20,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 게시글 엔티티.
- * 사용자가 작성한 게시글의 정보를 저장합니다.
- * 인덱스...
- */
 @Entity
 @Getter
 @Table(name = "post",
@@ -68,6 +65,14 @@ public class Post extends BaseEntity {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PollVote> pollVotes = new ArrayList<>();
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id")
+    private Scenario scenario;
 
     public void updatePost(String title, String content, PostCategory category) {
         this.title = title;

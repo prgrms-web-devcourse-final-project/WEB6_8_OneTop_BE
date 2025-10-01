@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 투표 참여 엔티티에 대한 데이터베이스 접근을 담당하는 JpaRepository.
@@ -17,4 +18,6 @@ import java.util.Map;
 @Repository
 public interface PollVoteRepository extends JpaRepository<PollVote, Long> {
     List<PollVote> findByPostId(@Param("postId") Long postId);
+
+    Optional<PollVote> findByPostIdAndUserId(Long userId, Long postId);
 }

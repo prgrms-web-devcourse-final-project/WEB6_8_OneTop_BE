@@ -58,7 +58,6 @@ public class PostMappers {
     }
 
     public PostSummaryResponse toSummaryResponse(Post post, Boolean isLiked) {
-        log.info("투표 내용 {}", post.getVoteContent());
         return new PostSummaryResponse(
                 post.getId(),
                 post.getTitle(),

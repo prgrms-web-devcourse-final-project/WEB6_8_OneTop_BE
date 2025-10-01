@@ -3,6 +3,7 @@ package com.back.domain.post.service;
 import com.back.domain.like.repository.PostLikeRepository;
 import com.back.domain.poll.converter.PollConverter;
 import com.back.domain.poll.dto.PollOptionResponse;
+import com.back.domain.poll.repository.PollVoteRepository;
 import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSearchCondition;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
+    private final PollVoteRepository pollVoteRepository;
     private final PostMappers postMappers;
     private final PollConverter pollConverter;
 
@@ -52,20 +56,33 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        boolean isLiked = postLikeRepository.existsByPostIdAndUserId(postId, userId);
+        boolean isLiked = userId != null &&
+                postLikeRepository.existsByPostIdAndUserId(postId, userId);
 
         if (post.getCategory() == PostCategory.CHAT) {
             return postMappers.toDetailResponse(post, isLiked);
         }
 
-        PollOptionResponse pollResponse = pollConverter.fromPollOptionJson(post.getVoteContent());
+        List<PollOptionResponse.VoteOption> options =
+                pollConverter.fromPollOptionJson(post.getVoteContent()).options();
+
+        List<Integer> selected = userId != null
+                ? pollVoteRepository.findByPostIdAndUserId(postId, userId)
+                .map(vote -> pollConverter.fromChoiceJson(vote.getChoiceJson()))
+                .orElse(Collections.emptyList())
+                : Collections.emptyList();
+
+        PollOptionResponse pollResponse = new PollOptionResponse(selected, options);
+
         return postMappers.toDetailWithPollsResponse(post, isLiked, pollResponse);
     }
 
     public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
         Page<Post> posts = postRepository.searchPosts(condition, pageable);
 
-        Set<Long> likedPostIds = getUserLikedPostIds(userId, posts);
+        Set<Long> likedPostIds = userId != null
+                ? getUserLikedPostIds(userId, posts)
+                : Collections.emptySet();
 
         return posts.map(post -> postMappers.toSummaryResponse(
                 post,
