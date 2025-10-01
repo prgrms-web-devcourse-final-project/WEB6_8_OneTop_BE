@@ -58,6 +58,18 @@ resource "aws_security_group" "sg_1" {
     }
   }
 
+  # Redis
+  dynamic "ingress" {
+    for_each = var.expose_redis_port ? [1] : []
+    content {
+      from_port   = local.redis_port
+      to_port     = local.redis_port
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+      description = "Redis public access"
+    }
+  }
+
   #################################
   # EGRESS : 외부로 통신
   #################################
