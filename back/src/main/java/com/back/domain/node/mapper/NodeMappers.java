@@ -80,7 +80,9 @@ public final class NodeMappers {
                 opts.isEmpty() ? null : List.copyOf(opts),
                 e.getSelectedIndex(),
                 e.getParentOptionIndex(),
-                e.getDescription()
+                e.getDescription(),
+                null,
+                null
         );
     };
 

@@ -15,6 +15,7 @@ import com.back.domain.node.mapper.NodeMappers;
 import com.back.domain.node.repository.BaseNodeRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
 import com.back.domain.node.repository.DecisionNodeRepository;
+import com.back.global.ai.vector.AIVectorService;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ class DecisionFlowService {
     private final DecisionNodeRepository decisionNodeRepository;
     private final BaseNodeRepository baseNodeRepository;
     private final NodeDomainSupport support;
+    private final AIVectorService aiVectorService;
 
     // 가장 중요한: from-base 서버 해석(옵션 1~2개 허용; 단일 옵션은 선택 슬롯에만 반영)
     public DecNodeDto createDecisionNodeFromBase(DecisionNodeFromBaseRequest request) {
@@ -104,7 +106,32 @@ class DecisionFlowService {
         if (updated == 0) {
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "branch slot was taken by another request");
         }
-        return mapper.toResponse(saved);
+        DecNodeDto baseDto = mapper.toResponse(saved);
+
+        // 여기서 AI 힌트 주입 (응답 직전 동기)
+        List<DecisionNode> orderedList = decisionNodeRepository
+                .findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
+        var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), orderedList);
+
+        return new DecNodeDto(
+                baseDto.id(),
+                baseDto.userId(),
+                baseDto.type(),
+                baseDto.category(),
+                baseDto.situation(),
+                baseDto.decision(),
+                baseDto.ageYear(),
+                baseDto.decisionLineId(),
+                baseDto.parentId(),
+                baseDto.baseNodeId(),
+                baseDto.background(),
+                baseDto.options(),
+                baseDto.selectedIndex(),
+                baseDto.parentOptionIndex(),
+                baseDto.description(),
+                hint.aiNextSituation(),
+                hint.aiNextRecommendedOption()
+        );
     }
 
     // 가장 중요한: next 서버 해석(부모 기준 라인/다음 피벗/베이스 매칭 결정)
@@ -156,7 +183,32 @@ class DecisionFlowService {
         );
 
         DecisionNode saved = decisionNodeRepository.save(mapper.toEntity(createReq));
-        return mapper.toResponse(saved);
+        DecNodeDto baseDto = mapper.toResponse(saved);
+
+        // AI 힌트 주입 (응답 직전 동기)
+        List<DecisionNode> ordered_decision = decisionNodeRepository
+                .findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
+        var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), ordered_decision);
+
+        return new DecNodeDto(
+                baseDto.id(),
+                baseDto.userId(),
+                baseDto.type(),
+                baseDto.category(),
+                baseDto.situation(),
+                baseDto.decision(),
+                baseDto.ageYear(),
+                baseDto.decisionLineId(),
+                baseDto.parentId(),
+                baseDto.baseNodeId(),
+                baseDto.background(),
+                baseDto.options(),
+                baseDto.selectedIndex(),
+                baseDto.parentOptionIndex(),
+                baseDto.description(),
+                hint.aiNextSituation(),
+                hint.aiNextRecommendedOption()
+        );
     }
 
     // 라인 취소

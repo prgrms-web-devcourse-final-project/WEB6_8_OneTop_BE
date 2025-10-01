@@ -30,14 +30,12 @@ public class BaseLine extends BaseEntity {
     @Column(length = 100, nullable = false)
     private String title;
 
-    // BaseLine ←→ BaseNode 양방향 매핑 (BaseNode 쪽에 @ManyToOne BaseLine baseLine 있어야 함)
+    // BaseLine <-> BaseNode 양방향 매핑 (BaseNode 쪽에 @ManyToOne BaseLine baseLine 있어야 함)
     @OneToMany(mappedBy = "baseLine", cascade = CascadeType.ALL, orphanRemoval = false)
     @Builder.Default
     private List<BaseNode> baseNodes = new ArrayList<>();
 
-    /**
-     * 중간 피벗 나이 목록 반환(헤더/꼬리 제외, 중복 제거, 오름차순)
-     */
+    //중간 피벗 나이 목록 반환(헤더/꼬리 제외, 중복 제거, 오름차순)
     public List<Integer> pivotAges() {
         List<BaseNode> nodes = this.baseNodes;
         if (nodes == null || nodes.size() <= 2) {
