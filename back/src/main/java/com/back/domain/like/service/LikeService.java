@@ -64,7 +64,7 @@ public class LikeService {
         Comment comment = commentRepository.findByIdWithLock(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (commentLikeRepository.existsByCommentIdAndUserId(postId, userId)) {
+        if (commentLikeRepository.existsByCommentIdAndUserId(commentId, userId)) {
             throw new ApiException(ErrorCode.COMMENT_ALREADY_LIKED);
         }
 

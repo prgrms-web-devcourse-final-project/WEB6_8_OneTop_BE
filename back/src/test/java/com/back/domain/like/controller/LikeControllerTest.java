@@ -1,6 +1,10 @@
 package com.back.domain.like.controller;
 
+import com.back.domain.comment.entity.Comment;
+import com.back.domain.comment.repository.CommentRepository;
+import com.back.domain.like.entity.CommentLike;
 import com.back.domain.like.entity.PostLike;
+import com.back.domain.like.repository.CommentLikeRepository;
 import com.back.domain.like.repository.PostLikeRepository;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.repository.PostRepository;
@@ -44,9 +48,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(
         statements = {
                 "SET REFERENTIAL_INTEGRITY FALSE",
+                "TRUNCATE TABLE COMMENT_LIKES",
+                "TRUNCATE TABLE COMMENTS",
                 "TRUNCATE TABLE POST_LIKES",
                 "TRUNCATE TABLE POST",
                 "TRUNCATE TABLE USERS",
+                "ALTER TABLE COMMENT_LIKES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE COMMENTS ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE POST_LIKES ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE POST ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE USERS ALTER COLUMN ID RESTART WITH 1",
@@ -71,16 +79,24 @@ class LikeControllerTest {
     @Autowired
     private PostLikeRepository postLikeRepository;
 
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private CommentLikeRepository commentLikeRepository;
+
     static final int THREAD_POOL_SIZE = 50;
     static final int CONCURRENT_USERS = 50;
 
     private Post testPost;
     private User testUser;
+    private Comment testComment;
 
     @BeforeEach
     void setUp() {
         testUser = createTestUser("testuser");
         testPost = createTestPost(testUser);
+        testComment = createTestComment(testPost, testUser);
 
         setAuthentication(testUser);
     }
@@ -142,6 +158,63 @@ class LikeControllerTest {
         }
     }
 
+    @Nested
+    @DisplayName("댓글 좋아요 등록 및 취소")
+    class CommentLikeFeatureTest {
+
+        @Test
+        @DisplayName("성공 - 50명 동시 댓글 좋아요 등록")
+        void addCommentLikeConcurrent() throws InterruptedException {
+            List<User> testUsers = IntStream.rangeClosed(1, CONCURRENT_USERS)
+                    .mapToObj(i -> createTestUser("concurrent" + i))
+                    .collect(Collectors.toList());
+
+            userRepository.saveAll(testUsers);
+            userRepository.flush();
+
+            try (ExecutorService es = Executors.newFixedThreadPool(THREAD_POOL_SIZE)) {
+                List<Callable<Void>> tasks = testUsers.stream()
+                        .map(user -> (Callable<Void>) () -> {
+                            performCommentLike(user, testPost.getId(), testComment.getId());
+                            return null;
+                        })
+                        .toList();
+
+                es.invokeAll(tasks);
+            }
+
+            Comment comment = commentRepository.findById(testComment.getId()).orElseThrow();
+            assertEquals(CONCURRENT_USERS, comment.getLikeCount());
+        }
+
+        @Test
+        @DisplayName("실패 - 이미 좋아요 누른 유저가 다시 좋아요 등록 시 예외")
+        void addCommentLikeAlreadyLiked() throws Exception {
+            commentLikeRepository.save(CommentLike.builder().user(testUser).comment(testComment).build());
+            commentLikeRepository.flush();
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/comments/{commentId}/likes", testPost.getId(), testComment.getId()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.COMMENT_ALREADY_LIKED.getCode()))
+                    .andExpect(jsonPath("$.message").value(ErrorCode.COMMENT_ALREADY_LIKED.getMessage()));
+        }
+
+        @Test
+        @DisplayName("성공 - 댓글 좋아요 취소")
+        void removeCommentLike() throws Exception {
+            commentLikeRepository.save(CommentLike.builder().user(testUser).comment(testComment).build());
+            testComment.incrementLikeCount();
+            commentRepository.save(testComment);
+            commentRepository.flush();
+
+            mockMvc.perform(delete("/api/v1/posts/{postId}/comments/{commentId}/likes", testPost.getId(), testComment.getId()))
+                    .andExpect(status().isOk());
+
+            Comment comment = commentRepository.findById(testComment.getId()).orElseThrow();
+            assertEquals(0, comment.getLikeCount());
+        }
+    }
+
     /**
      * 테스트에서 사용할 공통 메서드
      */
@@ -175,9 +248,24 @@ class LikeControllerTest {
         );
     }
 
+    private Comment createTestComment(Post post, User user) {
+        return commentRepository.save(Comment.builder()
+                .post(post)
+                .user(user)
+                .content("테스트 댓글")
+                .build());
+    }
+
     private void performLike(User user, Long postId) throws Exception {
         setAuthentication(user);
         mockMvc.perform(post("/api/v1/posts/{postId}/likes", postId))
+                .andExpect(status().isOk());
+        SecurityContextHolder.clearContext();
+    }
+
+    private void performCommentLike(User user, Long postId, Long commentId) throws Exception {
+        setAuthentication(user);
+        mockMvc.perform(post("/api/v1/posts/{postId}/comments/{commentId}/likes", postId, commentId))
                 .andExpect(status().isOk());
         SecurityContextHolder.clearContext();
     }
