@@ -52,11 +52,6 @@ public class Scenario extends BaseEntity {
     @LastModifiedDate
     private LocalDateTime updatedDate;
 
-    // 시나리오와 연결된 게시글 (시나리오 공유 시 생성)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", unique = true)
-    private Post post;
-
     // AI가 생성한 직업 정보
     @Column(length = 200)
     private String job;
