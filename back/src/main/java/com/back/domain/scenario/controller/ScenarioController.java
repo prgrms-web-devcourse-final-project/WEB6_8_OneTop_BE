@@ -2,13 +2,13 @@ package com.back.domain.scenario.controller;
 
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.service.ScenarioService;
+import com.back.global.common.PageResponse;
 import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -92,14 +92,14 @@ public class ScenarioController {
     }
 
     @GetMapping("/baselines")
-    @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 페이지네이션으로 조회합니다.")
-    public ResponseEntity<Page<BaselineListResponse>> getBaselines(
+    @Operation(summary = "베이스라인 목록 조회", description = "사용자의 베이스라인 목록을 페이지네이션으로 조회합니다. (1-based 페이지네이션)")
+    public ResponseEntity<PageResponse<BaselineListResponse>> getBaselines(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable
     ) {
         Long userId = getUserId(userDetails);
 
-        Page<BaselineListResponse> baselines = scenarioService.getBaselines(userId, pageable);
+        PageResponse<BaselineListResponse> baselines = scenarioService.getBaselines(userId, pageable);
 
         return ResponseEntity.ok(baselines);
     }
