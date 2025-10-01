@@ -1,42 +1,22 @@
-#####################################################
-# 마지막 수정: 250924
+##############################################
+# 마지막 수정: 250929
 # 작성자: gooraeng
 #
 # CD 과정에서 사용될 Dockerfile 입니다.
-# 멀티 스테이지 적용 (빌드 스테이지, 실행 스테이지)
-#####################################################
-
-######### 빌드 스테이지 시작 #########
-FROM gradle:jdk-21-and-23-graal-jammy AS builder
-
-# 작업 디렉토리 설정
-WORKDIR /app
-
-# Gradle build, Setting 파일 복사
-COPY build.gradle.kts settings.gradle.kts gradlew ./
-COPY gradle gradle
-
-# Gradlew에 실행권한 부여
-RUN chmod +x gradlew
-
-# 종속성 설치
-RUN ./gradlew dependencies --no-daemon
-
-# 소스 코드 복사
-COPY src src
-
-# 애플리케이션 빌드 (CI 통과 이후 테스트 불필요)
-RUN ./gradlew build -x test --no-daemon --build-cache
-######### 빌드 스테이지 끝 #########
-
+# 싱글 스테이지 적용 (실행 스테이지)
+##############################################
 ######### 실행 스테이지 시작 #########
-FROM container-registry.oracle.com/graalvm/jdk:21
+FROM eclipse-temurin:21-jre
 
 # 작업 디렉토리 설정
 WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # 첫 번째(빌드) 스테이지에서 빌드된 JAR 파일 복사
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY dist/app.jar app.jar
 
 # JVM 메모리 설정
 # - XX:MaxRAMPercentage=N

@@ -19,20 +19,19 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Transactional
     public User signup(SignupRequest signupRequest) {
         // 사전 검증
         if (userRepository.existsByEmail(signupRequest.email())) {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATION);
         }
         if (userRepository.existsByNickname(signupRequest.nickname())) {
-            throw new ApiException(ErrorCode.NICKNAME_DUPLICATION); // 없으면 추가(아래 참고)
+            throw new ApiException(ErrorCode.NICKNAME_DUPLICATION);
         }
 
         User user = User.builder()
@@ -48,18 +47,12 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    @Transactional
     public User upsertOAuthUser(String email, String nickname, AuthProvider provider){
         Optional<User> found = userRepository.findByEmail(email);
         if(found.isPresent()){
             User user = found.get();
             if(user.getAuthProvider()==null) user.setAuthProvider(provider);
-            if(user.getNickname()==null || user.getNickname().isBlank()){
-                user.setNickname(safeUniqueNickname(nickname));
-            }
-            if(user.getUsername()==null || user.getUsername().isBlank()){
-                user.setUsername(defaultUsernameFromEmail(email));
-            }
+
             return user;
         }
         // 최초 소셜 로그인 시 필수값 기본 세팅

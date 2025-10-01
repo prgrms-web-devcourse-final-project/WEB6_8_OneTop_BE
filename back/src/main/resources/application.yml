@@ -1,6 +1,14 @@
 spring:
   application:
     name: back
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
+  config:
+    import: optional:file:.env[.properties]
+  flyway:
+    enabled: false
   profiles:
     active: test
   output:
@@ -19,19 +27,20 @@ spring:
         format_sql: true
         highlight_sql: true
         default_batch_fetch_size: 100
+    open-in-view: false
   security: # 여기에 추가
     oauth2:
       client:
         registration:
           google:
-            client-id: your-google-client-id
-            client-secret: your-google-client-secret
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
               - profile
           github:
-            client-id: your-github-client-id
-            client-secret: your-github-client-secret
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
             scope:
               - user:email
               - read:user
@@ -86,3 +95,19 @@ server:
         http-only: true
         secure: false      # 로컬 false, 운영 true(HTTPS)
         same-site: Lax
+        domain: ${custom.site.baseDomain}
+  forward-headers-strategy: native
+
+custom:
+  dev:
+    baseDomain: localhost
+    frontUrl: "http://${custom.dev.baseDomain}:3000"
+    backUrl: "http://${custom.dev.baseDomain}:${server.port}"
+  prod:
+    baseDomain: ${PROD_BASE_DOMAIN}
+    frontUrl: "https://www.${custom.prod.baseDomain}"
+    backUrl: "https://api.${custom.prod.baseDomain}"
+  site:
+    baseDomain: ${custom.dev.baseDomain}
+    frontUrl: ${custom.dev.frontUrl}
+    backUrl: ${custom.dev.backUrl}

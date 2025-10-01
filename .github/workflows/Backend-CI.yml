@@ -63,7 +63,17 @@ jobs:
         with:
           distribution: "graalvm"
           java-version: "21"
-          cache: "gradle"
+
+      # Gradle 캐시 설정
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       # Gradle 실행 권한 부여
       - name: Grant execute permission for gradlew
@@ -88,3 +98,17 @@ jobs:
         if: always()
         with:
           report_paths: "**/build/test-results/test/TEST-*.xml"
+
+      # 빌드 및 테스트가 완료된 JAR 파일을 별도 디렉토리에 복사
+      - name: Copy JAR file to dist directory
+        run: |
+          mkdir -p dist
+          cp $(ls build/libs/*.jar | grep -v plain | head -n 1) dist/app.jar
+
+      # JAR 파일을 아티팩트로 업로드 (CD 파이프라인에서 사용)
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: relife-backend-jar
+          path: back/dist/app.jar

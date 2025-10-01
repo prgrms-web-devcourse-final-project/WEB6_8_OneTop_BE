@@ -1,0 +1,78 @@
+spring:
+  # AWS RDS(PostgreSQL) 관련 설정
+  # EC2에 역할 부여를 하더라도 해당 값은 반드시 들어가야 합니다.
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: jdbc:postgresql://${AWS_RDS_ENDPOINT}:${AWS_RDS_PORT}/${AWS_RDS_DB_NAME}?sslmode=require
+    username: ${AWS_RDS_USERNAME}
+    password: ${PASSWORD_1}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-version: 0
+  data:
+    redis:
+      host: redis_1
+      password: ${PASSWORD_1}
+  jpa:
+    hibernate:
+      ddl-auto: validate # 운영 환경에서는 validate 또는 none 권장
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        highlight_sql: false
+        use_sql_comments: false
+      # https://bugoverdose.github.io/docs/database-connection-pool-sizing/
+      hikari:
+        maximum-pool-size: 7 # RDS 최대 커넥션 풀 core * (base_conn - 1) + effective_spindle
+        idle-timeout: 600000 # 커넥션이 유휴 상태로 유지되는 최대 시간 (10분)
+        max-lifetime: 1800000 # 커넥션의 최대 수명 (30분)
+        connection-timeout: 30000 # 커넥션을 얻기 위해 대기하는 최대 시간 (30초)
+        leak-detection-threshold: 60000 # 커넥션 누수 감지 임계값 (60초)
+  profiles:
+    active: prod
+
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: INFO
+    org.hibernate.orm.jdbc.extract: INFO
+    org.springframework.transaction.interceptor: INFO
+    org.springframework.security.oauth2: INFO
+    org.springframework.security.web: INFO
+    com.back: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  # 헬스 체크 포트 (외부 공개 X)
+  server:
+    port: 8090
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true      # 운영 true(HTTPS)
+        same-site: strict
+        domain: ${custom.site.baseDomain}
+
+springdoc:
+  api-docs:
+    enabled: false
+
+custom:
+  site:
+    baseDomain: "${custom.prod.baseDomain}"
+    frontUrl: "${custom.prod.frontUrl}"
+    backUrl: "${custom.prod.backUrl}"
