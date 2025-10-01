@@ -60,6 +60,6 @@ docker run -d \
 -p 6379:6379 \
 -e TZ=${timezone} \
 -v /dockerProjects/redis_1/volumes/data:/data \
-redis --requirepass ${password}
+redis:8.2-alpine --requirepass ${password}
 
 echo "${github_token}" | docker login ghcr.io -u ${github_token_owner} --password-stdin
