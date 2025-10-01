@@ -23,18 +23,18 @@ public final class CommentMappers {
 
     private CommentMappers() {}
 
-    public static final Mapper<Comment, CommentResponse> COMMENT_READ = e -> {
+    public static CommentResponse toCommentResponse(Comment e, User user, boolean liked) {
         if (e == null) throw new MappingException("Comment is null");
         return new CommentResponse(
                 e.getId(),
                 e.isHide() ? "익명" : (e.getUser() != null ? e.getUser().getNickname() : null),
                 e.getContent(),
                 e.getLikeCount(),
-                false, // todo : 내가 쓴 댓글 여부 추후 구현
-                false, // todo : 좋아요 여부 추후 구현
+                (user != null && user.getId().equals(e.getUser().getId())),
+                liked,
                 e.getCreatedDate()
         );
-    };
+    }
 
     public static final class CommentCtxMapper implements TwoWayMapper<CommentRequest, Comment, CommentResponse> {
         private final User user;
@@ -58,7 +58,7 @@ public final class CommentMappers {
 
         @Override
         public CommentResponse toResponse(Comment entity) {
-            return COMMENT_READ.map(entity);
+            return toCommentResponse(entity, user, false);
         }
     }
 }
