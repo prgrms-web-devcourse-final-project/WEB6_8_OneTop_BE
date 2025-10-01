@@ -17,7 +17,6 @@ import java.util.List;
 /**
  * 댓글 엔티티.
  * 게시글에 대한 사용자 댓글 정보를 저장합니다.
- * 계층형 댓글 구조를 지원합니다.
  */
 @Entity
 @Table(name = "comments",
@@ -38,13 +37,6 @@ public class Comment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_comment_id")
-    private Comment parent;
-
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Comment> children = new ArrayList<>();
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
