@@ -1,7 +1,11 @@
 package com.back.domain.user.service;
 
+import com.back.domain.comment.repository.CommentRepository;
+import com.back.domain.post.repository.PostRepository;
+import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.user.dto.UserInfoRequest;
 import com.back.domain.user.dto.UserInfoResponse;
+import com.back.domain.user.dto.UserStatsResponse;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -14,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserInfoService {
 
     private final UserRepository userRepository;
+    private final ScenarioRepository scenarioRepository;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
 
     @Transactional(readOnly = true)
     public UserInfoResponse getMyInfo(Long userId) {
@@ -42,6 +49,19 @@ public class UserInfoService {
         return UserInfoResponse.from(user);
     }
 
+    @Transactional(readOnly = true)
+    public UserStatsResponse getMyStats(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
+        int scenarioCount = scenarioRepository.countByUserId(userId);
+        int totalPoints = scenarioRepository.sumTotalByUserId(userId);
+        int postCount = postRepository.countByUserId(userId);
+        int commentCount = commentRepository.countByUserId(userId);
+
+        return UserStatsResponse.of(scenarioCount, totalPoints, postCount, commentCount, user.getMbti());
+    }
+
     private void applyPatch(User user, UserInfoRequest req) {
         if (req.username() != null)      user.setUsername(req.username());
         if (req.birthdayAt() != null)    user.setBirthdayAt(req.birthdayAt());
@@ -53,5 +73,4 @@ public class UserInfoService {
         if (req.workLifeBal() != null)   user.setWorkLifeBal(req.workLifeBal());
         if (req.riskAvoid() != null)     user.setRiskAvoid(req.riskAvoid());
     }
-
 }

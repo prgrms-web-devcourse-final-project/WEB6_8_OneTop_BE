@@ -207,6 +207,5 @@ class UserAuthControllerTest {
                         .with(csrf())
                         .session(session))
                 .andExpect(status().isOk());
-        // 로그아웃 응답 JSON 형식은 커스텀 핸들러 구현에 의존 → 필드 검증 제거
     }
 }

@@ -45,4 +45,9 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
                                                        @Param("baseLineId") Long baseLineId,
                                                        @Param("status") ScenarioStatus status,
                                                        Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(s.total), 0) FROM Scenario s WHERE s.user.id = :userId")
+    int sumTotalByUserId(Long userId);
+
+    int countByUserId(Long userId);
 }
