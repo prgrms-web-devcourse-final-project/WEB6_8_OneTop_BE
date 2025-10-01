@@ -60,7 +60,9 @@ public class CommentController {
                 sort
         );
 
-        Page<CommentResponse> responses = commentService.getComments(cs.getUser().getId(), postId, sortedPageable);
+        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
+
+        Page<CommentResponse> responses = commentService.getComments(userId, postId, sortedPageable);
         return ResponseEntity.ok(PageResponse.of(responses));
     }
 

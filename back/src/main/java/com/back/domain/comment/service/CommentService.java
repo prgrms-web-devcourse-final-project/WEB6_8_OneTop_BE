@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,12 +48,17 @@ public class CommentService {
     }
 
     public Page<CommentResponse> getComments(Long userId, Long postId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElse(null);
+        User user = userId != null
+                ? userRepository.findById(userId).orElse(null)
+                : null;
+
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
         Page<Comment> commentsPage = commentRepository.findCommentsByPostId(postId, pageable);
-        Set<Long> userLikedComments = getUserLikedComments(userId, commentsPage);
+
+        Set<Long> userLikedComments = userId != null
+                ? getUserLikedComments(userId, commentsPage)
+                : Collections.emptySet();
 
         return commentsPage.map(comment -> CommentMappers.toCommentResponse(
                 comment,

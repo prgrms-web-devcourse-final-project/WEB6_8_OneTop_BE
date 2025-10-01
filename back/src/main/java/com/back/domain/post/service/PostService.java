@@ -56,7 +56,8 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        boolean isLiked = postLikeRepository.existsByPostIdAndUserId(postId, userId);
+        boolean isLiked = userId != null &&
+                postLikeRepository.existsByPostIdAndUserId(postId, userId);
 
         if (post.getCategory() == PostCategory.CHAT) {
             return postMappers.toDetailResponse(post, isLiked);
@@ -65,9 +66,11 @@ public class PostService {
         List<PollOptionResponse.VoteOption> options =
                 pollConverter.fromPollOptionJson(post.getVoteContent()).options();
 
-        List<Integer> selected = pollVoteRepository.findByPostIdAndUserId(postId, userId)
+        List<Integer> selected = userId != null
+                ? pollVoteRepository.findByPostIdAndUserId(postId, userId)
                 .map(vote -> pollConverter.fromChoiceJson(vote.getChoiceJson()))
-                .orElse(Collections.emptyList());
+                .orElse(Collections.emptyList())
+                : Collections.emptyList();
 
         PollOptionResponse pollResponse = new PollOptionResponse(selected, options);
 
@@ -77,7 +80,9 @@ public class PostService {
     public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
         Page<Post> posts = postRepository.searchPosts(condition, pageable);
 
-        Set<Long> likedPostIds = getUserLikedPostIds(userId, posts);
+        Set<Long> likedPostIds = userId != null
+                ? getUserLikedPostIds(userId, posts)
+                : Collections.emptySet();
 
         return posts.map(post -> postMappers.toSummaryResponse(
                 post,

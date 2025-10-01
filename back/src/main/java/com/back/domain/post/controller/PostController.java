@@ -52,7 +52,8 @@ public class PostController {
             @Parameter(description = "검색 조건") @ModelAttribute PostSearchCondition condition,
             @Parameter(description = "페이지 정보") Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails cs) {
-        Page<PostSummaryResponse> responses = postService.getPosts(cs.getUser().getId(), condition, pageable);
+        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
+        Page<PostSummaryResponse> responses = postService.getPosts(userId, condition, pageable);
         return ResponseEntity.ok(PageResponse.of(responses));
     }
 
@@ -62,7 +63,8 @@ public class PostController {
     public ResponseEntity<PostDetailResponse> getPost(
             @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails cs) {
-        return ResponseEntity.ok(postService.getPost(cs.getUser().getId(), postId));
+        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
+        return ResponseEntity.ok(postService.getPost(userId, postId));
     }
 
     @PutMapping("/{postId}")
