@@ -2,27 +2,40 @@ package com.back.domain.user.service;
 
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.post.repository.PostRepository;
+import com.back.domain.scenario.entity.Scenario;
+import com.back.domain.scenario.entity.ScenarioStatus;
+import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
+import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.domain.user.dto.UserInfoRequest;
 import com.back.domain.user.dto.UserInfoResponse;
+import com.back.domain.user.dto.UserScenarioListResponse;
 import com.back.domain.user.dto.UserStatsResponse;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
+import com.back.global.common.PageResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserInfoService {
 
     private final UserRepository userRepository;
     private final ScenarioRepository scenarioRepository;
+    private final SceneTypeRepository sceneTypeRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
 
-    @Transactional(readOnly = true)
     public UserInfoResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
@@ -49,7 +62,6 @@ public class UserInfoService {
         return UserInfoResponse.from(user);
     }
 
-    @Transactional(readOnly = true)
     public UserStatsResponse getMyStats(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
@@ -60,6 +72,36 @@ public class UserInfoService {
         int commentCount = commentRepository.countByUserId(userId);
 
         return UserStatsResponse.of(scenarioCount, totalPoints, postCount, commentCount, user.getMbti());
+    }
+
+    public PageResponse<UserScenarioListResponse> getMyScenarios(Long userId, Pageable pageable) {
+        // 완료된 선택 시나리오만 조회 (베이스 시나리오 제외)
+        Page<Scenario> scenarioPage = scenarioRepository
+                .findByUserIdAndDecisionLineIsNotNullAndStatusOrderByCreatedDateDesc(
+                        userId,
+                        ScenarioStatus.COMPLETED,
+                        pageable
+                );
+
+        // 시나리오 ID 목록 추출
+        List<Long> scenarioIds = scenarioPage.getContent().stream()
+                .map(Scenario::getId)
+                .collect(Collectors.toList());
+
+        // SceneType 일괄 조회 및 시나리오 ID별로 그룹화 (N+1 문제 방지)
+        List<SceneType> sceneTypes = sceneTypeRepository.findByScenarioIdIn(scenarioIds);
+        Map<Long, List<SceneType>> sceneTypeMap = sceneTypes.stream()
+                .collect(Collectors.groupingBy(st -> st.getScenario().getId()));
+
+        // DTO 변환
+        Page<UserScenarioListResponse> responsePage = scenarioPage.map(scenario ->
+                UserScenarioListResponse.from(
+                        scenario,
+                        sceneTypeMap.getOrDefault(scenario.getId(), List.of())
+                )
+        );
+
+        return PageResponse.of(responsePage);
     }
 
     private void applyPatch(User user, UserInfoRequest req) {
