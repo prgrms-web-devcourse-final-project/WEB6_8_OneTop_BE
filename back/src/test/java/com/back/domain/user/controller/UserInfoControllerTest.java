@@ -113,6 +113,7 @@ public class UserInfoControllerTest {
 
         Scenario scenario = Scenario.builder()
                 .user(testUser)
+                .baseLine(testBaseLine)  // BaseLine 추가
                 .decisionLine(testDecisionLine)
                 .status(ScenarioStatus.COMPLETED)
                 .job("Software Engineer")

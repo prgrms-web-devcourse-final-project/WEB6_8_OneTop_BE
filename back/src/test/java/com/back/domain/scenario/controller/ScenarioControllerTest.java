@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import com.back.global.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -263,7 +264,8 @@ class ScenarioControllerTest {
                     )
             );
 
-            Page<BaselineListResponse> mockPageResponse = new PageImpl<>(content, PageRequest.of(0, 10), content.size());
+            Page<BaselineListResponse> page = new PageImpl<>(content, PageRequest.of(0, 10), content.size());
+            PageResponse<BaselineListResponse> mockPageResponse = PageResponse.of(page);
 
             given(scenarioService.getBaselines(eq(1L), any()))
                     .willReturn(mockPageResponse);
@@ -274,11 +276,13 @@ class ScenarioControllerTest {
                             .param("size", "10"))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").isArray())
-                    .andExpect(jsonPath("$.content[0].baselineId").value(200))
-                    .andExpect(jsonPath("$.content[0].title").value("대학 졸업 이후"))
+                    .andExpect(jsonPath("$.items").isArray())
+                    .andExpect(jsonPath("$.page").value(1))  // 1-based pagination
+                    .andExpect(jsonPath("$.size").value(10))
                     .andExpect(jsonPath("$.totalElements").value(2))
-                    .andExpect(jsonPath("$.totalPages").value(1));
+                    .andExpect(jsonPath("$.totalPages").value(1))
+                    .andExpect(jsonPath("$.items[0].baselineId").value(200))
+                    .andExpect(jsonPath("$.items[0].title").value("대학 졸업 이후"));
         }
     }
 

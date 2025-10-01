@@ -74,7 +74,7 @@ springdoc:
 ai:
   text:
     gemini:
-      api-key: ${GEMINI_API_KEY:your-gemini-api-key-here}
+      api-key: ${GEMINI_API_KEY}
       model: gemini-2.5-flash
       base-url: https://generativelanguage.googleapis.com
       timeout-seconds: 30

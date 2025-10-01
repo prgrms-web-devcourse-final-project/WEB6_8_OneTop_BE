@@ -15,6 +15,7 @@ import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.service.AiService;
+import com.back.global.common.PageResponse;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -104,9 +105,13 @@ public class ScenarioService {
 
         // 새 시나리오 생성 (DataIntegrityViolationException 처리)
         try {
+            // DecisionLine에서 BaseLine 가져오기
+            BaseLine baseLine = decisionLine.getBaseLine();
+
             Scenario scenario = Scenario.builder()
                     .user(decisionLine.getUser())
                     .decisionLine(decisionLine)
+                    .baseLine(baseLine)  // DecisionLine의 BaseLine 연결
                     .status(ScenarioStatus.PENDING)
                     .build();
 
@@ -327,12 +332,15 @@ public class ScenarioService {
 
     // 베이스라인 목록 조회 (페이지네이션 지원)
     @Transactional(readOnly = true)
-    public Page<BaselineListResponse> getBaselines(Long userId, Pageable pageable) {
+    public PageResponse<BaselineListResponse> getBaselines(Long userId, Pageable pageable) {
         // 사용자별 베이스라인 조회 (BaseNode들과 함께 fetch)
         Page<BaseLine> baseLines = baseLineRepository.findAllByUserIdWithBaseNodes(userId, pageable);
 
         // BaseLine -> BaselineListResponse 변환
-        return baseLines.map(this::convertToBaselineListResponse);
+        Page<BaselineListResponse> responsePage = baseLines.map(this::convertToBaselineListResponse);
+
+        // PageResponse로 변환 (1-based 페이지네이션)
+        return PageResponse.of(responsePage);
     }
 
     /**
