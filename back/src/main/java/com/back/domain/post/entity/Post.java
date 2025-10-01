@@ -18,11 +18,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 게시글 엔티티.
- * 사용자가 작성한 게시글의 정보를 저장합니다.
- * 인덱스...
- */
 @Entity
 @Getter
 @Table(name = "post",
