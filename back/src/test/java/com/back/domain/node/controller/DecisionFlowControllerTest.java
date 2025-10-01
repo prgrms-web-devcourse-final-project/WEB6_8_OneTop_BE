@@ -17,7 +17,9 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ActiveProfiles("test")
+@Import(AiOnceDelegateTestConfig.class)
 @DisplayName("Re:Life — DecisionFlowController from-base · next · cancel · complete 통합 테스트")
 @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 @Sql(
@@ -59,6 +63,7 @@ public class DecisionFlowControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private UserRepository userRepository;
+    @Autowired AiCallBudget aiCallBudget;
 
     private Long userId;
 
@@ -89,6 +94,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 유효한 피벗에서 options[2]와 selectedAltIndex로 첫 결정을 생성하면 201과 DecLineDto를 반환한다")
         void success_createFromBase() throws Exception {
+            aiCallBudget.reset(0);
             var baseInfo = createBaseLineAndPickFirstPivot(userId);
 
             String req = """
@@ -112,6 +118,8 @@ public class DecisionFlowControllerTest {
                     .andExpect(jsonPath("$.decisionLineId").exists())
                     .andExpect(jsonPath("$.baseNodeId").isNumber())
                     .andExpect(jsonPath("$.decision").value("휴학"))
+                    .andExpect(jsonPath("$.aiNextSituation").isNotEmpty())
+                    .andExpect(jsonPath("$.aiNextRecommendedOption").isNotEmpty())
                     .andReturn();
 
             JsonNode body = om.readTree(res.getResponse().getContentAsString());
@@ -121,6 +129,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 존재하지 않는 베이스라인으로 from-base 요청 시 404/N002를 반환한다")
         void fail_baseLineNotFound_onFromBase() throws Exception {
+            aiCallBudget.reset(0);
             var baseInfo = createBaseLineAndPickFirstPivot(userId);
             String req = """
             {
@@ -146,6 +155,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 잘못된 pivotAge 또는 pivotOrd(범위 밖)면 400/C001을 반환한다")
         void fail_invalidPivot_onFromBase() throws Exception {
+            aiCallBudget.reset(0);
             var baseInfo = createBaseLineAndPickFirstPivot(userId);
             String bad = """
             {
@@ -170,6 +180,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 동일 분기 슬롯을 두 번 링크하려 하면 400/C001(이미 링크됨)을 반환한다")
         void fail_branchSlotAlreadyLinked() throws Exception {
+            aiCallBudget.reset(0);
             var baseInfo = createBaseLineAndPickFirstPivot(userId);
 
             String first = """
@@ -209,6 +220,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 부모에서 다음 피벗 나이로 생성하면 201과 DecLineDto(부모 id/다음 나이)를 반환한다")
         void success_createNextDecision() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
             long parentId = head.decisionNodeId;
 
@@ -228,6 +240,8 @@ public class DecisionFlowControllerTest {
                             .content(nextReq))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.parentId").value(parentId))
+                    .andExpect(jsonPath("$.aiNextSituation").value("테스트-상황(한 문장)"))
+                    .andExpect(jsonPath("$.aiNextRecommendedOption").value("테스트-추천"))
                     .andReturn();
 
             JsonNode body = om.readTree(res.getResponse().getContentAsString());
@@ -238,6 +252,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 존재하지 않는 부모 결정 노드로 next 요청 시 404/N001을 반환한다")
         void fail_parentDecisionNotFound() throws Exception {
+            aiCallBudget.reset(0);
             String nextReq = """
             {
               "userId": %d,
@@ -260,6 +275,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 동일 나이로 재생성 시도(부모 ageYear와 같음)면 400/C001을 반환한다")
         void fail_duplicateAgeOnLine() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
 
             String nextReq = """
@@ -282,6 +298,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 부모 결정 나이보다 작은 나이로 next 요청 시 400/C001을 반환한다")
         void fail_nextAgeLessThanParent() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
             int invalidAge = head.ageYear - 1;
 
@@ -313,6 +330,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 취소 요청 시 라인 상태가 CANCELLED로 바뀐다")
         void success_cancel() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
             mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", head.decisionLineId))
                     .andExpect(status().isOk())
@@ -323,6 +341,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 완료 요청 시 라인 상태가 COMPLETED로 바뀐다")
         void success_complete() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
             mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId))
                     .andExpect(status().isOk())
@@ -333,6 +352,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 존재하지 않는 decisionLineId 취소/완료 시 404/N003를 반환한다")
         void fail_lineNotFound_onLifecycle() throws Exception {
+            aiCallBudget.reset(0);
             mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", 9999999L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("N003"));
@@ -344,6 +364,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 완료/취소된 라인에서 next 시도 시 400/C001(line is locked)을 반환한다")
         void fail_nextAfterLocked() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
             mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId))
                     .andExpect(status().isOk());
@@ -396,6 +417,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 헤드 결정에서 다른 선택지로 fork 하면 새 decisionLineId와 교체된 decision을 반환한다")
         void success_forkFromHead_changesSelection_createsNewLine() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId); // 기존 헬퍼: options ["선택 A","선택 B"], selectedIndex=0
 
             String req = """
@@ -432,6 +454,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : 같은 노드에서 여러 번 fork 하면 각기 다른 decisionLineId가 발급된다(무한 세계선)")
         void success_multipleForksFromSameNode() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
 
             String fork0 = """
@@ -463,6 +486,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("성공 : fork로 생성된 새 라인을 /next로 계속 이어갈 수 있다")
         void success_forkThenContinueWithNext() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
 
             String fork = """
@@ -503,6 +527,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : targetOptionIndex가 옵션 수를 초과하면 400/C001을 반환한다")
         void fail_targetOptionIndexOutOfRange() throws Exception {
+            aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId); // 헤드는 옵션 2개
 
             String bad = """
@@ -519,6 +544,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 옵션이 없는 결정 노드에서 fork 시도 시 400/C001을 반환한다")
         void fail_forkOnNodeWithoutOptions() throws Exception {
+            aiCallBudget.reset(0);
             // 헤드 생성(옵션 2개) 후, 옵션 없이 다음 노드 생성
             var head = startDecisionFromBase(userId);
 
@@ -554,6 +580,7 @@ public class DecisionFlowControllerTest {
         @Test
         @DisplayName("실패 : 존재하지 않는 결정 노드로 fork 시 404/N001을 반환한다")
         void fail_parentDecisionNotFound_onFork() throws Exception {
+            aiCallBudget.reset(0);
             String req = """
         {"userId": %d, "parentDecisionNodeId": 9999999, "targetOptionIndex": 0, "keepUntilParent": true}
         """.formatted(userId);

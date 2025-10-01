@@ -22,5 +22,7 @@ public record DecNodeDto(
         List<String> options,
         Integer selectedIndex,
         Integer parentOptionIndex,
-        String description
+        String description,
+        String aiNextSituation,
+        String aiNextRecommendedOption
 ) {}
