@@ -23,8 +23,7 @@ timedatectl set-timezone ${timezone}
 
 # 환경변수 세팅(/etc/environment)
 echo "PASSWORD_1=${password}" >> /etc/environment
-echo "APP_BACK_DOMAIN=${app_back_domain}" >> /etc/environment
-echo "APP_FRONT_DOMAIN=${app_front_domain}" >> /etc/environment
+echo "APP_BACK_DOMAIN=api.${base_domain}" >> /etc/environment
 echo "GITHUB_TOKEN_OWNER=${github_token_owner}" >> /etc/environment
 echo "GITHUB_TOKEN=${github_token}" >> /etc/environment
 
