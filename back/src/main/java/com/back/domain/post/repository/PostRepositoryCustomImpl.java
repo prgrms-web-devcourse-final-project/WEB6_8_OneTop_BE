@@ -75,7 +75,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     private BooleanExpression excludeHiddenIfSearch(String searchKeyword, SearchType searchType) {
-        if (!StringUtils.hasText(searchKeyword) || searchType == null) {
+        if (!StringUtils.hasText(searchKeyword) || searchType != SearchType.AUTHOR) {
             return null;
         }
         return post.hide.eq(false);

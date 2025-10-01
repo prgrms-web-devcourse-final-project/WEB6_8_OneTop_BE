@@ -277,7 +277,7 @@ class PostControllerTest {
                             .param("searchType", "TITLE_CONTENT")
                             .param("keyword", "게시글"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.items.length()").value(3));
+                    .andExpect(jsonPath("$.items.length()").value(5));
         }
 
         @Test
