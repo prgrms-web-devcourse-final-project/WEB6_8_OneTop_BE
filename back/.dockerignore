@@ -9,7 +9,8 @@ build/
 .gradle/
 
 # Files
-.env.example
+.env.local
+.env.production
 .gitignore
 .dockerignore
 
