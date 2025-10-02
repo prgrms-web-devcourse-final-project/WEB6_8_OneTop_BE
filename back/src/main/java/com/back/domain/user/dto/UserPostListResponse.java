@@ -8,14 +8,14 @@ public record UserPostListResponse(
         Long postId,
         String title,
         LocalDateTime createdAt,
-        int commentCount
+        long commentCount
 ) {
-    public static UserPostListResponse from(Post post) {
+    public static UserPostListResponse of(Post post, long commentCount) {
         return new UserPostListResponse(
                 post.getId(),
                 post.getTitle(),
                 post.getCreatedDate(),
-                post.getComments().size()
+                commentCount
         );
     }
 }

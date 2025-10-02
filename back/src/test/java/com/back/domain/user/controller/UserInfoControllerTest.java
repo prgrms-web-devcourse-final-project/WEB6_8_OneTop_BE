@@ -94,6 +94,39 @@ public class UserInfoControllerTest {
         authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities());
     }
+    // 헬퍼 메서드
+    private Post createPost(User user, String title, PostCategory category) {
+        Post post = Post.builder()
+                .user(user)
+                .title(title)
+                .content("Content for " + title)
+                .category(category)
+                .hide(false)
+                .build();
+        return postRepository.save(post);
+    }
+
+    private Comment createComment(User user, Post post, String content) {
+        Comment comment = Comment.builder()
+                .user(user)
+                .post(post)
+                .content(content)
+                .hide(false)
+                .build();
+        return commentRepository.save(comment);
+    }
+
+    private User createOtherUser() {
+        return User.builder()
+                .email("other@example.com")
+                .password("password")
+                .username("OtherUser")
+                .nickname("othernick")
+                .birthdayAt(LocalDateTime.of(1995, 5, 15, 0, 0))
+                .role(Role.USER)
+                .authProvider(AuthProvider.LOCAL)
+                .build();
+    }
 
     @Test
     @DisplayName("성공 - 사용자 통계 정보 조회 성공")
@@ -433,6 +466,112 @@ public class UserInfoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(5))
                 .andExpect(jsonPath("$.page").value(2))  // 응답은 2로 표시
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 작성글 목록 조회 성공")
+    void t10() throws Exception {
+        // Given
+        Post post1 = createPost(testUser, "첫 번째 게시글", PostCategory.CHAT);
+        Post post2 = createPost(testUser, "두 번째 게시글", PostCategory.POLL);
+        Post post3 = createPost(testUser, "세 번째 게시글", PostCategory.CHAT);
+
+        createComment(testUser, post1, "Comment 1");
+        createComment(testUser, post1, "Comment 2");
+
+        // When & Then
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.items[0].title").value("세 번째 게시글"))
+                .andExpect(jsonPath("$.items[2].commentCount").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 댓글 목록 조회 성공")
+    void t11() throws Exception {
+        User otherUser = userRepository.save(createOtherUser());
+
+        Post post1 = createPost(otherUser, "다른 사용자의 게시글 1", PostCategory.CHAT);
+        Post post2 = createPost(otherUser, "다른 사용자의 게시글 2", PostCategory.POLL);
+
+        createComment(testUser, post1, "첫 번째 댓글 내용");
+        createComment(testUser, post2, "두 번째 댓글 내용");
+        createComment(testUser, post1, "세 번째 댓글 내용");
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.items[0].content").value("세 번째 댓글 내용"))
+                .andExpect(jsonPath("$.items[0].postTitle").value("다른 사용자의 게시글 1"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 작성글 페이지네이션 동작 확인")
+    void t12() throws Exception {
+        for (int i = 1; i <= 12; i++) {
+            createPost(testUser, "게시글 " + i, PostCategory.CHAT);
+        }
+
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.totalElements").value(12))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.last").value(false));
+
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "3")
+                        .param("size", "5")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(12))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 댓글 페이지네이션 동작 확인")
+    void t13() throws Exception {
+        User otherUser = userRepository.save(createOtherUser());
+
+        Post post = createPost(otherUser, "게시글", PostCategory.CHAT);
+
+        for (int i = 1; i <= 15; i++) {
+            createComment(testUser, post, "댓글 " + i);
+        }
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(false));
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
                 .andExpect(jsonPath("$.totalElements").value(15))
                 .andExpect(jsonPath("$.totalPages").value(2))
                 .andExpect(jsonPath("$.last").value(true));

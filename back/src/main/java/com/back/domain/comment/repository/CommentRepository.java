@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -29,4 +30,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     @EntityGraph(attributePaths = {"post"})
     Page<Comment> findByUserIdOrderByCreatedDateDesc(Long userId, Pageable pageable);
+
+    @Query("""
+      select c.post.id, count(c)
+      from Comment c
+      where c.post.id in :postIds
+      group by c.post.id
+    """)
+    List<Object[]> countByPostIdIn(@Param("postIds") List<Long> postIds);
 }

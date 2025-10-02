@@ -105,9 +105,15 @@ public class UserInfoService {
     public PageResponse<UserPostListResponse> getMyPosts(Long userId, Pageable pageable) {
         Page<Post> postPage = postRepository.findByUserIdOrderByCreatedDateDesc(userId, pageable);
 
-        Page<UserPostListResponse> responsePage = postPage.map(UserPostListResponse::from);
+        List<Long> ids = postPage.getContent().stream().map(Post::getId).toList();
 
-        return PageResponse.of(responsePage);
+        Map<Long, Long> countMap = commentRepository.countByPostIdIn(ids).stream()
+                .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
+        Page<UserPostListResponse> mapped = postPage.map(p ->
+                UserPostListResponse.of(p, countMap.getOrDefault(p.getId(), 0L))
+        );
+        return PageResponse.of(mapped);
     }
 
     public PageResponse<UserCommentListResponse> getMyComments(Long userId, Pageable pageable) {
