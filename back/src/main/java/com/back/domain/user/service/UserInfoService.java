@@ -1,16 +1,15 @@
 package com.back.domain.user.service;
 
+import com.back.domain.comment.entity.Comment;
 import com.back.domain.comment.repository.CommentRepository;
+import com.back.domain.post.entity.Post;
 import com.back.domain.post.repository.PostRepository;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
-import com.back.domain.user.dto.UserInfoRequest;
-import com.back.domain.user.dto.UserInfoResponse;
-import com.back.domain.user.dto.UserScenarioListResponse;
-import com.back.domain.user.dto.UserStatsResponse;
+import com.back.domain.user.dto.*;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.common.PageResponse;
@@ -99,6 +98,22 @@ public class UserInfoService {
                         sceneTypeMap.getOrDefault(scenario.getId(), List.of())
                 )
         );
+
+        return PageResponse.of(responsePage);
+    }
+
+    public PageResponse<UserPostListResponse> getMyPosts(Long userId, Pageable pageable) {
+        Page<Post> postPage = postRepository.findByUserIdOrderByCreatedDateDesc(userId, pageable);
+
+        Page<UserPostListResponse> responsePage = postPage.map(UserPostListResponse::from);
+
+        return PageResponse.of(responsePage);
+    }
+
+    public PageResponse<UserCommentListResponse> getMyComments(Long userId, Pageable pageable) {
+        Page<Comment> commentPage = commentRepository.findByUserIdOrderByCreatedDateDesc(userId, pageable);
+
+        Page<UserCommentListResponse> responsePage = commentPage.map(UserCommentListResponse::from);
 
         return PageResponse.of(responsePage);
     }

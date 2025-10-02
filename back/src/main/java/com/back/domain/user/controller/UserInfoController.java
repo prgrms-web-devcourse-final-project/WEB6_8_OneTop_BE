@@ -1,9 +1,6 @@
 package com.back.domain.user.controller;
 
-import com.back.domain.user.dto.UserInfoRequest;
-import com.back.domain.user.dto.UserInfoResponse;
-import com.back.domain.user.dto.UserScenarioListResponse;
-import com.back.domain.user.dto.UserStatsResponse;
+import com.back.domain.user.dto.*;
 import com.back.domain.user.service.UserInfoService;
 import com.back.global.common.PageResponse;
 import com.back.global.security.CustomUserDetails;
@@ -15,6 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 사용자 정보 관리 컨트롤러 (마이 페이지)
+ * 사용자 정보 조회/수정, 통계, 작성 게시글/댓글 목록, 시나리오 목록 조회, 대표프로필 선택/조회 API 제공
+ */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -53,5 +54,21 @@ public class UserInfoController {
             @AuthenticationPrincipal CustomUserDetails principal,
             @PageableDefault(size = 5) Pageable pageable) {
         return ResponseEntity.ok(userInfoService.getMyScenarios(principal.getId(), pageable));
+    }
+
+    // 내 게시글 목록 조회
+    @GetMapping("/users/my-posts")
+    public ResponseEntity<PageResponse<UserPostListResponse>> getMyPosts(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PageableDefault(size = 5) Pageable pageable) {
+        return ResponseEntity.ok(userInfoService.getMyPosts(principal.getId(), pageable));
+    }
+
+    // 내 댓글 목록 조회
+    @GetMapping("/users/my-comments")
+    public ResponseEntity<PageResponse<UserCommentListResponse>> getMyComments(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PageableDefault(size = 5) Pageable pageable) {
+        return ResponseEntity.ok(userInfoService.getMyComments(principal.getId(), pageable));
     }
 }
