@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ##############################################
 # 마지막 수정: 250929
 # 작성자: gooraeng
@@ -6,16 +8,14 @@
 # 변수는 terraform 에서 치환됨
 ##############################################
 
-#!/bin/bash
 # EC2 에서 쓰일 스크립트
-
 # 가상 메모리 4GB 설정 (128M * 32)
 if ! grep -q "/swapfile" /etc/fstab; then
   dd if=/dev/zero of=/swapfile bs=128M count=32
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
-  sh -c echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+  echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
 fi
 
 # 타임존 설정

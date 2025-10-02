@@ -45,7 +45,7 @@ locals {
 
   ec2_user_data = templatefile("${path.module}/ec2_user_data.tpl", {
     password           = var.default_password,
-    base_domain   = var.base_domain,
+    base_domain        = var.base_domain,
     github_token_owner = var.github_token_owner,
     github_token       = var.github_token,
     nginx_admin_email  = var.nginx_admin_email,
