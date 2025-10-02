@@ -1,0 +1,21 @@
+name: OneTop-Relife
+
+services:
+
+  redis:
+    image: redis:8.2-alpine
+    container_name: redis_1
+    restart: unless-stopped
+    command: redis-server --appendonly no
+    networks:
+      - common
+    ports:
+      - "6379:6379"
+    environment:
+      TZ: "Asia/Seoul"
+    volumes:
+      - /dockerProjects/redis_1/volumes/data:/data
+
+networks:
+  common:
+    driver: bridge
