@@ -12,6 +12,8 @@ import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.mapper.PostMappers;
 import com.back.domain.post.repository.PostRepository;
+import com.back.domain.scenario.entity.Scenario;
+import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
@@ -39,6 +41,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final PollVoteRepository pollVoteRepository;
+    private final ScenarioRepository scenarioRepository;
     private final PostMappers postMappers;
     private final PollConverter pollConverter;
 
@@ -46,7 +49,14 @@ public class PostService {
     public PostDetailResponse createPost(Long userId, PostRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-        Post post = postMappers.toEntity(request, user);
+
+        Scenario scenario = null;
+        if (request.category() == PostCategory.SCENARIO) { {
+            scenario = scenarioRepository.findById(request.scenarioId())
+                    .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
+        }}
+
+        Post post = postMappers.toEntity(request, user, scenario);
         Post savedPost = postRepository.save(post);
 
         return postMappers.toDetailResponse(savedPost, false);

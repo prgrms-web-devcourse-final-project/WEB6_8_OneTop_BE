@@ -7,6 +7,7 @@ import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
+import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,7 @@ public class PostMappers {
 
     private final PollConverter pollConverter;
 
-    public Post toEntity(PostRequest request, User user) {
+    public Post toEntity(PostRequest request, User user, Scenario scenario) {
         String voteContent = null;
         if (request.category() == PostCategory.POLL && request.poll() != null) {
             UUID pollUid = UUID.randomUUID();
@@ -39,6 +40,7 @@ public class PostMappers {
                 .user(user)
                 .hide(request.hide() != null ? request.hide() : false)
                 .voteContent(voteContent)
+                .scenario(scenario)
                 .likeCount(0)
                 .build();
     }
