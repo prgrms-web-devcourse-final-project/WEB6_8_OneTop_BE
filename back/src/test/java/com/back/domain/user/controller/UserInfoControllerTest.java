@@ -259,4 +259,182 @@ public class UserInfoControllerTest {
                 .andExpect(jsonPath("$.username").value("TestUser"))
                 .andExpect(jsonPath("$.mbti").value("INFP"));
     }
+
+    @Test
+    @DisplayName("성공 - 내 시나리오 목록 조회 성공")
+    void t7() throws Exception {
+        // Given: BaseLine 생성
+        BaseLine testBaseLine = BaseLine.builder()
+                .user(testUser)
+                .title("Test BaseLine")
+                .build();
+        testBaseLine = baseLineRepository.save(testBaseLine);
+
+        // Given: 베이스 시나리오 생성
+        Scenario baseScenario = Scenario.builder()
+                .user(testUser)
+                .baseLine(testBaseLine)
+                .decisionLine(null)  // 베이스 시나리오
+                .status(ScenarioStatus.COMPLETED)
+                .job("Base Job")
+                .total(100)
+                .summary("Base scenario summary")
+                .description("Base scenario description")
+                .build();
+        scenarioRepository.save(baseScenario);
+
+        // Given: DecisionLine 생성
+        DecisionLine testDecisionLine1 = DecisionLine.builder()
+                .user(testUser)
+                .baseLine(testBaseLine)
+                .status(DecisionLineStatus.COMPLETED)
+                .build();
+        testDecisionLine1 = decisionLineRepository.save(testDecisionLine1);
+
+        DecisionLine testDecisionLine2 = DecisionLine.builder()
+                .user(testUser)
+                .baseLine(testBaseLine)
+                .status(DecisionLineStatus.COMPLETED)
+                .build();
+        testDecisionLine2 = decisionLineRepository.save(testDecisionLine2);
+
+        // Given: 시나리오 1 (COMPLETED)
+        Scenario scenario1 = Scenario.builder()
+                .user(testUser)
+                .decisionLine(testDecisionLine1)
+                .baseLine(testBaseLine)
+                .status(ScenarioStatus.COMPLETED)
+                .job("Software Engineer")
+                .total(425)
+                .summary("대학원 진학 후 AI 연구원으로 성장")
+                .description("Test description 1")
+                .build();
+        scenarioRepository.save(scenario1);
+
+        // Given: 시나리오 2 (COMPLETED)
+        Scenario scenario2 = Scenario.builder()
+                .user(testUser)
+                .decisionLine(testDecisionLine2)
+                .baseLine(testBaseLine)
+                .status(ScenarioStatus.COMPLETED)
+                .job("Freelancer Developer")
+                .total(375)
+                .summary("자유로운 근무 환경에서 다양한 프로젝트 수행")
+                .description("Test description 2")
+                .build();
+        scenarioRepository.save(scenario2);
+
+        // Given: 시나리오 3 (PROCESSING - 제외되어야 함)
+        DecisionLine testDecisionLine3 = DecisionLine.builder()
+                .user(testUser)
+                .baseLine(testBaseLine)
+                .status(DecisionLineStatus.COMPLETED)
+                .build();
+        testDecisionLine3 = decisionLineRepository.save(testDecisionLine3);
+
+        Scenario scenario3 = Scenario.builder()
+                .user(testUser)
+                .decisionLine(testDecisionLine3)
+                .baseLine(testBaseLine)
+                .status(ScenarioStatus.PROCESSING)  // COMPLETED (x)
+                .job("Designer")
+                .total(350)
+                .summary("진행중인 시나리오")
+                .description("Test description 3")
+                .build();
+        scenarioRepository.save(scenario3);
+
+        // When & Then
+        mockMvc.perform(get("/api/v1/users-info/scenarios")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].scenarioId").exists())
+                .andExpect(jsonPath("$.items[0].job").value("Freelancer Developer"))  // 최신순
+                .andExpect(jsonPath("$.items[0].total").value(375))
+                .andExpect(jsonPath("$.items[0].summary").value("자유로운 근무 환경에서 다양한 프로젝트 수행"))
+                .andExpect(jsonPath("$.items[1].job").value("Software Engineer"))
+                .andExpect(jsonPath("$.items[1].total").value(425))
+                .andExpect(jsonPath("$.page").value(1))  // PageResponse 1부터
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 시나리오가 없을 때 빈 목록 반환")
+    void t8() throws Exception {
+
+        mockMvc.perform(get("/api/v1/users-info/scenarios")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 페이지네이션 동작 확인")
+    void t9() throws Exception {
+        // Given: BaseLine 생성
+        BaseLine testBaseLine = BaseLine.builder()
+                .user(testUser)
+                .title("Test BaseLine")
+                .build();
+        testBaseLine = baseLineRepository.save(testBaseLine);
+
+        // Given: 15개의 시나리오 생성
+        for (int i = 1; i <= 15; i++) {
+            DecisionLine decisionLine = DecisionLine.builder()
+                    .user(testUser)
+                    .baseLine(testBaseLine)
+                    .status(DecisionLineStatus.COMPLETED)
+                    .build();
+            decisionLine = decisionLineRepository.save(decisionLine);
+
+            Scenario scenario = Scenario.builder()
+                    .user(testUser)
+                    .decisionLine(decisionLine)
+                    .baseLine(testBaseLine)
+                    .status(ScenarioStatus.COMPLETED)
+                    .job("Job " + i)
+                    .total(100 * i)
+                    .summary("Summary " + i)
+                    .description("Description " + i)
+                    .build();
+            scenarioRepository.save(scenario);
+        }
+
+        // When & Then: 첫 페이지
+        mockMvc.perform(get("/api/v1/users-info/scenarios")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.page").value(1))  // 응답은 1로 표시
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(false));
+
+        // When & Then: 두번째 페이지
+        mockMvc.perform(get("/api/v1/users-info/scenarios")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.page").value(2))  // 응답은 2로 표시
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+    }
 }
