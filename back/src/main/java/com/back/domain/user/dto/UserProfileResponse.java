@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public record UserProfileResponse(
-        String nickame,
+        String nickname,
         Long representativeScenarioId,
         String description,
         Map<Type, Integer> sceneTypePoints

@@ -76,7 +76,7 @@ public class UserInfoController {
     @PutMapping("/users/profile-scenario")
     public ResponseEntity<Void> setProfileScenario(
             @AuthenticationPrincipal CustomUserDetails principal,
-            @PathVariable Long scenarioId) {
+            @RequestParam Long scenarioId) {
         userInfoService.setProfileScenario(principal.getId(), scenarioId);
         return ResponseEntity.ok().build();
     }
