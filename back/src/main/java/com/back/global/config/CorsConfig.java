@@ -1,5 +1,6 @@
 package com.back.global.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -13,10 +14,13 @@ import java.util.List;
  */
 @Configuration
 public class CorsConfig {
+    @Value("${custom.site.frontUrl}")
+    private String frontUrl;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource(){
         CorsConfiguration conf = new CorsConfiguration();
-        conf.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        conf.setAllowedOriginPatterns(List.of("http://localhost:*", frontUrl));
         conf.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
         conf.setAllowedHeaders(List.of("*"));
         conf.setAllowCredentials(true);

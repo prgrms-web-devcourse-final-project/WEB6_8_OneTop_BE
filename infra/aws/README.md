@@ -13,9 +13,16 @@ AWS 기반 인프라 관리 및 배포를 위한 Terraform 코드와 관련 문�
 ## Structure
 ### - Diagram
 ```
-infra/
-├── main.tf                   # AWS 인프라 리소스 정의
-├── variables.tf              # Terraform 변수
+infra/aws/terraform
+├── main.tf                   # Terraform 메인 설정 및 프로바이더
+├── variables.tf              # Terraform 변수 정의
+├── network.tf                # VPC, Subnet, IGW, Route Table 정의
+├── security_groups.tf        # Security Groups 정의
+├── ec2.tf                    # EC2 Instance, IAM 정의
+├── rds.tf                    # RDS Database 정의
+├── s3.tf                     # S3 Bucket 정의
+├── cloudfront.tf             # CloudFront CDN 정의
+├── outputs.tf                # Terraform 출력 값 정의
 ├── terraform.tfvars.default  # Terraform 변수 값 (복사 후 terraform.tfvars로 사용)
 └── ec2_user_data.tpl         # EC2 초기화 스크립트 템플릿
 ```
@@ -180,13 +187,13 @@ graph TB
 
 #### 3. 터미널
 ```terraform
-# infra 디렉토리에서 진행
+# infra/aws/terraform 디렉토리에서 진행
 
-# 초기화 
+# 초기화
 terraform init
 
 # 인프라 구성 검토
-# terraform plan 
+# terraform plan
 
 # 인프라 구성 적용
 # 'yes' 입력 시 구성 시작

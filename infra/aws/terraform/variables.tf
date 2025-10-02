@@ -19,20 +19,12 @@ variable "default_password" {
   sensitive   = true
 }
 
-variable "back_domain" {
+variable "base_domain" {
   description = "backend domain"
   type        = string
   # 25.09.29 개발 목적으로 설정
   # 추후 배포용으로 변경 예정
-  default     = "api.gooraeng.xyz"
-}
-
-variable "front_domain" {
-  description = "frontend domain"
-  type        = string
-  # 25.09.29 개발 목적으로 설정
-  # 추후 배포용으로 변경 예정
-  default     = "www.gooraeng.xyz"
+  default     = "relife.kr"
 }
 
 # fixme: CDN 도메인 변수
@@ -130,6 +122,12 @@ variable "expose_rds_port" {
 
 variable "expose_npm_config" {
   description = "Nginx Proxy Manager 설정 페이지 외부 노출 여부"
+  type        = bool
+  default     = true
+}
+
+variable "expose_redis_port" {
+  description = "Redis 포트 외부 노출 여부. True로 설정하면 외부에서 접근 가능"
   type        = bool
   default     = true
 }

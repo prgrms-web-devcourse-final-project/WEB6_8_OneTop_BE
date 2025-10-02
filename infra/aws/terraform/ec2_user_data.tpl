@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ##############################################
 # 마지막 수정: 250929
 # 작성자: gooraeng
@@ -6,16 +8,14 @@
 # 변수는 terraform 에서 치환됨
 ##############################################
 
-#!/bin/bash
 # EC2 에서 쓰일 스크립트
-
 # 가상 메모리 4GB 설정 (128M * 32)
 if ! grep -q "/swapfile" /etc/fstab; then
   dd if=/dev/zero of=/swapfile bs=128M count=32
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
-  sh -c echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+  echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
 fi
 
 # 타임존 설정
@@ -23,8 +23,7 @@ timedatectl set-timezone ${timezone}
 
 # 환경변수 세팅(/etc/environment)
 echo "PASSWORD_1=${password}" >> /etc/environment
-echo "APP_BACK_DOMAIN=${app_back_domain}" >> /etc/environment
-echo "APP_FRONT_DOMAIN=${app_front_domain}" >> /etc/environment
+echo "APP_BACK_DOMAIN=api.${base_domain}" >> /etc/environment
 echo "GITHUB_TOKEN_OWNER=${github_token_owner}" >> /etc/environment
 echo "GITHUB_TOKEN=${github_token}" >> /etc/environment
 
@@ -61,6 +60,6 @@ docker run -d \
 -p 6379:6379 \
 -e TZ=${timezone} \
 -v /dockerProjects/redis_1/volumes/data:/data \
-redis --requirepass ${password}
+redis:8.2-alpine --requirepass ${password}
 
 echo "${github_token}" | docker login ghcr.io -u ${github_token_owner} --password-stdin
