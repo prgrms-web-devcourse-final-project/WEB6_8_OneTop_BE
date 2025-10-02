@@ -140,7 +140,7 @@ public class UserInfoControllerTest {
                 .build();
         commentRepository.save(comment);
 
-        mockMvc.perform(get("/api/v1/users-info/stats")
+        mockMvc.perform(get("/api/v1/users/use-log")
                         .with(authentication(authentication)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scenarioCount").value(1))
@@ -345,7 +345,7 @@ public class UserInfoControllerTest {
         scenarioRepository.save(scenario3);
 
         // When & Then
-        mockMvc.perform(get("/api/v1/users-info/scenarios")
+        mockMvc.perform(get("/api/v1/users/list")
                         .param("page", "0")
                         .param("size", "10")
                         .with(authentication(authentication)))
@@ -369,7 +369,7 @@ public class UserInfoControllerTest {
     @DisplayName("성공 - 시나리오가 없을 때 빈 목록 반환")
     void t8() throws Exception {
 
-        mockMvc.perform(get("/api/v1/users-info/scenarios")
+        mockMvc.perform(get("/api/v1/users/list")
                         .param("page", "0")
                         .param("size", "10")
                         .with(authentication(authentication)))
@@ -414,7 +414,7 @@ public class UserInfoControllerTest {
         }
 
         // When & Then: 첫 페이지
-        mockMvc.perform(get("/api/v1/users-info/scenarios")
+        mockMvc.perform(get("/api/v1/users/list")
                         .param("page", "1")
                         .param("size", "10")
                         .with(authentication(authentication)))
@@ -426,7 +426,7 @@ public class UserInfoControllerTest {
                 .andExpect(jsonPath("$.last").value(false));
 
         // When & Then: 두번째 페이지
-        mockMvc.perform(get("/api/v1/users-info/scenarios")
+        mockMvc.perform(get("/api/v1/users/list")
                         .param("page", "2")
                         .param("size", "10")
                         .with(authentication(authentication)))

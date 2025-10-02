@@ -16,34 +16,39 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/users-info")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class UserInfoController {
     private final UserInfoService userInfoService;
 
-    @GetMapping("/stats")
+    // 사용자 통계 정보 조회
+    @GetMapping("/users/use-log")
     public ResponseEntity<UserStatsResponse> getMyStats(@AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.ok(userInfoService.getMyStats(principal.getId()));
     }
 
-    @GetMapping
+    // 사용자 정보 조회
+    @GetMapping("/users-info")
     public ResponseEntity<UserInfoResponse> getMyInfo(@AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.ok(userInfoService.getMyInfo(principal.getId()));
     }
 
-    @PostMapping
+    // 사용자 정보 생성
+    @PostMapping("/users-info")
     public ResponseEntity<UserInfoResponse> createMyInfo(@AuthenticationPrincipal CustomUserDetails principal,
                                                          @Valid @RequestBody UserInfoRequest req) {
         return ResponseEntity.ok(userInfoService.createMyInfo(principal.getId(), req));
     }
 
-    @PutMapping
+    // 사용자 정보 수정
+    @PutMapping("/users-info")
     public ResponseEntity<UserInfoResponse> updateMyInfo(@AuthenticationPrincipal CustomUserDetails principal,
                                                          @Valid @RequestBody UserInfoRequest req) {
         return ResponseEntity.ok(userInfoService.updateMyInfo(principal.getId(), req));
     }
 
-    @GetMapping("/scenarios")
+    // 내가 만든 시나리오 목록 조회 (평행우주 목록)
+    @GetMapping("/users/list")
     public ResponseEntity<PageResponse<UserScenarioListResponse>> getMyScenarios(
             @AuthenticationPrincipal CustomUserDetails principal,
             @PageableDefault(size = 5) Pageable pageable) {
