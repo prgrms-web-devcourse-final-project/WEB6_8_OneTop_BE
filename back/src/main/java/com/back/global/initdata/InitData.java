@@ -320,11 +320,11 @@ public class InitData implements CommandLineRunner {
                         팀 내에서 신뢰받는 개발자로 성장하며, 워라밸을 유지하면서 건강한 개발 생활을 이어갑니다.
                         """)
                 .timelineTitles("""
-                        [
-                          {"year":2025,"title":"시니어 개발자 승진"},
-                          {"year":2027,"title":"테크 리드 역할 수행"},
-                          {"year":2030,"title":"개발팀 리더"}
-                        ]
+                        {
+                          "2025": "시니어 개발자 승진",
+                          "2027": "테크 리드 역할 수행",
+                          "2030": "개발팀 리더"
+                        }
                         """)
                 .img("https://picsum.photos/seed/base-scenario/400/300")
                 .build();
@@ -349,11 +349,11 @@ public class InitData implements CommandLineRunner {
                         궁극적으로 스타트업 CTO 또는 대기업 기술 이사로 성장합니다.
                         """)
                 .timelineTitles("""
-                        [
-                          {"year":2025,"title":"AWS Solutions Architect 자격증 취득"},
-                          {"year":2027,"title":"솔루션 아키텍트 승진"},
-                          {"year":2030,"title":"기술 이사 (CTO)"}
-                        ]
+                        {
+                          "2025": "AWS Solutions Architect 자격증 취득",
+                          "2027": "솔루션 아키텍트 승진",
+                          "2030": "기술 이사 (CTO)"
+                        }
                         """)
                 .img("https://picsum.photos/seed/decision-scenario/400/300")
                 .build();
