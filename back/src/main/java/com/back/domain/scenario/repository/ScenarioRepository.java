@@ -41,4 +41,6 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     int sumTotalByUserId(Long userId);
 
     int countByUserId(Long userId);
+
+    Optional<Scenario> findByUserIdAndRepresentativeTrue(Long userId);
 }

@@ -19,4 +19,6 @@ public interface SceneTypeRepository extends JpaRepository<SceneType, Long> {
 
     @Query("SELECT st FROM SceneType st WHERE st.scenario.id IN :scenarioIds")
     List<SceneType> findByScenarioIdIn(@Param("scenarioIds") List<Long> scenarioIds);
+
+    List<SceneType> findByScenarioId(Long scenarioId);
 }

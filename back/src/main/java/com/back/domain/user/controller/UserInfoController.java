@@ -71,4 +71,20 @@ public class UserInfoController {
             @PageableDefault(size = 5) Pageable pageable) {
         return ResponseEntity.ok(userInfoService.getMyComments(principal.getId(), pageable));
     }
+
+    // 대표 시나리오 설정
+    @PutMapping("/users/profile-scenario")
+    public ResponseEntity<Void> setProfileScenario(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @PathVariable Long scenarioId) {
+        userInfoService.setProfileScenario(principal.getId(), scenarioId);
+        return ResponseEntity.ok().build();
+    }
+
+    // 대표 프로필 조회
+    @GetMapping("/users/profile")
+    public ResponseEntity<UserProfileResponse> getMyProfile(
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(userInfoService.getMyProfile(principal.getId()));
+    }
 }

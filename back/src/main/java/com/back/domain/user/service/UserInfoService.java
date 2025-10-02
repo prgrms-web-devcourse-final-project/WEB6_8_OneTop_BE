@@ -124,6 +124,38 @@ public class UserInfoService {
         return PageResponse.of(responsePage);
     }
 
+    @Transactional
+    public void setProfileScenario(Long userId, Long scenarioId) {
+        // 해당 시나리오가 존재하고 사용자의 것인지 확인
+        Scenario scenario = scenarioRepository.findById(scenarioId)
+                .orElseThrow(() -> new EntityNotFoundException("Scenario not found: " + scenarioId));
+
+        if (!scenario.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("Scenario does not belong to user");
+        }
+
+        // 기존 대표 시나리오를 false로 변경
+        scenarioRepository.findByUserIdAndRepresentativeTrue(userId)
+                .ifPresent(existingRepresentative -> existingRepresentative.setRepresentative(false));
+
+        // 새로운 시나리오를 대표로 설정
+        scenario.setRepresentative(true);
+    }
+
+    public UserProfileResponse getMyProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
+        return scenarioRepository.findByUserIdAndRepresentativeTrue(userId)
+                .map(representativeScenario -> {
+                    List<SceneType> sceneTypes = sceneTypeRepository.findByScenarioIdIn(
+                            List.of(representativeScenario.getId())
+                    );
+                    return UserProfileResponse.from(user.getUsername(), representativeScenario, sceneTypes);
+                })
+                .orElse(null);
+    }
+
     private void applyPatch(User user, UserInfoRequest req) {
         if (req.username() != null)      user.setUsername(req.username());
         if (req.birthdayAt() != null)    user.setBirthdayAt(req.birthdayAt());
