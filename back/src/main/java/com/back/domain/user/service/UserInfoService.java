@@ -75,7 +75,7 @@ public class UserInfoService {
     }
 
     public PageResponse<UserScenarioListResponse> getMyScenarios(Long userId, Pageable pageable) {
-        // 완료된 선택 시나리오만 조회 (베이스 시나리오 제외)
+        // 시나리오 조회 (베이스 시나리오 제외)
         Page<Scenario> scenarioPage = scenarioRepository
                 .findByUserIdAndDecisionLineIsNotNullAndStatusOrderByCreatedDateDesc(
                         userId,
@@ -83,17 +83,16 @@ public class UserInfoService {
                         pageable
                 );
 
-        // 시나리오 ID 목록 추출
+        // 시나리오 id 목록 추출
         List<Long> scenarioIds = scenarioPage.getContent().stream()
                 .map(Scenario::getId)
                 .collect(Collectors.toList());
 
-        // SceneType 일괄 조회 및 시나리오 ID별로 그룹화 (N+1 문제 방지)
+        // SceneType 조회, 시나리오 id별로 그룹화
         List<SceneType> sceneTypes = sceneTypeRepository.findByScenarioIdIn(scenarioIds);
         Map<Long, List<SceneType>> sceneTypeMap = sceneTypes.stream()
                 .collect(Collectors.groupingBy(st -> st.getScenario().getId()));
 
-        // DTO 변환
         Page<UserScenarioListResponse> responsePage = scenarioPage.map(scenario ->
                 UserScenarioListResponse.from(
                         scenario,
