@@ -2,7 +2,6 @@ package com.back.domain.scenario.entity;
 
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.DecisionLine;
-import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
@@ -73,4 +72,7 @@ public class Scenario extends BaseEntity {
 
     // 시나리오 대표 이미지 URL
     private String img;
+
+    // 대표 시나리오 여부
+    private boolean representative;
 }

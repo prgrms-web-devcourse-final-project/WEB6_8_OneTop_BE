@@ -4,7 +4,6 @@ import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,23 +30,17 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
     Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
 
-    // 사용자별 베이스라인 시나리오 제외 시나리오 목록 조회 (MyPage용, 페이징구현 및 N+1 방지)
-    @EntityGraph(attributePaths = {"user", "decisionLine", "decisionLine.baseLine"})
-    @Query("SELECT s FROM Scenario s " +
-           "WHERE s.user.id = :userId " +
-           "AND s.decisionLine.baseLine.id = :baseLineId " +
-           "AND s.status = :status " +
-           "AND s.id != (SELECT MIN(s2.id) FROM Scenario s2 " +
-                        "WHERE s2.decisionLine.baseLine.id = :baseLineId " +
-                        "AND s2.status = :status) " +
-           "ORDER BY s.createdDate DESC")
-    Page<Scenario> findUserNonBaseScenariosByBaseLineId(@Param("userId") Long userId,
-                                                       @Param("baseLineId") Long baseLineId,
-                                                       @Param("status") ScenarioStatus status,
-                                                       Pageable pageable);
+    // 내 완료된 선택 시나리오 목록 조회 (베이스 시나리오 제외)
+    Page<Scenario> findByUserIdAndDecisionLineIsNotNullAndStatusOrderByCreatedDateDesc(
+            Long userId,
+            ScenarioStatus status,
+            Pageable pageable
+    );
 
     @Query("SELECT COALESCE(SUM(s.total), 0) FROM Scenario s WHERE s.user.id = :userId")
     int sumTotalByUserId(Long userId);
 
     int countByUserId(Long userId);
+
+    Optional<Scenario> findByUserIdAndRepresentativeTrue(Long userId);
 }

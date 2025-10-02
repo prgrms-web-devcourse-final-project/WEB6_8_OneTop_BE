@@ -163,4 +163,16 @@ public class GlobalExceptionHandler {
                 req
         );
     }
+
+    @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
+    public ProblemDetail handleEntityNotFoundException(jakarta.persistence.EntityNotFoundException ex, HttpServletRequest req) {
+        return ProblemDetails.of(
+                HttpStatus.NOT_FOUND,
+                "ENTITY_NOT_FOUND",
+                ex.getMessage(),
+                "ENTITY_NOT_FOUND",
+                Map.of(),
+                req
+        );
+    }
 }
