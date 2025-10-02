@@ -24,7 +24,7 @@ variable "base_domain" {
   type        = string
   # 25.09.29 개발 목적으로 설정
   # 추후 배포용으로 변경 예정
-  default     = "gooraeng.xyz"
+  default     = "relife.kr"
 }
 
 # fixme: CDN 도메인 변수
