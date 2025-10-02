@@ -95,52 +95,92 @@ public class UserInfoControllerTest {
                 userDetails, null, userDetails.getAuthorities());
     }
 
+    // 헬퍼 메서드
+
+    private Post createPost(User user, String title, PostCategory category) {
+        Post post = Post.builder()
+                .user(user)
+                .title(title)
+                .content("Content for " + title)
+                .category(category)
+                .hide(false)
+                .build();
+        return postRepository.save(post);
+    }
+
+    private Comment createComment(User user, Post post, String content) {
+        Comment comment = Comment.builder()
+                .user(user)
+                .post(post)
+                .content(content)
+                .hide(false)
+                .build();
+        return commentRepository.save(comment);
+    }
+
+    private User createOtherUser() {
+        return userRepository.save(User.builder()
+                .email("other@example.com")
+                .password("password")
+                .username("OtherUser")
+                .nickname("othernick")
+                .birthdayAt(LocalDateTime.of(1995, 5, 15, 0, 0))
+                .role(Role.USER)
+                .authProvider(AuthProvider.LOCAL)
+                .build());
+    }
+
+    private BaseLine createBaseLine(User user, String title) {
+        BaseLine baseLine = BaseLine.builder()
+                .user(user)
+                .title(title)
+                .build();
+        return baseLineRepository.save(baseLine);
+    }
+
+    private DecisionLine createDecisionLine(User user, BaseLine baseLine) {
+        DecisionLine decisionLine = DecisionLine.builder()
+                .user(user)
+                .baseLine(baseLine)
+                .status(DecisionLineStatus.COMPLETED)
+                .build();
+        return decisionLineRepository.save(decisionLine);
+    }
+
+    private Scenario createScenario(User user, BaseLine baseLine, DecisionLine decisionLine,
+                                    String job, int total, String summary,
+                                    ScenarioStatus status, boolean representative) {
+        Scenario scenario = Scenario.builder()
+                .user(user)
+                .baseLine(baseLine)
+                .decisionLine(decisionLine)
+                .status(status)
+                .job(job)
+                .total(total)
+                .summary(summary)
+                .description("Test description for " + job)
+                .representative(representative)
+                .build();
+        return scenarioRepository.save(scenario);
+    }
+
+    private Scenario createScenario(User user, BaseLine baseLine, DecisionLine decisionLine,
+                                    String job, int total, String summary) {
+        return createScenario(user, baseLine, decisionLine, job, total, summary,
+                ScenarioStatus.COMPLETED, false);
+    }
+
     @Test
     @DisplayName("성공 - 사용자 통계 정보 조회 성공")
     void t1() throws Exception {
-        BaseLine testBaseLine = BaseLine.builder()
-                .user(testUser)
-                .title("Test BaseLine")
-                .build();
-        testBaseLine = baseLineRepository.save(testBaseLine);
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+        DecisionLine decisionLine = createDecisionLine(testUser, baseLine);
+        createScenario(testUser, baseLine, decisionLine, "Software Engineer", 100, "Test summary 1");
 
-        DecisionLine testDecisionLine = DecisionLine.builder()
-                .user(testUser)
-                .baseLine(testBaseLine)
-                .status(DecisionLineStatus.COMPLETED)
-                .build();
-        testDecisionLine = decisionLineRepository.save(testDecisionLine);
+        Post post = createPost(testUser, "Test Post 1", PostCategory.CHAT);
+        createComment(testUser, post, "Comment 1");
 
-        Scenario scenario = Scenario.builder()
-                .user(testUser)
-                .baseLine(testBaseLine)  // BaseLine 추가
-                .decisionLine(testDecisionLine)
-                .status(ScenarioStatus.COMPLETED)
-                .job("Software Engineer")
-                .total(100)
-                .summary("Test summary 1")
-                .description("Test description 1")
-                .build();
-        scenarioRepository.save(scenario);
-
-        Post post = Post.builder()
-                .user(testUser)
-                .title("Test Post 1")
-                .content("Content 1")
-                .category(PostCategory.CHAT)
-                .hide(false)
-                .build();
-        postRepository.save(post);
-
-        Comment comment = Comment.builder()
-                .user(testUser)
-                .post(post)
-                .content("Comment 1")
-                .hide(false)
-                .build();
-        commentRepository.save(comment);
-
-        mockMvc.perform(get("/api/v1/users-info/stats")
+        mockMvc.perform(get("/api/v1/users/use-log")
                         .with(authentication(authentication)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scenarioCount").value(1))
@@ -258,5 +298,263 @@ public class UserInfoControllerTest {
                 .andExpect(jsonPath("$.beliefs").value("Only beliefs updated"))
                 .andExpect(jsonPath("$.username").value("TestUser"))
                 .andExpect(jsonPath("$.mbti").value("INFP"));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 시나리오 목록 조회 성공")
+    void t7() throws Exception {
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+
+        // 베이스 시나리오
+        createScenario(testUser, baseLine, null, "Base Job", 100, "Base scenario summary");
+
+        // 완료된 시나리오 2개
+        DecisionLine decisionLine1 = createDecisionLine(testUser, baseLine);
+        createScenario(testUser, baseLine, decisionLine1, "Software Engineer", 425,
+                "대학원 진학 후 AI 연구원으로 성장");
+
+        DecisionLine decisionLine2 = createDecisionLine(testUser, baseLine);
+        createScenario(testUser, baseLine, decisionLine2, "Freelancer Developer", 375,
+                "자유로운 근무 환경에서 다양한 프로젝트 수행");
+
+        // 진행중인 시나리오 (제외되어야 함)
+        DecisionLine decisionLine3 = createDecisionLine(testUser, baseLine);
+        createScenario(testUser, baseLine, decisionLine3, "Designer", 350,
+                "진행중인 시나리오", ScenarioStatus.PROCESSING, false);
+
+        mockMvc.perform(get("/api/v1/users/list")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].job").value("Freelancer Developer"))
+                .andExpect(jsonPath("$.items[0].total").value(375))
+                .andExpect(jsonPath("$.items[1].job").value("Software Engineer"))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 시나리오가 없을 때 빈 목록 반환")
+    void t8() throws Exception {
+        mockMvc.perform(get("/api/v1/users/list")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 페이지네이션 동작 확인")
+    void t9() throws Exception {
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+
+        for (int i = 1; i <= 15; i++) {
+            DecisionLine decisionLine = createDecisionLine(testUser, baseLine);
+            createScenario(testUser, baseLine, decisionLine, "Job " + i, 100 * i, "Summary " + i);
+        }
+
+        mockMvc.perform(get("/api/v1/users/list")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(false));
+
+        mockMvc.perform(get("/api/v1/users/list")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 작성글 목록 조회 성공")
+    void t10() throws Exception {
+        Post post1 = createPost(testUser, "첫 번째 게시글", PostCategory.CHAT);
+        createPost(testUser, "두 번째 게시글", PostCategory.POLL);
+        createPost(testUser, "세 번째 게시글", PostCategory.CHAT);
+
+        createComment(testUser, post1, "Comment 1");
+        createComment(testUser, post1, "Comment 2");
+
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.items[0].title").value("세 번째 게시글"))
+                .andExpect(jsonPath("$.items[2].commentCount").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 댓글 목록 조회 성공")
+    void t11() throws Exception {
+        User otherUser = createOtherUser();
+
+        Post post1 = createPost(otherUser, "다른 사용자의 게시글 1", PostCategory.CHAT);
+        Post post2 = createPost(otherUser, "다른 사용자의 게시글 2", PostCategory.POLL);
+
+        createComment(testUser, post1, "첫 번째 댓글 내용");
+        createComment(testUser, post2, "두 번째 댓글 내용");
+        createComment(testUser, post1, "세 번째 댓글 내용");
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.items[0].content").value("세 번째 댓글 내용"))
+                .andExpect(jsonPath("$.items[0].postTitle").value("다른 사용자의 게시글 1"))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 작성글 페이지네이션 동작 확인")
+    void t12() throws Exception {
+        for (int i = 1; i <= 12; i++) {
+            createPost(testUser, "게시글 " + i, PostCategory.CHAT);
+        }
+
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.totalElements").value(12))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.last").value(false));
+
+        mockMvc.perform(get("/api/v1/users/my-posts")
+                        .param("page", "3")
+                        .param("size", "5")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 내 댓글 페이지네이션 동작 확인")
+    void t13() throws Exception {
+        User otherUser = createOtherUser();
+        Post post = createPost(otherUser, "게시글", PostCategory.CHAT);
+
+        for (int i = 1; i <= 15; i++) {
+            createComment(testUser, post, "댓글 " + i);
+        }
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(false));
+
+        mockMvc.perform(get("/api/v1/users/my-comments")
+                        .param("page", "2")
+                        .param("size", "10")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(5))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @DisplayName("성공 - 대표 시나리오 설정 성공")
+    void t14() throws Exception {
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+        DecisionLine decisionLine = createDecisionLine(testUser, baseLine);
+        Scenario scenario = createScenario(testUser, baseLine, decisionLine,
+                "Software Engineer", 425, "대학원 진학 후 AI 연구원으로 성장");
+
+        mockMvc.perform(put("/api/v1/users/profile-scenario")
+                        .param("scenarioId", scenario.getId().toString())
+                        .with(authentication(authentication))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        Scenario updatedScenario = scenarioRepository.findById(scenario.getId()).orElseThrow();
+        assert updatedScenario.isRepresentative();
+    }
+
+    @Test
+    @DisplayName("성공 - 대표 시나리오 변경 성공 (기존 대표 시나리오가 있을 때)")
+    void t15() throws Exception {
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+
+        DecisionLine decisionLine1 = createDecisionLine(testUser, baseLine);
+        Scenario scenario1 = createScenario(testUser, baseLine, decisionLine1,
+                "Designer", 350, "기존 대표 시나리오",
+                ScenarioStatus.COMPLETED, true);
+
+        DecisionLine decisionLine2 = createDecisionLine(testUser, baseLine);
+        Scenario scenario2 = createScenario(testUser, baseLine, decisionLine2,
+                "Software Engineer", 425, "새로운 대표 시나리오");
+
+        mockMvc.perform(put("/api/v1/users/profile-scenario")
+                        .param("scenarioId", scenario2.getId().toString())
+                        .with(authentication(authentication))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        Scenario oldRepresentative = scenarioRepository.findById(scenario1.getId()).orElseThrow();
+        Scenario newRepresentative = scenarioRepository.findById(scenario2.getId()).orElseThrow();
+
+        assert !oldRepresentative.isRepresentative();
+        assert newRepresentative.isRepresentative();
+    }
+
+    @Test
+    @DisplayName("성공 - 대표 프로필 조회 성공")
+    void t16() throws Exception {
+        BaseLine baseLine = createBaseLine(testUser, "Test BaseLine");
+        DecisionLine decisionLine = createDecisionLine(testUser, baseLine);
+
+        Scenario scenario = createScenario(testUser, baseLine, decisionLine,
+                "Software Engineer", 425,
+                "대학원 진학 후 AI 연구원으로 성장",
+                ScenarioStatus.COMPLETED, true);
+
+        mockMvc.perform(get("/api/v1/users/profile")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value("TestUser"))
+                .andExpect(jsonPath("$.representativeScenarioId").exists())
+                .andExpect(jsonPath("$.description").exists())
+                .andExpect(jsonPath("$.sceneTypePoints").exists());
+    }
+
+    @Test
+    @DisplayName("성공 - 대표 프로필이 없을 때 null 반환")
+    void t17() throws Exception {
+        mockMvc.perform(get("/api/v1/users/profile")
+                        .with(authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").doesNotExist());
     }
 }
