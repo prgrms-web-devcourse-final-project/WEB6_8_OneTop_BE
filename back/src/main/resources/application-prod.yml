@@ -33,8 +33,6 @@ spring:
         max-lifetime: 1800000 # 커넥션의 최대 수명 (30분)
         connection-timeout: 30000 # 커넥션을 얻기 위해 대기하는 최대 시간 (30초)
         leak-detection-threshold: 60000 # 커넥션 누수 감지 임계값 (60초)
-  profiles:
-    active: prod
 
 logging:
   level:
