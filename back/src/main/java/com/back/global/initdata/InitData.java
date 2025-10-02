@@ -351,9 +351,8 @@ public class InitData implements CommandLineRunner {
                 .timelineTitles("""
                         [
                           {"year":2025,"title":"AWS Solutions Architect 자격증 취득"},
-                          {"year":2026,"title":"보안 전문가 인증 (CISSP)"},
-                          {"year":2028,"title":"솔루션 아키텍트 승진"},
-                          {"year":2031,"title":"기술 이사 (CTO)"}
+                          {"year":2027,"title":"솔루션 아키텍트 승진"},
+                          {"year":2030,"title":"기술 이사 (CTO)"}
                         ]
                         """)
                 .img("https://picsum.photos/seed/decision-scenario/400/300")
