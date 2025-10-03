@@ -88,7 +88,11 @@ ai:
   situation:
     topK: 5
     contextCharLimit: 1000
-    maxOutputTokens: 384
+    maxOutputTokens: 128
+  base-scenario:
+    maxOutputTokens: 1000
+  decision-scenario:
+    maxOutputTokens: 1200
 
 
 server:

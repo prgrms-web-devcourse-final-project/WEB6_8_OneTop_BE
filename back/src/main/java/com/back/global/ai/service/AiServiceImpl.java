@@ -7,6 +7,10 @@ import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.global.ai.client.text.TextAiClient;
+import com.back.global.ai.config.BaseScenarioAiProperties;
+import com.back.global.ai.config.DecisionScenarioAiProperties;
+import com.back.global.ai.config.SituationAiProperties;
+import com.back.global.ai.dto.AiRequest;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.exception.AiParsingException;
@@ -19,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -34,6 +39,9 @@ public class AiServiceImpl implements AiService {
     private final TextAiClient textAiClient;
     private final ObjectMapper objectMapper;
     private final SceneTypeRepository sceneTypeRepository;
+    private final SituationAiProperties situationAiProperties;
+    private final BaseScenarioAiProperties baseScenarioAiProperties;
+    private final DecisionScenarioAiProperties decisionScenarioAiProperties;
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
@@ -50,7 +58,8 @@ public class AiServiceImpl implements AiService {
             log.debug("Generated base scenario prompt for BaseLine ID: {}", baseLine.getId());
 
             // Step 2: AI 호출 및 파싱
-            return textAiClient.generateText(baseScenarioPrompt)
+            AiRequest request = new AiRequest(baseScenarioPrompt, Map.of(), baseScenarioAiProperties.getMaxOutputTokens());
+            return textAiClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
                             log.debug("Received AI response for BaseLine ID: {}, length: {}",
@@ -89,7 +98,8 @@ public class AiServiceImpl implements AiService {
             log.debug("Generated decision scenario prompt for DecisionLine ID: {}", decisionLine.getId());
 
             // Step 2: AI 호출 및 파싱
-            return textAiClient.generateText(newScenarioPrompt)
+            AiRequest request = new AiRequest(newScenarioPrompt, Map.of(), decisionScenarioAiProperties.getMaxOutputTokens());
+            return textAiClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
                             log.debug("Received AI response for DecisionLine ID: {}, length: {}",
@@ -143,7 +153,8 @@ public class AiServiceImpl implements AiService {
                      previousNodes.size(), SituationPrompt.estimateTokens(previousNodes));
 
             // Step 2: AI 호출 및 상황 텍스트 추출
-            return textAiClient.generateText(situationPrompt)
+            AiRequest request = new AiRequest(situationPrompt, Map.of(), situationAiProperties.getMaxOutputTokens());
+            return textAiClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
                             log.debug("Received AI response for situation generation, length: {}",
