@@ -3,6 +3,8 @@ package com.back.global.initdata;
 import com.back.domain.comment.entity.Comment;
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.node.dto.PivotListDto;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.dto.decision.DecNodeDto;
@@ -42,8 +44,13 @@ import java.util.UUID;
  * [요약] 기동 시 admin·user1 생성 → user1에 베이스라인(총7: 헤더+피벗5+테일) 1개와 결정라인 2개(첫 번째 6노드, 두 번째 2노드) 시드 주입.
  *        게시글 30개(일반20 + 투표10)과 댓글 14개(마지막 2개 글에 각 7개) 생성.
  *        시나리오 3개(베이스 1개 + 완성 1개 + 처리중 1개)와 지표 10개(완성된 시나리오 2개에 각 5개씩) 생성.
+ *
+ * [주의] 프로덕션 환경에서는 실행되지 않습니다. (@Profile 설정)
+ *        프로덕션 필수 데이터는 Flyway 마이그레이션(db/migration)을 통해 관리됩니다.
  */
+@Slf4j
 @Component
+@Profile("!prod")  // prod 프로파일에서는 실행 안 함
 @RequiredArgsConstructor
 public class InitData implements CommandLineRunner {
 
@@ -62,6 +69,14 @@ public class InitData implements CommandLineRunner {
     // user1을 만들고 베이스라인(7)과 결정라인(5)을 시드로 주입한다
     @Override
     public void run(String... args) {
+        // 전체 InitData 실행 여부 체크 (user1 존재 여부로 판단)
+        if (userRepository.findByEmail("user1@example.com").isPresent()) {
+            log.info("[InitData] 이미 초기화 데이터가 존재합니다. 스킵합니다.");
+            return;
+        }
+
+        log.info("[InitData] 초기화 데이터 생성을 시작합니다...");
+
         if (userRepository.findByEmail("admin@example.com").isEmpty()) {
             var admin = User.builder()
                     .email("admin@example.com")
@@ -221,10 +236,6 @@ public class InitData implements CommandLineRunner {
                 )
         );
 
-        if (postRepository.count() > 0) {
-            return;
-        }
-
         // 잠담 게시글 20개 생성
         List<Post> posts = new ArrayList<>();
         for (int i = 1; i <= 20; i++) {
@@ -286,11 +297,6 @@ public class InitData implements CommandLineRunner {
         commentRepository.saveAll(comments);
 
         // ========== Scenario InitData 생성 ==========
-
-        // 시나리오 데이터가 이미 있으면 스킵
-        if (scenarioRepository.count() > 0) {
-            return;
-        }
 
         // BaseLine 조회 (위에서 생성한 baseLineId 사용)
         BaseLine baseLine = baseLineRepository.findById(baseLineId)
@@ -370,6 +376,12 @@ public class InitData implements CommandLineRunner {
                 .status(ScenarioStatus.PROCESSING)
                 .build();
         scenarioRepository.save(processingScenario);
+
+        log.info("[InitData] 초기화 데이터 생성 완료!");
+        log.info("[InitData] - 사용자: admin, user1");
+        log.info("[InitData] - 게시글: {} 개", postRepository.count());
+        log.info("[InitData] - 댓글: {} 개", commentRepository.count());
+        log.info("[InitData] - 시나리오: {} 개", scenarioRepository.count());
     }
 
     /**
