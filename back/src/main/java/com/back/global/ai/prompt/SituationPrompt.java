@@ -102,7 +102,33 @@ public class SituationPrompt {
         // 사용자 출생연도 계산 (모든 노드가 같은 사용자이므로 첫 번째에서 가져옴)
         int birthYear = previousNodes.get(0).getUser().getBirthdayAt().getYear();
 
-        for (int i = 0; i < previousNodes.size(); i++) {
+        // 1단계: 전체 경로 요약 (4개 이상일 때만)
+        if (previousNodes.size() > 3) {
+            choicesInfo.append("전체 선택 경로: ");
+            for (int i = 0; i < previousNodes.size(); i++) {
+                DecisionNode node = previousNodes.get(i);
+                String decision = node.getDecision() != null ? node.getDecision() : "선택없음";
+
+                // 15자로 제한 (12자 + "...")
+                if (decision.length() > 15) {
+                    decision = decision.substring(0, 12) + "...";
+                }
+
+                choicesInfo.append(String.format("%d세 %s", node.getAgeYear(), decision));
+                if (i < previousNodes.size() - 1) {
+                    choicesInfo.append(" → ");
+                }
+            }
+            choicesInfo.append("\n\n");
+        }
+
+        // 2단계: 최근 3개 상세 정보
+        int startIndex = Math.max(0, previousNodes.size() - 3);
+        if (previousNodes.size() > 3) {
+            choicesInfo.append("최근 상세 선택:\n");
+        }
+
+        for (int i = startIndex; i < previousNodes.size(); i++) {
             DecisionNode node = previousNodes.get(i);
             int actualYear = birthYear + node.getAgeYear() - 1; // 실제 연도 계산
 
@@ -198,8 +224,15 @@ public class SituationPrompt {
         int baseTokens = 300; // 기본 프롬프트 토큰 수
 
         if (previousNodes != null) {
-            // DecisionNode당 약 60토큰 추가 (상황 + 선택 + 날짜)
-            baseTokens += previousNodes.size() * 60;
+            if (previousNodes.size() <= 3) {
+                // 3개 이하: 전체 상세 전송 (노드당 60토큰)
+                baseTokens += previousNodes.size() * 60;
+            } else {
+                // 4개 이상: 요약(노드당 5토큰) + 최근 3개 상세(60토큰)
+                int summaryTokens = previousNodes.size() * 5; // 전체 요약
+                int detailTokens = 3 * 60; // 최근 3개 상세
+                baseTokens += summaryTokens + detailTokens;
+            }
         }
 
         return baseTokens;

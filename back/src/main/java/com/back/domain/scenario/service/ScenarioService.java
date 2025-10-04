@@ -189,9 +189,15 @@ public class ScenarioService {
         // 베이스 시나리오 확보
         Scenario baseScenario = ensureBaseScenarioExists(baseLine);
 
-        // AI 호출 (트랜잭션 외부)
+        // AI 호출 (트랜잭션 외부) with 타임아웃 (60초)
         DecisionScenarioResult aiResult = aiService
-                .generateDecisionScenario(decisionLine, baseScenario).join();
+                .generateDecisionScenario(decisionLine, baseScenario)
+                .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.error("Decision scenario generation timeout or error for scenario ID: {}", scenarioId, ex);
+                    throw new ApiException(ErrorCode.AI_TIMEOUT, "시나리오 생성 시간 초과 (60초)");
+                })
+                .join();
 
         return new AiScenarioGenerationResult(aiResult);
     }
@@ -206,8 +212,14 @@ public class ScenarioService {
     private Scenario createBaseScenario(BaseLine baseLine) {
         log.info("Creating base scenario for BaseLine ID: {}", baseLine.getId());
 
-        // 1. AI 호출
-        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine).join();
+        // 1. AI 호출 with 타임아웃 (60초)
+        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine)
+                .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.error("Base scenario generation timeout or error for BaseLine ID: {}", baseLine.getId(), ex);
+                    throw new ApiException(ErrorCode.AI_TIMEOUT, "베이스 시나리오 생성 시간 초과 (60초)");
+                })
+                .join();
 
         // 2. 베이스 시나리오 엔티티 생성
         Scenario baseScenario = Scenario.builder()

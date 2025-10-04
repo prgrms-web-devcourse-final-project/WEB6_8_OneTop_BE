@@ -55,6 +55,13 @@ spring:
             token-uri: https://github.com/login/oauth/access_token
             user-info-uri: https://api.github.com/user
             user-name-attribute: id
+  task:
+    execution:
+      pool:
+        core-size: 2           # AWS t2.small (1 vCPU) 기준 기본 쓰레드
+        max-size: 4            # 최대 쓰레드 (버스트 대응)
+        queue-capacity: 50     # 대기 큐 크기
+      thread-name-prefix: "async-ai-"
 logging:
   level:
     org.springframework.security: DEBUG
@@ -86,14 +93,15 @@ ai:
     max-retries: 3
     # TODO: 추후 이미지 AI 설정 추가 예정
   situation:
-    topK: 5
-    contextCharLimit: 1000
-    maxOutputTokens: 128
+    topK: 3                    # 성능 최적화 (5 → 3)
+    maxOutputTokens: 128       # 성능 최적화 완료
+    timeout-seconds: 30        # 상황 생성 타임아웃 (30초, 실시간 응답용)
   base-scenario:
     maxOutputTokens: 1000
+    timeout-seconds: 60        # 베이스 시나리오 생성 타임아웃 (60초)
   decision-scenario:
     maxOutputTokens: 1200
-
+    timeout-seconds: 60        # 선택 시나리오 생성 타임아웃 (60초)
 
 server:
   servlet:
