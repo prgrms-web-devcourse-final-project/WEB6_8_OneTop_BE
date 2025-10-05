@@ -12,13 +12,17 @@ import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.mapper.PostMappers;
 import com.back.domain.post.repository.PostRepository;
+import com.back.domain.scenario.dto.ScenarioDetailResponse;
 import com.back.domain.scenario.entity.Scenario;
+import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
+import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,6 +46,7 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final PollVoteRepository pollVoteRepository;
     private final ScenarioRepository scenarioRepository;
+    private final SceneTypeRepository sceneTypeRepository;
     private final PostMappers postMappers;
     private final PollConverter pollConverter;
 
@@ -59,7 +64,12 @@ public class PostService {
         Post post = postMappers.toEntity(request, user, scenario);
         Post savedPost = postRepository.save(post);
 
-        return postMappers.toDetailResponse(savedPost, false);
+        return postMappers.toDetailByCategory(
+                savedPost,
+                false,
+                this::getPollInfoForCreate,
+                this::getScenarioInfoForCreate
+        );
     }
 
     public PostDetailResponse getPost(Long userId, Long postId) {
@@ -69,10 +79,15 @@ public class PostService {
         boolean isLiked = userId != null &&
                 postLikeRepository.existsByPostIdAndUserId(postId, userId);
 
-        if (post.getCategory() == PostCategory.CHAT) {
-            return postMappers.toDetailResponse(post, isLiked);
-        }
+        return postMappers.toDetailByCategory(
+                post,
+                isLiked,
+                p -> getPollInfo(userId, postId, p),
+                this::getScenarioInfoForCreate
+        );
+    }
 
+    private PollOptionResponse getPollInfo(Long userId, Long postId, Post post) {
         List<PollOptionResponse.VoteOption> options =
                 pollConverter.fromPollOptionJson(post.getVoteContent()).options();
 
@@ -82,9 +97,7 @@ public class PostService {
                 .orElse(Collections.emptyList())
                 : Collections.emptyList();
 
-        PollOptionResponse pollResponse = new PollOptionResponse(selected, options);
-
-        return postMappers.toDetailWithPollsResponse(post, isLiked, pollResponse);
+        return new PollOptionResponse(selected, options);
     }
 
     public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
@@ -139,4 +152,19 @@ public class PostService {
 
         return postLikeRepository.findLikedPostIdsByUserAndPostIds(userId, postIds);
     }
+
+    private PollOptionResponse getPollInfoForCreate(Post post) {
+        List<PollOptionResponse.VoteOption> options =
+                pollConverter.fromPollOptionJson(post.getVoteContent()).options();
+
+        return new PollOptionResponse(Collections.emptyList(), options);
+    }
+
+    private ScenarioDetailResponse getScenarioInfoForCreate(Post post) {
+        List<SceneType> sceneTypes =
+                sceneTypeRepository.findByScenarioIdOrderByTypeAsc(post.getScenario().getId());
+
+        return ScenarioDetailResponse.from(post.getScenario(), sceneTypes);
+    }
+
 }

@@ -7,6 +7,7 @@ import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
+import com.back.domain.scenario.dto.ScenarioDetailResponse;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * PostMapper
@@ -45,6 +47,27 @@ public class PostMappers {
                 .build();
     }
 
+    public PostDetailResponse toDetailByCategory(
+            Post post,
+            boolean isLiked,
+            Function<Post, PollOptionResponse> pollInfoProvider,
+            Function<Post, ScenarioDetailResponse> scenarioProvider
+    ) {
+        return switch (post.getCategory()) {
+            case CHAT -> toDetailResponse(post, isLiked);
+
+            case POLL -> {
+                PollOptionResponse pollResponse = pollInfoProvider.apply(post);
+                yield toDetailWithPollsResponse(post, isLiked, pollResponse);
+            }
+
+            case SCENARIO -> {
+                ScenarioDetailResponse scenarioResponse = scenarioProvider.apply(post);
+                yield toDetailWithScenarioResponse(post, isLiked, scenarioResponse);
+            }
+        };
+    }
+
     public PostDetailResponse toDetailResponse(Post post, Boolean isLiked) {
         return new PostDetailResponse(
                 post.getId(),
@@ -55,7 +78,8 @@ public class PostMappers {
                 post.getLikeCount(),
                 isLiked,
                 post.getCreatedDate(),
-                pollConverter.fromPollOptionJson(post.getVoteContent())
+                null,
+                null
         );
     }
 
@@ -82,7 +106,23 @@ public class PostMappers {
                 post.getLikeCount(),
                 isLiked,
                 post.getCreatedDate(),
-                pollResponse
+                pollResponse,
+                null
+        );
+    }
+
+    public PostDetailResponse toDetailWithScenarioResponse(Post post, Boolean isLiked, ScenarioDetailResponse scenarioResponse) {
+        return new PostDetailResponse(
+                post.getId(),
+                post.getTitle(),
+                post.getContent(),
+                post.isHide() ? "익명" : post.getUser().getNickname(),
+                post.getCategory(),
+                post.getLikeCount(),
+                isLiked,
+                post.getCreatedDate(),
+                null,
+                scenarioResponse
         );
     }
 }
