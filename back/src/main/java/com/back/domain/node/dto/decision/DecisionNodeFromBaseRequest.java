@@ -5,6 +5,8 @@
 package com.back.domain.node.dto.decision;
 
 import com.back.domain.node.entity.NodeCategory;
+import jakarta.validation.constraints.Size;
+
 import java.util.List;
 
 public record DecisionNodeFromBaseRequest(
@@ -15,7 +17,8 @@ public record DecisionNodeFromBaseRequest(
         Integer selectedAltIndex,  // 0 또는 1
         NodeCategory category,     // 미지정 시 pivot.category 상속
         String situation,          // 미지정 시 pivot.situation 상속
+        @Size(min = 1, max = 3, message = "C001:options size must be 1..3")
         List<String> options,      // 1~3개, null 가능(첫 결정 노드도 옵션 보유 가능)
-        Integer selectedIndex,      // 0..2, null 가능(주어지면 decision과 일치)
+        Integer selectedIndex,     // 0..2, null 가능(주어지면 decision과 일치)
         String description
 ) {}

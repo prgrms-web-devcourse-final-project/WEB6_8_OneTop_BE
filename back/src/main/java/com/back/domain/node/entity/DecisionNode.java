@@ -1,6 +1,7 @@
 /**
- * [ENTITY] 사용자의 선택 분기(노드)
- * - 같은 DecisionLine 내에서 ageYear는 중복 불가(피벗 동기화)
+ * [ENTITY] DecisionNode (추가 필드 포함)
+ * - 노드별 팔로우 정책과 오버라이드 버전을 보관하여 해석 시 최종 버전을 결정
+ * - OVERRIDE면 overrideVersion을, PINNED/FOLLOW면 라인 기준 커밋/브랜치로 해석
  */
 package com.back.domain.node.entity;
 
@@ -8,16 +9,12 @@ import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(
-        name = "decision_nodes",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uq_decision_line_age", columnNames = {"dec_line_id", "ageYear"})
-        }
-)
+@Table(name = "decision_nodes")
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
 public class DecisionNode extends BaseEntity {
@@ -60,25 +57,41 @@ public class DecisionNode extends BaseEntity {
     private String background;
 
     @Column(length = 255)
-    private String option1; // 선택지1
+    private String option1;
 
     @Column(length = 255)
-    private String option2; // 선택지2
+    private String option2;
 
     @Column(length = 255)
-    private String option3; // 선택지3
+    private String option3;
 
-    private Integer selectedIndex; // 0..2
+    private Integer selectedIndex;
 
-    private Integer parentOptionIndex; // 부모 결정의 어떤 옵션(0..2)에서 파생됐는지
+    private Integer parentOptionIndex;
 
     @Column(columnDefinition = "TEXT")
-    private String description; // 추가 설명
+    private String description;
+
+    // ▼ 추가: 해석 정책/버전
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private FollowPolicy followPolicy = FollowPolicy.FOLLOW;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "override_version_id")
+    private NodeAtomVersion overrideVersion;
 
     // 다음 나이 검증
     public void guardNextAgeValid(int nextAge) {
         if (nextAge <= this.getAgeYear()) {
             throw new IllegalArgumentException("ageYear must be greater than parent's ageYear");
         }
+    }
+
+    // OVERRIDE로 전환하고 지정 버전을 설정
+    public void setOverride(NodeAtomVersion version) {
+        this.followPolicy = FollowPolicy.OVERRIDE;
+        this.overrideVersion = version;
     }
 }

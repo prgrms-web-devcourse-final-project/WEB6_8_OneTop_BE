@@ -5,17 +5,23 @@
 package com.back.domain.node.dto.base;
 
 import com.back.domain.node.entity.NodeCategory;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import java.util.List;
 
 public record BaseLineBulkCreateRequest(
         Long userId,
         String title,
-        List<BaseNodePayload> nodes
+        List<@Valid BaseNodePayload> nodes
 ) {
     public record BaseNodePayload(
             NodeCategory category,
             String situation,
             String decision,
+            @Min(1)
+            @Max(120)
             Integer ageYear,
             String description
     ) {}
