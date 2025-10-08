@@ -4,6 +4,7 @@
 package com.back.domain.node.repository;
 
 import com.back.domain.node.entity.DecisionNode;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,4 +18,10 @@ public interface DecisionNodeRepository extends JpaRepository<DecisionNode, Long
     List<DecisionNode> findByDecisionLine_IdOrderByAgeYearAscIdAsc(Long decisionLineId);
 
     Optional<DecisionNode> findFirstByDecisionLine_IdOrderByAgeYearAscIdAsc(Long decisionLineId);
+
+    @EntityGraph(attributePaths = {"decisionLine", "decisionLine.user"})
+    Optional<DecisionNode> findWithLineAndUserById(Long id);
+
+    // 같은 베이스라인에 속한 "헤드(부모 없음)" 결정 노드들만 조회
+    List<DecisionNode> findByDecisionLine_BaseLine_IdAndParentIsNull(Long baseLineId);
 }

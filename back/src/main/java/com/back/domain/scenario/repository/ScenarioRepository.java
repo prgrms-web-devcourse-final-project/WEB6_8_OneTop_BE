@@ -43,4 +43,6 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     int countByUserId(Long userId);
 
     Optional<Scenario> findByUserIdAndRepresentativeTrue(Long userId);
+
+    boolean existsByDecisionLine_Id(Long decisionLineId);
 }

@@ -1,18 +1,17 @@
 /**
- * BaseLineService
- * - 베이스라인 일괄 생성, 피벗 목록 반환
- * - 입력 검증/제목 생성 등 공통 로직은 NodeDomainSupport에 위임
+ * BaseLineService (근본 개선판)
+ * - 베이스라인 일괄 생성 시: NodeAtom/Version 생성 → BaseNode.currentVersion 연결
+ * - 이어서 기본 브랜치(main)/루트 커밋(init) 생성 → 각 ageYear에 대한 초기 BaselinePatch 기록
+ * - 이후 FOLLOW/PINNED 해석 시 체인에서 항상 초기 스냅샷을 찾을 수 있도록 보장
  */
 package com.back.domain.node.service;
 
+import com.back.domain.node.dto.PivotListDto;
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
-import com.back.domain.node.dto.PivotListDto;
-import com.back.domain.node.entity.BaseLine;
-import com.back.domain.node.entity.BaseNode;
+import com.back.domain.node.entity.*;
 import com.back.domain.node.mapper.NodeMappers;
-import com.back.domain.node.repository.BaseLineRepository;
-import com.back.domain.node.repository.BaseNodeRepository;
+import com.back.domain.node.repository.*;
 import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
@@ -21,6 +20,7 @@ import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -34,15 +34,24 @@ class BaseLineService {
     private final UserRepository userRepository;
     private final NodeDomainSupport support;
 
-    // 노드 일괄 생성(save chain)
+    // 하이브리드 초기화용
+    private final NodeAtomRepository atomRepo;
+    private final NodeAtomVersionRepository versionRepo;
+    private final BaselineBranchRepository branchRepo;
+    private final BaselineCommitRepository commitRepo;
+    private final BaselinePatchRepository patchRepo;  // ← 추가
+
+    private final NodeMappers mappers;
+
+    // 가장 중요한: 라인 생성 + 루트 커밋 + 초기 패치
+    @Transactional
     public BaseLineBulkCreateResponse createBaseLineWithNodes(BaseLineBulkCreateRequest request) {
 
         support.validateBulkRequest(request);
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND, "User not found: " + request.userId()));
 
-        // Guest는 베이스라인 1개 제한
-        if (user.getRole() == Role.GUEST && baseLineRepository.existsByUser_id(user.getId())) {
+        if (user.getRole() == Role.GUEST && baseLineRepository.existsByUser_Id(user.getId())) {
             throw new ApiException(ErrorCode.GUEST_BASELINE_LIMIT, "Guest user can have only one baseline.");
         }
         String title = support.normalizeOrAutoTitle(request.title(), user);
@@ -52,21 +61,59 @@ class BaseLineService {
         List<BaseLineBulkCreateRequest.BaseNodePayload> normalized = support.normalizeWithEnds(request.nodes());
         log.debug("[BL] normalized size = {}", normalized.size());
 
-
         BaseNode prev = null;
         List<BaseLineBulkCreateResponse.CreatedNode> created = new ArrayList<>();
+        List<BaseNode> createdEntities = new ArrayList<>(normalized.size());
+
         for (int i = 0; i < normalized.size(); i++) {
             BaseLineBulkCreateRequest.BaseNodePayload payload = normalized.get(i);
-            BaseNode entity = new NodeMappers.BaseNodeCtxMapper(user, baseLine, prev).toEntity(payload);
+
+            BaseNode entity = mappers.new BaseNodeCtxMapper(user, baseLine, prev).toEntity(payload);
             entity.guardBaseOptionsValid();
+
+            // NodeAtom/Version 생성 후 BaseNode.currentVersion 연결
+            NodeAtom atom = atomRepo.save(NodeAtom.builder().contentKey(null).build());
+            NodeAtomVersion ver = versionRepo.save(NodeAtomVersion.builder()
+                    .atom(atom)
+                    .parentVersion(null)
+                    .category(payload.category())
+                    .situation(payload.situation())
+                    .decision(payload.decision())
+                    .optionsJson(null)
+                    .description(payload.description())
+                    .ageYear(payload.ageYear())
+                    .contentHash(null)
+                    .build());
+            entity.setCurrentVersion(ver);
+
             BaseNode saved = baseNodeRepository.save(entity);
             created.add(new BaseLineBulkCreateResponse.CreatedNode(i, saved.getId()));
+            createdEntities.add(saved);
             prev = saved;
         }
+
+        // 기본 브랜치(main)와 루트 커밋 생성
+        BaselineBranch main = branchRepo.save(BaselineBranch.builder()
+                .baseLine(baseLine)
+                .name("main")
+                .headCommit(null)
+                .build());
+        BaselineCommit root = commitRepo.save(BaselineCommit.newCommit(main, null, user.getId(), "init"));
+        main.moveHeadTo(root);
+        branchRepo.save(main);
+
+        // 가장 많이 사용하는: 생성된 노드들에 대한 초기 패치 저장
+        for (BaseNode bn : createdEntities) {
+            NodeAtomVersion v = bn.getCurrentVersion();
+            if (v == null) continue;
+            patchRepo.save(BaselinePatch.of(root, bn.getAgeYear(), null, v));
+        }
+
         return new BaseLineBulkCreateResponse(baseLine.getId(), created);
     }
 
-    // 가장 중요한: 피벗 목록 조회(헤더/꼬리 제외 + 중복 나이 제거 + 오름차순)
+    // 헤더/꼬리 제외 pivot 목록 반환
+    @Transactional(readOnly = true)
     public PivotListDto getPivotBaseNodes(Long baseLineId) {
         List<BaseNode> ordered = support.getOrderedBaseNodes(baseLineId);
         if (ordered.size() <= 2) return new PivotListDto(baseLineId, List.of());

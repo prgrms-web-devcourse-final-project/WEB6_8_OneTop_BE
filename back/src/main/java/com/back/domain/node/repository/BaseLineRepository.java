@@ -4,6 +4,7 @@ import com.back.domain.node.entity.BaseLine;
 import com.back.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,11 +18,12 @@ import java.util.Optional;
  */
 @Repository
 public interface BaseLineRepository extends JpaRepository<BaseLine, Long> {
-    Optional<BaseLine> findByUser(User user);
+    List<BaseLine> findByUser(User user);
     long countByUser(User user);
     // Guest 베이스라인 1개 제한 확인용
-    boolean existsByUser_id(Long userId);
-
+    boolean existsByUser_Id(Long id);
+    @EntityGraph(attributePaths = {"user"})
+    Optional<BaseLine> findWithUserById(Long id);
 
     List<BaseLine> findByUser_IdOrderByIdDesc(Long userId);
 

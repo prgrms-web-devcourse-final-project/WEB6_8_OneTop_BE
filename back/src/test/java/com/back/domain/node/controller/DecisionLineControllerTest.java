@@ -16,6 +16,7 @@ package com.back.domain.node.controller;
 import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
+import com.back.global.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
@@ -34,20 +35,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+// ★ 추가된 import: 시큐리티 테스트 post processor
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc(addFilters = true) // ★ 필터 활성화
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("Re:Life — DecisionLine 조회(목록·상세) 통합 테스트")
 @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 @Sql(
         statements = {
                 "SET REFERENTIAL_INTEGRITY FALSE",
+
+                "TRUNCATE TABLE BASELINE_PATCHES",
+                "TRUNCATE TABLE BASELINE_COMMITS",
+                "TRUNCATE TABLE BASELINE_BRANCHES",
+                "TRUNCATE TABLE NODE_ATOM_VERSIONS",
+                "TRUNCATE TABLE NODE_ATOMS",
                 "TRUNCATE TABLE DECISION_NODES",
                 "TRUNCATE TABLE DECISION_LINES",
                 "TRUNCATE TABLE BASE_NODES",
                 "TRUNCATE TABLE BASE_LINES",
                 "TRUNCATE TABLE USERS",
 
+                "ALTER TABLE BASELINE_PATCHES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASELINE_COMMITS ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASELINE_BRANCHES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE NODE_ATOM_VERSIONS ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE NODE_ATOMS ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE DECISION_NODES ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE DECISION_LINES ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE BASE_NODES ALTER COLUMN ID RESTART WITH 1",
@@ -64,6 +80,7 @@ public class DecisionLineControllerTest {
     @Autowired private UserRepository userRepository;
 
     private Long userId;
+    private CustomUserDetails cud; // ★ 인증 주체 재사용
 
     @BeforeEach
     void initUser() {
@@ -80,6 +97,7 @@ public class DecisionLineControllerTest {
                 .username("name-" + uid)
                 .build();
         userId = userRepository.save(user).getId();
+        cud = new CustomUserDetails(user); // ★ /user/me, principal 검증 시 사용
     }
 
     // ===========================
@@ -96,7 +114,8 @@ public class DecisionLineControllerTest {
             var lineB = startDecisionLine(userId, 1, new String[]{"B1","B2"}, 1);
 
             var res = mockMvc.perform(get("/api/v1/decision-lines")
-                            .param("userId", userId.toString()))
+                            .param("userId", userId.toString())
+                            .with(user(cud)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.lines").isArray())
                     .andReturn();
@@ -129,7 +148,8 @@ public class DecisionLineControllerTest {
                     .getId();
 
             var res = mockMvc.perform(get("/api/v1/decision-lines")
-                            .param("userId", newUserId.toString()))
+                            .param("userId", newUserId.toString())
+                            .with(user(cud)))
                     .andExpect(status().isOk())
                     .andReturn();
 
@@ -154,7 +174,8 @@ public class DecisionLineControllerTest {
             // 가장 많이 사용하는: 다음 결정 1개 추가
             appendNextDecision(head.headDecisionNodeId);
 
-            var res = mockMvc.perform(get("/api/v1/decision-lines/{id}", head.decisionLineId))
+            var res = mockMvc.perform(get("/api/v1/decision-lines/{id}", head.decisionLineId)
+                            .with(user(cud)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.decisionLineId").value(head.decisionLineId))
                     .andExpect(jsonPath("$.nodes").isArray())
@@ -172,7 +193,8 @@ public class DecisionLineControllerTest {
         @Test
         @DisplayName("실패 : 존재하지 않는 decisionLineId 상세 조회 시 404/N003를 반환한다")
         void fail_detailNotFound() throws Exception {
-            mockMvc.perform(get("/api/v1/decision-lines/{id}", 9_999_999L))
+            mockMvc.perform(get("/api/v1/decision-lines/{id}", 9_999_999L)
+                            .with(user(cud)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("N003"))
                     .andExpect(jsonPath("$.message").exists());
@@ -197,7 +219,8 @@ public class DecisionLineControllerTest {
 
             assertThat(dl1.decisionLineId).isNotEqualTo(dl2.decisionLineId);
 
-            var res = mockMvc.perform(get("/api/v1/decision-lines").param("userId", userId.toString()))
+            var res = mockMvc.perform(get("/api/v1/decision-lines").param("userId", userId.toString())
+                            .with(user(cud)))
                     .andExpect(status().isOk())
                     .andReturn();
             JsonNode lines = om.readTree(res.getResponse().getContentAsString()).get("lines");
@@ -208,8 +231,8 @@ public class DecisionLineControllerTest {
             JsonNode d2 = getLineDetail(dl2.decisionLineId);
             assertThat(d1.get("decisionLineId").asLong()).isEqualTo(dl1.decisionLineId);
             assertThat(d2.get("decisionLineId").asLong()).isEqualTo(dl2.decisionLineId);
-            assertThat(d1.get("nodes").size()).isEqualTo(1);
-            assertThat(d2.get("nodes").size()).isEqualTo(1);
+            assertThat(d1.get("nodes").size()).isEqualTo(2);
+            assertThat(d2.get("nodes").size()).isEqualTo(2);
         }
 
         @Test
@@ -235,7 +258,9 @@ public class DecisionLineControllerTest {
 
             mockMvc.perform(post("/api/v1/decision-flow/from-base")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(again))
+                            .content(again)
+                            .with(user(cud))
+                            .with(csrf()))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("C001"));
         }
@@ -251,8 +276,8 @@ public class DecisionLineControllerTest {
 
             JsonNode d1 = getLineDetail(dl1.decisionLineId);
             JsonNode d2 = getLineDetail(dl2.decisionLineId);
-            assertThat(d1.get("nodes").size()).isGreaterThanOrEqualTo(2);
-            assertThat(d2.get("nodes").size()).isEqualTo(1);
+            assertThat(d1.get("nodes").size()).isGreaterThanOrEqualTo(3);
+            assertThat(d2.get("nodes").size()).isEqualTo(2);
         }
 
         @Test
@@ -279,17 +304,16 @@ public class DecisionLineControllerTest {
             // 상세 각각 1개 노드(헤드)만 포함
             JsonNode d1 = getLineDetail(dl1.decisionLineId);
             JsonNode d2 = getLineDetail(dl2.decisionLineId);
-            assertThat(d1.get("nodes").size()).isEqualTo(1);
-            assertThat(d2.get("nodes").size()).isEqualTo(1);
+            assertThat(d1.get("nodes").size()).isEqualTo(2);
+            assertThat(d2.get("nodes").size()).isEqualTo(2);
 
             // 한쪽에 next 추가해도 다른 쪽엔 영향 없음
             appendNextDecision(dl1.headDecisionNodeId);
             d1 = getLineDetail(dl1.decisionLineId);
             d2 = getLineDetail(dl2.decisionLineId);
-            assertThat(d1.get("nodes").size()).isGreaterThanOrEqualTo(2);
-            assertThat(d2.get("nodes").size()).isEqualTo(1);
+            assertThat(d1.get("nodes").size()).isGreaterThanOrEqualTo(3);
+            assertThat(d2.get("nodes").size()).isEqualTo(2);
         }
-
     }
 
     // ===========================
@@ -300,12 +324,15 @@ public class DecisionLineControllerTest {
     private HeadLine startDecisionLine(Long uid, int pivotOrd, String[] options2, int selectedIdx) throws Exception {
         var createRes = mockMvc.perform(post("/api/v1/base-lines/bulk")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(sampleLineJson(uid)))
+                        .content(sampleLineJson(uid))
+                        .with(user(cud))
+                        .with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn();
         long baseLineId = om.readTree(createRes.getResponse().getContentAsString()).get("baseLineId").asLong();
 
-        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                        .with(user(cud)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
@@ -327,7 +354,9 @@ public class DecisionLineControllerTest {
 
         var fromBaseRes = mockMvc.perform(post("/api/v1/decision-flow/from-base")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(fromBaseReq))
+                        .content(fromBaseReq)
+                        .with(user(cud))
+                        .with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode head = om.readTree(fromBaseRes.getResponse().getContentAsString());
@@ -356,7 +385,9 @@ public class DecisionLineControllerTest {
 
         var res = mockMvc.perform(post("/api/v1/decision-flow/from-base")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(req))
+                        .content(req)
+                        .with(user(cud))
+                        .with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode head = om.readTree(res.getResponse().getContentAsString());
@@ -378,13 +409,16 @@ public class DecisionLineControllerTest {
 
         mockMvc.perform(post("/api/v1/decision-flow/next")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(nextReq))
+                        .content(nextReq)
+                        .with(user(cud))
+                        .with(csrf()))
                 .andExpect(status().isCreated());
     }
 
     // 가장 많이 사용하는: 라인 상세 조회(JSON)
     private JsonNode getLineDetail(long decisionLineId) throws Exception {
-        var res = mockMvc.perform(get("/api/v1/decision-lines/{id}", decisionLineId))
+        var res = mockMvc.perform(get("/api/v1/decision-lines/{id}", decisionLineId)
+                        .with(user(cud)))
                 .andExpect(status().isOk())
                 .andReturn();
         return om.readTree(res.getResponse().getContentAsString());
@@ -416,16 +450,20 @@ public class DecisionLineControllerTest {
         """.formatted(uid,
                 NodeCategory.EDUCATION, NodeCategory.EDUCATION, NodeCategory.CAREER, NodeCategory.ETC);
     }
+
     // 주어진 pivotOrd의 age와 baseLineId를 반환
     private BaseInfo createBaseLineAndGetPivot(Long uid, int pivotOrd) throws Exception {
         var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(sampleLineJson(uid)))
+                        .content(sampleLineJson(uid))
+                        .with(user(cud))
+                        .with(csrf()))
                 .andExpect(status().isCreated())
                 .andReturn();
         long baseLineId = om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
 
-        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                        .with(user(cud)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");

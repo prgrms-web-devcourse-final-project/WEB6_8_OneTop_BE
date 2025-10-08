@@ -13,7 +13,10 @@ import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.dto.base.BaseLineDto;
 import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.service.NodeService;
+import com.back.global.exception.ApiException;
+import com.back.global.exception.ErrorCode;
 import com.back.global.security.CustomUserDetails;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +34,9 @@ public class BaseLineController {
 
     // 라인 단위 일괄 생성(헤더~꼬리까지)
     @PostMapping("/bulk")
-    public ResponseEntity<BaseLineBulkCreateResponse> createBaseLineBulk(@RequestBody BaseLineBulkCreateRequest request) {
+    public ResponseEntity<BaseLineBulkCreateResponse> createBaseLineBulk(@AuthenticationPrincipal CustomUserDetails me,
+                                                                         @Valid @RequestBody BaseLineBulkCreateRequest request) {
+        if (me == null) throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "login required");
         return ResponseEntity.status(HttpStatus.CREATED).body(nodeService.createBaseLineWithNodes(request));
     }
 
@@ -65,6 +70,8 @@ public class BaseLineController {
     public ResponseEntity<List<BaseLineDto>> getMyBaseLines(
             @AuthenticationPrincipal CustomUserDetails me
     ) {
+        if (me == null) throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "login required");
+
         List<BaseLineDto> list = nodeService.getMyBaseLines(me.getId());
         return ResponseEntity.ok(list);
     }

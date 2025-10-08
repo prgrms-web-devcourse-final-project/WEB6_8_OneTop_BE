@@ -15,12 +15,17 @@ import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 @RequiredArgsConstructor
-class NodeDomainSupport {
+public class NodeDomainSupport {
 
     private static final int MAX_SITUATION_LEN = 1000;
     private static final int MAX_TITLE_LEN = 100;
@@ -29,6 +34,10 @@ class NodeDomainSupport {
     private final BaseLineRepository baseLineRepository;
     private final BaseNodeRepository baseNodeRepository;
     private final DecisionLineRepository decisionLineRepository;
+
+    // 프로세스 내 슬롯 잠금 (pivotId+slot 키에 대한 얇은 락)
+    private static final ConcurrentHashMap<String, ReentrantLock> SLOT_LOCKS = new ConcurrentHashMap<>();
+
 
     // BaseLine 존재 보장
     public void ensureBaseLineExists(Long baseLineId) {
@@ -307,6 +316,50 @@ class NodeDomainSupport {
         return (minMid == nodes.get(0).ageYear()) || (maxMid == nodes.get(nodes.size() - 1).ageYear());
     }
 
+    public <T> T withSlotLock(Long pivotId, int sel, Callable<T> body) {
+        String key = pivotId + "#" + sel;
+        ReentrantLock lock = SLOT_LOCKS.computeIfAbsent(key, k -> new ReentrantLock());
+        lock.lock();
+
+        boolean deferUnlock = false;
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            deferUnlock = true;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    try {
+                        lock.unlock();
+                    } finally {
+                        SLOT_LOCKS.remove(key, lock);
+                    }
+                }
+            });
+        }
+
+        try {
+            return body.call();
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (!deferUnlock) {
+                try {
+                    lock.unlock();
+                } finally {
+                    SLOT_LOCKS.remove(key, lock);
+                }
+            }
+        }
+    }
+
+    // 최신 BaseNode 강제 로드(미존재 시 404)
+    // - from-base 동시성 구간에서 슬롯 재검사를 위해, 캐시/프록시 의존 없이 확실히 다시 읽어온다
+    public BaseNode requireBaseNodeWithId(Long baseNodeId) {
+        return baseNodeRepository.findById(baseNodeId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NODE_NOT_FOUND,
+                        "BaseNode not found: " + baseNodeId));
+    }
 
 
 }
