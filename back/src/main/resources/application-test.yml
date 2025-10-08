@@ -1,6 +1,4 @@
 spring:
-  session:
-    store-type: redis
   data:
     redis:
       host: localhost
@@ -17,3 +15,7 @@ spring:
     console:
       enabled: true
       path: /h2-console
+management:
+  health:
+    redis:
+      enabled: false
