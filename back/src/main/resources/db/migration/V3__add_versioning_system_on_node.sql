@@ -62,7 +62,7 @@ ALTER TABLE base_nodes ADD COLUMN IF NOT EXISTS current_version_id BIGINT;
 
 -- 7. decision_nodes 테이블에 follow_policy와 override_version_id 추가
 ALTER TABLE decision_nodes ADD COLUMN IF NOT EXISTS follow_policy VARCHAR(10) DEFAULT 'FOLLOW' NOT NULL;
-ALTER TABLE decision_nodes ADD CONSTRAINT IF NOT EXISTS check_follow_policy CHECK (follow_policy IN ('FOLLOW','OVERRIDE','PINNED'));
+ALTER TABLE decision_nodes ADD CONSTRAINT check_follow_policy CHECK (follow_policy IN ('FOLLOW','OVERRIDE','PINNED'));
 ALTER TABLE decision_nodes ADD COLUMN IF NOT EXISTS override_version_id BIGINT;
 
 -- 8. decision_lines 테이블에 base_branch_id와 pinned_commit_id 추가
@@ -98,41 +98,41 @@ CREATE INDEX IF NOT EXISTS idx_dline_pinned ON decision_lines (pinned_commit_id)
 -- ========================================
 
 -- NodeAtomVersion FK
-ALTER TABLE node_atom_versions ADD CONSTRAINT IF NOT EXISTS fk_node_atom_versions_atom
+ALTER TABLE node_atom_versions ADD CONSTRAINT fk_node_atom_versions_atom
     FOREIGN KEY (atom_id) REFERENCES node_atoms(id);
-ALTER TABLE node_atom_versions ADD CONSTRAINT IF NOT EXISTS fk_node_atom_versions_parent
+ALTER TABLE node_atom_versions ADD CONSTRAINT fk_node_atom_versions_parent
     FOREIGN KEY (parent_version_id) REFERENCES node_atom_versions(id);
 
 -- BaselineBranch FK
-ALTER TABLE baseline_branches ADD CONSTRAINT IF NOT EXISTS fk_baseline_branches_base_line
+ALTER TABLE baseline_branches ADD CONSTRAINT fk_baseline_branches_base_line
     FOREIGN KEY (base_line_id) REFERENCES base_lines(id);
-ALTER TABLE baseline_branches ADD CONSTRAINT IF NOT EXISTS fk_baseline_branches_head_commit
+ALTER TABLE baseline_branches ADD CONSTRAINT fk_baseline_branches_head_commit
     FOREIGN KEY (head_commit_id) REFERENCES baseline_commits(id);
 
 -- BaselineCommit FK
-ALTER TABLE baseline_commits ADD CONSTRAINT IF NOT EXISTS fk_baseline_commits_branch
+ALTER TABLE baseline_commits ADD CONSTRAINT fk_baseline_commits_branch
     FOREIGN KEY (branch_id) REFERENCES baseline_branches(id);
-ALTER TABLE baseline_commits ADD CONSTRAINT IF NOT EXISTS fk_baseline_commits_parent
+ALTER TABLE baseline_commits ADD CONSTRAINT fk_baseline_commits_parent
     FOREIGN KEY (parent_commit_id) REFERENCES baseline_commits(id);
 
 -- BaselinePatch FK
-ALTER TABLE baseline_patches ADD CONSTRAINT IF NOT EXISTS fk_baseline_patches_commit
+ALTER TABLE baseline_patches ADD CONSTRAINT fk_baseline_patches_commit
     FOREIGN KEY (commit_id) REFERENCES baseline_commits(id);
-ALTER TABLE baseline_patches ADD CONSTRAINT IF NOT EXISTS fk_baseline_patches_before
+ALTER TABLE baseline_patches ADD CONSTRAINT fk_baseline_patches_before
     FOREIGN KEY (before_version_id) REFERENCES node_atom_versions(id);
-ALTER TABLE baseline_patches ADD CONSTRAINT IF NOT EXISTS fk_baseline_patches_after
+ALTER TABLE baseline_patches ADD CONSTRAINT fk_baseline_patches_after
     FOREIGN KEY (after_version_id) REFERENCES node_atom_versions(id);
 
 -- BaseNode FK
-ALTER TABLE base_nodes ADD CONSTRAINT IF NOT EXISTS fk_base_nodes_current_version
+ALTER TABLE base_nodes ADD CONSTRAINT fk_base_nodes_current_version
     FOREIGN KEY (current_version_id) REFERENCES node_atom_versions(id);
 
 -- DecisionNode FK
-ALTER TABLE decision_nodes ADD CONSTRAINT IF NOT EXISTS fk_decision_nodes_override_version
+ALTER TABLE decision_nodes ADD CONSTRAINT fk_decision_nodes_override_version
     FOREIGN KEY (override_version_id) REFERENCES node_atom_versions(id);
 
 -- DecisionLine FK
-ALTER TABLE decision_lines ADD CONSTRAINT IF NOT EXISTS fk_decision_lines_base_branch
+ALTER TABLE decision_lines ADD CONSTRAINT fk_decision_lines_base_branch
     FOREIGN KEY (base_branch_id) REFERENCES baseline_branches(id);
-ALTER TABLE decision_lines ADD CONSTRAINT IF NOT EXISTS fk_decision_lines_pinned_commit
+ALTER TABLE decision_lines ADD CONSTRAINT fk_decision_lines_pinned_commit
     FOREIGN KEY (pinned_commit_id) REFERENCES baseline_commits(id);
