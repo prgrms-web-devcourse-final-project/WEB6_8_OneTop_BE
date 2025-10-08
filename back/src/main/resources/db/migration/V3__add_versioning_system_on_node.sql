@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS node_atom_versions (
     description TEXT,
     options_json TEXT,
     situation TEXT,
-    category VARCHAR(20) NOT NULL,
-    CONSTRAINT check_nav_category CHECK (category IN ('CAREER','EDUCATION','ETC','FINANCE','HEALTH','LOCATION','RELATIONSHIP'))
+    category VARCHAR(20) CHECK (category IN ('CAREER','EDUCATION','ETC','FINANCE','HEALTH','LOCATION','RELATIONSHIP')) NOT NULL
 );
 
 -- 3. BaselineBranch 테이블 생성
@@ -63,6 +62,7 @@ ALTER TABLE base_nodes ADD COLUMN IF NOT EXISTS current_version_id BIGINT;
 
 -- 7. decision_nodes 테이블에 follow_policy와 override_version_id 추가
 ALTER TABLE decision_nodes ADD COLUMN IF NOT EXISTS follow_policy VARCHAR(10) DEFAULT 'FOLLOW' NOT NULL;
+ALTER TABLE decision_nodes ADD CONSTRAINT IF NOT EXISTS check_follow_policy CHECK (follow_policy IN ('FOLLOW','OVERRIDE','PINNED'));
 ALTER TABLE decision_nodes ADD COLUMN IF NOT EXISTS override_version_id BIGINT;
 
 -- 8. decision_lines 테이블에 base_branch_id와 pinned_commit_id 추가
