@@ -92,7 +92,7 @@ class ScenarioServiceTest {
             doNothing().when(scenarioService).processScenarioGenerationAsync(anyLong());
 
             // When
-            ScenarioStatusResponse result = scenarioService.createScenario(userId, request);
+            ScenarioStatusResponse result = scenarioService.createScenario(userId, request, null);
 
             // Then - 시나리오 생성 요청이 접수되고 PENDING 상태로 반환되는지만 검증
             assertThat(result).isNotNull();
@@ -121,7 +121,7 @@ class ScenarioServiceTest {
                     .willReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> scenarioService.createScenario(userId, request))
+            assertThatThrownBy(() -> scenarioService.createScenario(userId, request, null))
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DECISION_LINE_NOT_FOUND);
 
@@ -150,7 +150,7 @@ class ScenarioServiceTest {
                     .willReturn(Optional.of(mockDecisionLine));
 
             // When & Then
-            assertThatThrownBy(() -> scenarioService.createScenario(userId, request))
+            assertThatThrownBy(() -> scenarioService.createScenario(userId, request, null))
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.HANDLE_ACCESS_DENIED);
 
@@ -188,7 +188,7 @@ class ScenarioServiceTest {
                     .willReturn(Optional.of(existingScenario)); // 기존 PENDING 시나리오 존재
 
             // When & Then
-            assertThatThrownBy(() -> scenarioService.createScenario(userId, request))
+            assertThatThrownBy(() -> scenarioService.createScenario(userId, request, null))
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCENARIO_ALREADY_IN_PROGRESS);
 
