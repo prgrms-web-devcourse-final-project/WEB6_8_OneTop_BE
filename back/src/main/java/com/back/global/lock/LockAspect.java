@@ -1,4 +1,4 @@
-package com.back.global.aop;
+package com.back.global.lock;
 
 import com.back.global.common.LockManager;
 import com.back.global.common.WithLock;
