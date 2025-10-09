@@ -1,9 +1,12 @@
 package com.back.domain.scenario.controller;
 
+import com.back.domain.node.dto.decision.DecisionNodeNextRequest;
+import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.Type;
 import com.back.domain.scenario.service.ScenarioService;
+import com.back.global.common.PageResponse;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,11 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import com.back.global.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -75,13 +77,41 @@ class ScenarioControllerTest {
                     "시나리오 생성이 시작되었습니다."
             );
 
-            given(scenarioService.createScenario(eq(1L), any(ScenarioCreateRequest.class)))
+            DecisionNodeNextRequest lastNode= new DecisionNodeNextRequest(
+                    1L,
+                    100L,
+                    NodeCategory.CAREER,
+                    "커리어 방향 선택",
+                    28,
+                    List.of("이직", "석사과정", "창업"),
+                    2,
+                    1,
+                    "리스크 감수"
+            );
+
+            given(scenarioService.createScenario(eq(1L), any(ScenarioCreateRequest.class),
+                    any(DecisionNodeNextRequest.class)))
                     .willReturn(mockResponse);
 
+            // request를 JSON으로 직렬화 (컨트롤러 @RequestPart("scenario")가 이걸 받음)
+            byte[] scenarioJson = objectMapper.writeValueAsBytes(request);
+
+            MockMultipartFile scenarioPart = new MockMultipartFile(
+                    "scenario",
+                    "", "application/json",
+                    scenarioJson
+            );
+            MockMultipartFile lastDecisionPart = new MockMultipartFile(
+                    "lastDecision",
+                    "", "application/json",
+                    objectMapper.writeValueAsBytes(lastNode)
+            );
+
             // When & Then
-            mockMvc.perform(post("/api/v1/scenarios")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+            mockMvc.perform(multipart("/api/v1/scenarios")
+                            .file(scenarioPart)
+                            .file(lastDecisionPart)
+                            .with(req -> { req.setMethod("POST"); return req; }))
                     .andDo(print())
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.scenarioId").value(1001))
@@ -90,32 +120,63 @@ class ScenarioControllerTest {
         }
 
         @Test
-        @DisplayName("실패 - 잘못된 요청 데이터 (null decisionLineId)")
-        void createScenario_실패_잘못된요청() throws Exception {
-            // Given
-            String invalidRequest = "{\"decisionLineId\":null}";
+        @DisplayName("실패 - 잘못된 요청 데이터 (null decisionLineId) - multipart")
+        void createScenario_실패_잘못된요청_multipart() throws Exception {
+            // Given: decisionLineId=null인 잘못된 JSON을 그대로 scenario 파트에 실어 보냄
+            byte[] invalidScenarioJson = "{\"decisionLineId\":null}".getBytes();
+
+            MockMultipartFile scenarioPart = new MockMultipartFile(
+                    "scenario", "", "application/json", invalidScenarioJson
+            );
 
             // When & Then
-            mockMvc.perform(post("/api/v1/scenarios")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(invalidRequest))
+            mockMvc.perform(multipart("/api/v1/scenarios")
+                            .file(scenarioPart)
+                            .with(req -> { req.setMethod("POST"); return req; }))
                     .andDo(print())
                     .andExpect(status().isBadRequest());
         }
 
         @Test
-        @DisplayName("실패 - Service 예외 발생")
-        void createScenario_실패_Service예외() throws Exception {
+        @DisplayName("실패 - Service 예외 발생 - multipart")
+        void createScenario_실패_Service예외_multipart() throws Exception {
             // Given
             ScenarioCreateRequest request = new ScenarioCreateRequest(999L);
 
-            given(scenarioService.createScenario(eq(1L), any(ScenarioCreateRequest.class)))
-                    .willThrow(new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
+            DecisionNodeNextRequest lastNode = new DecisionNodeNextRequest(
+                    1L,
+                    456L,
+                    NodeCategory.CAREER,
+                    "커리어 방향 선택",
+                    28,
+                    List.of("이직", "석사과정", "창업"),
+                    2,
+                    1,
+                    "리스크 감수"
+            );
+
+            // 서비스 예외 스텁
+            given(scenarioService.createScenario(
+                    eq(1L),
+                    any(ScenarioCreateRequest.class),
+                    any(DecisionNodeNextRequest.class)
+            )).willThrow(new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
+
+            // 멀티파트 파트 구성
+            MockMultipartFile scenarioPart = new MockMultipartFile(
+                    "scenario", "", "application/json",
+                    objectMapper.writeValueAsBytes(request)
+            );
+            MockMultipartFile lastDecisionPart = new MockMultipartFile(
+                    "lastDecision", "", "application/json",
+                    objectMapper.writeValueAsBytes(lastNode)
+            );
 
             // When & Then
-            mockMvc.perform(post("/api/v1/scenarios")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+            mockMvc.perform(multipart("/api/v1/scenarios")
+                            .file(scenarioPart)
+                            .file(lastDecisionPart)
+                            .with(req -> { req.setMethod("POST"); return req; }))
                     .andDo(print())
                     .andExpect(status().isNotFound());
         }

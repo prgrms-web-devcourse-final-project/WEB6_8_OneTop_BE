@@ -1,5 +1,6 @@
 package com.back.domain.scenario.controller;
 
+import com.back.domain.node.dto.decision.DecisionNodeNextRequest;
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.service.ScenarioService;
 import com.back.global.common.PageResponse;
@@ -42,12 +43,13 @@ public class ScenarioController {
     @PostMapping
     @Operation(summary = "시나리오 생성", description = "DecisionLine을 기반으로 AI 시나리오를 생성합니다.")
     public ResponseEntity<ScenarioStatusResponse> createScenario(
-            @Valid @RequestBody ScenarioCreateRequest request,
+            @Valid @RequestPart("scenario") ScenarioCreateRequest request,
+            @RequestPart(value = "lastDecision", required = false) DecisionNodeNextRequest lastDecision,
             @AuthenticationPrincipal CustomUserDetails userDetails
             ) {
         Long userId = getUserId(userDetails);
 
-        ScenarioStatusResponse scenarioCreateResponse = scenarioService.createScenario(userId, request);
+        ScenarioStatusResponse scenarioCreateResponse = scenarioService.createScenario(userId,request, lastDecision);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(scenarioCreateResponse);
     }

@@ -1,10 +1,11 @@
 package com.back.domain.scenario.service;
 
-import com.back.domain.node.entity.BaseLine;
-import com.back.domain.node.entity.DecisionLine;
-import com.back.domain.node.entity.NodeCategory;
+import com.back.domain.node.dto.decision.DecisionNodeNextRequest;
+import com.back.domain.node.entity.*;
 import com.back.domain.node.repository.BaseLineRepository;
 import com.back.domain.node.repository.DecisionLineRepository;
+import com.back.domain.node.repository.DecisionNodeRepository;
+import com.back.domain.node.service.DecisionFlowService;
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
@@ -20,6 +21,7 @@ import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,7 @@ public class ScenarioService {
     // Node Repository 주입
     private final DecisionLineRepository decisionLineRepository;
     private final BaseLineRepository baseLineRepository;
+    private final DecisionNodeRepository decisionNodeRepository;
 
     // Object Mapper 주입
     private final ObjectMapper objectMapper;
@@ -62,9 +65,14 @@ public class ScenarioService {
     // Scenario Transaction Service 주입
     private final ScenarioTransactionService scenarioTransactionService;
 
+    // 노드 서비스 추가(시나리오 생성과 동시에 마지막 노드 처리용)
+    private final DecisionFlowService decisionFlowService;
+
     // 시나리오 생성
     @Transactional
-    public ScenarioStatusResponse createScenario(Long userId, ScenarioCreateRequest request) {
+    public ScenarioStatusResponse createScenario(Long userId,
+                                                 ScenarioCreateRequest request,
+                                                 @Nullable DecisionNodeNextRequest lastDecision) {
         // DecisionLine 존재 여부 확인
         DecisionLine decisionLine = decisionLineRepository.findById(request.decisionLineId())
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
@@ -103,6 +111,18 @@ public class ScenarioService {
             }
         }
 
+        ensureOwnerEditable(userId, decisionLine);
+
+        if (lastDecision != null) {
+            ensureSameLine(decisionLine, lastDecision);
+            decisionFlowService.createDecisionNodeNext(lastDecision);
+        }
+
+        // 라인 완료 처리(외부 완료 API 제거 시 내부에서만 호출)
+        try { decisionLine.complete(); } catch (RuntimeException e) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, e.getMessage());
+        }
+
         // 새 시나리오 생성 (DataIntegrityViolationException 처리)
         try {
             // DecisionLine에서 BaseLine 가져오기
@@ -135,6 +155,62 @@ public class ScenarioService {
                     .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_CREATION_FAILED));
         }
     }
+
+    // 가장 많이 사용하는 함수 호출 위 한줄 요약: 시나리오 요청에서 lineId 필수 추출
+    private Long requireLineId(ScenarioCreateRequest scenario) {
+        if (scenario == null || scenario.decisionLineId() == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "scenario.decisionLineId is required");
+        }
+        return scenario.decisionLineId();
+    }
+
+    // 한줄 요약: 소유자/편집 가능 상태 검증
+    private void ensureOwnerEditable(Long userId, DecisionLine line) {
+        if (!line.getUser().getId().equals(userId))
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "not line owner");
+        if (line.getStatus() == DecisionLineStatus.COMPLETED || line.getStatus() == DecisionLineStatus.CANCELLED)
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "line is not editable");
+    }
+
+    // lastDecision의 부모 노드가 같은 라인/같은 사용자/유효한 시퀀스인지 검증
+    private void ensureSameLine(DecisionLine line, DecisionNodeNextRequest lastDecision) {
+        if (lastDecision.parentDecisionNodeId() == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "lastDecision.parentDecisionNodeId is required");
+        }
+
+        // 부모 노드 id로 조회(없으면 404)
+        DecisionNode parent = decisionNodeRepository.findById(lastDecision.parentDecisionNodeId())
+                .orElseThrow(() -> new ApiException(
+                        ErrorCode.NODE_NOT_FOUND,
+                        "parent decision node not found: " + lastDecision.parentDecisionNodeId()
+                ));
+
+        // 같은 라인인지 강제
+        if (!parent.getDecisionLine().getId().equals(line.getId())) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "parent node does not belong to the target line");
+        }
+
+        // 소유자 일치 강제(추가 방어)
+        Long ownerIdOfLine = line.getUser().getId();
+        if (!parent.getUser().getId().equals(ownerIdOfLine)) {
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "parent node is not owned by line owner");
+        }
+        if (!parent.getDecisionLine().getUser().getId().equals(ownerIdOfLine)) {
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "line owner mismatch on parent node");
+        }
+
+        // 시퀀스 유효성: ageYear가 지정됐다면 반드시 부모 이후여야 함
+        Integer nextAge = lastDecision.ageYear();
+        if (nextAge != null && nextAge <= parent.getAgeYear()) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "ageYear must be greater than parent.ageYear");
+        }
+
+        // 편집 가능 상태 재확인(이미 상위에서 검증했더라도 이중 방어)
+        if (line.getStatus() == DecisionLineStatus.COMPLETED || line.getStatus() == DecisionLineStatus.CANCELLED) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "line is not editable");
+        }
+    }
+
 
     // FAILED 시나리오 재시도 로직 분리
     private ScenarioStatusResponse handleFailedScenarioRetry(Scenario failedScenario) {

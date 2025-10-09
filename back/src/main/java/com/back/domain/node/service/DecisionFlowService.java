@@ -311,7 +311,6 @@ public class DecisionFlowService {
     public DecisionLineLifecycleDto completeDecisionLine(Long decisionLineId) {
         DecisionLine line = support.requireDecisionLine(decisionLineId);
         try { line.complete(); } catch (RuntimeException e) { throw support.mapDomainToApi(e); }
-        decisionLineRepository.save(line);
         return new DecisionLineLifecycleDto(line.getId(), line.getStatus());
     }
 
