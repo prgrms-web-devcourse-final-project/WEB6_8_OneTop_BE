@@ -113,7 +113,7 @@ class PostControllerTest {
         @Test
         @DisplayName("성공 - 정상 요청")
         void success() throws Exception {
-            PostRequest request = new PostRequest("테스트 게시글", "테스트 내용입니다.", PostCategory.CHAT, false, null);
+            PostRequest request = new PostRequest("테스트 게시글", "테스트 내용입니다.", PostCategory.CHAT, false, null, null);
 
             mockMvc.perform(post("/api/v1/posts")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -127,7 +127,7 @@ class PostControllerTest {
         @Test
         @DisplayName("실패 - 유효성 검사 실패 (빈 제목)")
         void failEmptyTitle() throws Exception {
-            PostRequest request = new PostRequest("", "내용", PostCategory.SCENARIO, false, null);
+            PostRequest request = new PostRequest("", "내용", PostCategory.CHAT, false, null, null);
 
             mockMvc.perform(post("/api/v1/posts")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -310,7 +310,7 @@ class PostControllerTest {
         @Test
         @DisplayName("성공 - 본인 게시글 수정")
         void success() throws Exception {
-            PostRequest updateRequest = new PostRequest("수정된 제목", "수정된 내용", PostCategory.CHAT, false, null);
+            PostRequest updateRequest = new PostRequest("수정된 제목", "수정된 내용", PostCategory.CHAT, false, null, null);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", savedPost.getId())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -330,7 +330,7 @@ class PostControllerTest {
                     .build();
             postRepository.save(otherPost);
 
-            PostRequest updateRequest = new PostRequest("수정 시도", "수정 시도 내용", PostCategory.CHAT, false, null);
+            PostRequest updateRequest = new PostRequest("수정 시도", "수정 시도 내용", PostCategory.CHAT, false, null, null);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", otherPost.getId())
                             .contentType(MediaType.APPLICATION_JSON)

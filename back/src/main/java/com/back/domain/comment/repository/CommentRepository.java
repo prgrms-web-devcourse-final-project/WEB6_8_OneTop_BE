@@ -24,9 +24,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     int countByUserId(Long userId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT c FROM Comment c WHERE c.id = :commentId")
-    Optional<Comment> findByIdWithLock(@Param("commentId") Long commentId);
+//    @Lock(LockModeType.PESSIMISTIC_WRITE)
+//    @Query("SELECT c FROM Comment c WHERE c.id = :commentId")
+//    Optional<Comment> findByIdWithLock(@Param("commentId") Long commentId);
 
     @EntityGraph(attributePaths = {"post"})
     Page<Comment> findByUserIdOrderByCreatedDateDesc(Long userId, Pageable pageable);
