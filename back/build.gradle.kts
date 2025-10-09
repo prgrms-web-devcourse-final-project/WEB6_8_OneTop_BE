@@ -34,6 +34,9 @@ dependencies {
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
+    // Embedded Redis
+    implementation("com.github.codemonstur:embedded-redis:1.4.3")
+
     // Session
     implementation("org.springframework.session:spring-session-data-redis")
 

@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -122,8 +121,9 @@ class UserAuthControllerTest {
                 .andExpect(jsonPath("$.email").value(email))
                 .andReturn();
 
-        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(session).isNotNull();
+        var jsessionid = result.getResponse().getCookie("JSESSIONID");
+        assertThat(jsessionid).isNotNull();
+        assertThat(jsessionid.getValue()).isNotBlank();
     }
 
     @Test
@@ -144,14 +144,11 @@ class UserAuthControllerTest {
     @Test
     @DisplayName("성공 - 게스트 로그인")
     void t5() throws Exception {
-        MvcResult result = mvc.perform(post(BASE + "/guest").with(csrf()))
+        mvc.perform(post(BASE + "/guest").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").exists())
                 .andExpect(jsonPath("$.role").value("GUEST"))
-                .andReturn();
-
-        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(session).isNotNull();
+                .andExpect(cookie().exists("JSESSIONID"));
     }
 
     @Test
@@ -178,10 +175,11 @@ class UserAuthControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        MockHttpSession session = (MockHttpSession) loginRes.getRequest().getSession(false);
+        var jsessionid = loginRes.getResponse().getCookie("JSESSIONID");
+        assertThat(jsessionid).isNotNull();
 
         mvc.perform(get(BASE + "/me")
-                        .session(session))
+                        .cookie(jsessionid))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(email));
     }
@@ -200,12 +198,12 @@ class UserAuthControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        MockHttpSession session = (MockHttpSession) loginRes.getRequest().getSession(false);
-        assertThat(session).isNotNull();
+        var jsessionid = loginRes.getResponse().getCookie("JSESSIONID");
+        assertThat(jsessionid).isNotNull();
 
         mvc.perform(post(BASE + "/logout")
                         .with(csrf())
-                        .session(session))
+                        .cookie(jsessionid))
                 .andExpect(status().isOk());
     }
 }
