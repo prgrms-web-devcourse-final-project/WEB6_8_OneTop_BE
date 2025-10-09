@@ -195,7 +195,7 @@ public class ScenarioService {
                 .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .exceptionally(ex -> {
                     log.error("Decision scenario generation timeout or error for scenario ID: {}", scenarioId, ex);
-                    throw new ApiException(ErrorCode.AI_TIMEOUT, "시나리오 생성 시간 초과 (60초)");
+                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "시나리오 생성 시간 초과 (60초)");
                 })
                 .join();
 
@@ -217,7 +217,7 @@ public class ScenarioService {
                 .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .exceptionally(ex -> {
                     log.error("Base scenario generation timeout or error for BaseLine ID: {}", baseLine.getId(), ex);
-                    throw new ApiException(ErrorCode.AI_TIMEOUT, "베이스 시나리오 생성 시간 초과 (60초)");
+                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "베이스 시나리오 생성 시간 초과 (60초)");
                 })
                 .join();
 

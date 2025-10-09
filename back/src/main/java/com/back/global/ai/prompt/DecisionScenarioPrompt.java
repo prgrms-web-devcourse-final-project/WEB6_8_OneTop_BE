@@ -17,10 +17,20 @@ public class DecisionScenarioPrompt {
     private static final String PROMPT_TEMPLATE = """
         당신은 인생 시나리오 분석 전문가입니다. 대안 선택 경로를 분석하여 3년 후 시나리오를 생성하고 기본 시나리오와 비교하세요.
 
-        ## 사용자 정보
+        ## 사용자 기본 정보
         사용자 ID: {userId}
         현재 나이: {currentAge}세
         현재 연도: {currentYear}년
+        생년월일: {birthday}
+        성별: {gender}
+        MBTI: {mbti}
+        중요시하는 가치관: {beliefs}
+
+        ## 사용자 성향 정보(1~10척도)
+        현재 삶 만족도: {lifeSatis}
+        현재 관계 만족도: {relationship}
+        워라밸 중요도: {workLifeBal}
+        위험 회피 성향: {riskAvoid}
 
         ## 기본 시나리오 (현재 삶 유지 시)
         직업: {baseJob}
@@ -145,10 +155,31 @@ public class DecisionScenarioPrompt {
             timelineYears.append('"').append(actualYear).append('"').append(": \"제목 (5단어 이내)\"");
         }
 
+        // 사용자 정보 추출 (null-safe)
+        var user = decisionLine.getUser();
+        String birthday = user.getBirthdayAt() != null ? user.getBirthdayAt().toLocalDate().toString() : "정보 없음";
+        String gender = user.getGender() != null ? user.getGender().name() : "정보 없음";
+        String mbti = user.getMbti() != null ? user.getMbti().name() : "정보 없음";
+        String beliefs = user.getBeliefs() != null && !user.getBeliefs().trim().isEmpty() ? user.getBeliefs() : "정보 없음";
+
+        // 성향 정보 (1-10 척도, null일 수 있음)
+        String lifeSatis = user.getLifeSatis() != null ? String.valueOf(user.getLifeSatis()) : "미입력";
+        String relationship = user.getRelationship() != null ? String.valueOf(user.getRelationship()) : "미입력";
+        String workLifeBal = user.getWorkLifeBal() != null ? String.valueOf(user.getWorkLifeBal()) : "미입력";
+        String riskAvoid = user.getRiskAvoid() != null ? String.valueOf(user.getRiskAvoid()) : "미입력";
+
         return PROMPT_TEMPLATE
-                .replace("{userId}", String.valueOf(decisionLine.getUser().getId()))
+                .replace("{userId}", String.valueOf(user.getId()))
                 .replace("{currentAge}", String.valueOf(userCurrentAge))
                 .replace("{currentYear}", String.valueOf(currentYear))
+                .replace("{birthday}", birthday)
+                .replace("{gender}", gender)
+                .replace("{mbti}", mbti)
+                .replace("{lifeSatis}", lifeSatis)
+                .replace("{relationship}", relationship)
+                .replace("{workLifeBal}", workLifeBal)
+                .replace("{riskAvoid}", riskAvoid)
+                .replace("{beliefs}", beliefs)
                 .replace("{baseJob}", baseScenario.getJob() != null ? baseScenario.getJob() : "직업 정보 없음")
                 .replace("{baseSummary}", baseScenario.getSummary() != null ? baseScenario.getSummary() : "요약 없음")
                 .replace("{baseTotal}", String.valueOf(baseScenario.getTotal()))

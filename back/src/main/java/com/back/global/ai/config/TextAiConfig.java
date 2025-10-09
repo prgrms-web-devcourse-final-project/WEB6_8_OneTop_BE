@@ -2,6 +2,7 @@ package com.back.global.ai.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -11,6 +12,11 @@ import org.springframework.web.reactive.function.client.WebClient;
  */
 @Configuration
 @ConfigurationProperties(prefix = "ai.text.gemini")
+@EnableConfigurationProperties({
+    SituationAiProperties.class,
+    BaseScenarioAiProperties.class,
+    DecisionScenarioAiProperties.class
+})
 @Data
 public class TextAiConfig {
     String apiKey;

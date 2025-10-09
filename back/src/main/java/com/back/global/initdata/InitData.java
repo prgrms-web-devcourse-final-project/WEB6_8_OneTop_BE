@@ -19,10 +19,13 @@ import com.back.domain.node.service.NodeService;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.repository.PostRepository;
+import com.back.domain.scenario.entity.SceneCompare;
+import com.back.domain.scenario.entity.SceneCompareResultType;
 import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.Type;
+import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.user.entity.Gender;
@@ -64,6 +67,7 @@ public class InitData implements CommandLineRunner {
     private final DecisionLineRepository decisionLineRepository;
     private final ScenarioRepository scenarioRepository;
     private final SceneTypeRepository sceneTypeRepository;
+    private final SceneCompareRepository sceneCompareRepository;
 
     // user1을 만들고 베이스라인(7)과 결정라인(5)을 시드로 주입한다
     @Override
@@ -103,6 +107,10 @@ public class InitData implements CommandLineRunner {
                                 .gender(Gender.F)
                                 .mbti(Mbti.ENFP)
                                 .beliefs("개인주의")
+                                .lifeSatis(6)
+                                .relationship(7)
+                                .workLifeBal(8)
+                                .riskAvoid(5)
                                 .build()
                 ));
 
@@ -377,6 +385,9 @@ public class InitData implements CommandLineRunner {
 
             // 완성 시나리오 지표 생성 (더 높은 점수)
             createSceneTypes(completedScenario, 90, 85, 80, 88, 87);
+
+            // 완성 시나리오 비교 분석 데이터 생성 (baseScenario와 비교)
+            createSceneCompares(completedScenario, baseScenario);
         }
 
 
@@ -452,5 +463,74 @@ public class InitData implements CommandLineRunner {
         );
 
         sceneTypeRepository.saveAll(sceneTypes);
+    }
+
+    /**
+     * 시나리오 비교 분석 데이터를 생성합니다.
+     * 베이스 시나리오와 비교하여 6개 비교 결과(TOTAL + 5개 지표)를 생성합니다.
+     * @param decisionScenario 비교 대상 결정 시나리오
+     * @param baseScenario 비교 기준 베이스 시나리오
+     */
+    private void createSceneCompares(Scenario decisionScenario, Scenario baseScenario) {
+        List<SceneCompare> sceneCompares = List.of(
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.TOTAL)
+                        .compareResult("""
+                                전문성 심화와 기술 리더십 역할 수행으로 경제적·직업적 성취가 크게 향상되었습니다.
+                                다만 초기 학습 곡선과 업무 강도 증가로 인한 스트레스 관리가 필요합니다.
+                                장기적으로는 더 높은 만족도와 영향력을 기대할 수 있는 경로입니다.
+                                """)
+                        .build(),
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.경제)
+                        .compareResult("""
+                                클라우드 전문가 프리미엄으로 연봉이 30% 이상 증가했습니다.
+                                컨설팅 사이드 프로젝트와 기술 강연으로 추가 수입원이 생겼습니다.
+                                AWS/GCP 자격증 보유로 시장 가치가 크게 상승했습니다.
+                                """)
+                        .build(),
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.행복)
+                        .compareResult("""
+                                전문 분야 인정으로 직무 만족도가 높아졌습니다.
+                                도전적인 프로젝트와 기술 성장으로 성취감이 증대되었습니다.
+                                하지만 초기 학습 스트레스와 업무 강도 증가가 있었습니다.
+                                """)
+                        .build(),
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.관계)
+                        .compareResult("""
+                                기술 커뮤니티 활동과 컨퍼런스 참여로 네트워크가 확장되었습니다.
+                                멘토·멘티 관계 형성으로 의미있는 인맥이 생겼습니다.
+                                프로젝트 중심 업무로 협업 기회가 증가했습니다.
+                                """)
+                        .build(),
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.직업)
+                        .compareResult("""
+                                클라우드 아키텍처 설계 능력으로 기술 리더로 인정받았습니다.
+                                AWS Solutions Architect Professional 자격증 취득으로 전문성 입증했습니다.
+                                대규모 인프라 마이그레이션 프로젝트 리드 경험을 쌓았습니다.
+                                CTO 또는 기술 이사로의 커리어 경로가 열렸습니다.
+                                """)
+                        .build(),
+                SceneCompare.builder()
+                        .scenario(decisionScenario)
+                        .resultType(SceneCompareResultType.건강)
+                        .compareResult("""
+                                높은 연봉으로 프리미엄 헬스케어와 피트니스 서비스를 이용했습니다.
+                                재택근무 옵션으로 출퇴근 스트레스가 감소했습니다.
+                                체계적인 운동 루틴과 건강 관리 투자가 가능해졌습니다.
+                                다만 초기 학습 기간 중 일시적으로 수면 부족이 있었습니다.
+                                """)
+                        .build()
+        );
+
+        sceneCompareRepository.saveAll(sceneCompares);
     }
 }

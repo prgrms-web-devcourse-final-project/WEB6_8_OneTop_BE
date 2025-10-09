@@ -3,6 +3,8 @@ package com.back.global.ai.prompt;
 import com.back.domain.node.entity.DecisionNode;
 import com.back.global.ai.exception.AiServiceException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
 /**
@@ -10,6 +12,8 @@ import java.util.List;
  * Trees 도메인에서 사용되며, 이전 선택들의 나비효과로 새로운 상황을 생성한다.
  */
 public class SituationPrompt {
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String PROMPT_TEMPLATE = """
         당신은 인생 시뮬레이션 전문가입니다. 이전 선택들의 나비효과로 발생한 새로운 상황을 생성하세요.
@@ -253,20 +257,12 @@ public class SituationPrompt {
         String response = aiResponse.trim();
 
         try {
-            // JSON 형식으로 파싱 시도
-            if (response.contains("\"situation\"")) {
-                int situationStart = response.indexOf("\"situation\"");
-                int valueStart = response.indexOf(":", situationStart);
-                int valueEnd = response.indexOf(",", valueStart);
-                if (valueEnd == -1) {
-                    valueEnd = response.indexOf("}", valueStart);
-                }
-
-                if (valueStart != -1 && valueEnd != -1) {
-                    String situationValue = response.substring(valueStart + 1, valueEnd).trim();
-                    // 따옴표 제거
-                    situationValue = situationValue.replaceAll("^\"|\"$", "");
-                    return situationValue;
+            // ObjectMapper를 사용한 JSON 파싱
+            JsonNode rootNode = objectMapper.readTree(response);
+            if (rootNode.has("situation")) {
+                String situation = rootNode.get("situation").asText();
+                if (situation != null && !situation.trim().isEmpty()) {
+                    return situation;
                 }
             }
         } catch (Exception e) {
@@ -299,21 +295,11 @@ public class SituationPrompt {
         String response = aiResponse.trim();
 
         try {
-            // JSON 형식으로 파싱 시도
-            if (response.contains("\"recommendedOption\"")) {
-                int optionStart = response.indexOf("\"recommendedOption\"");
-                int valueStart = response.indexOf(":", optionStart);
-                int valueEnd = response.indexOf(",", valueStart);
-                if (valueEnd == -1) {
-                    valueEnd = response.indexOf("}", valueStart);
-                }
-
-                if (valueStart != -1 && valueEnd != -1) {
-                    String optionValue = response.substring(valueStart + 1, valueEnd).trim();
-                    // 따옴표 제거
-                    optionValue = optionValue.replaceAll("^\"|\"$", "");
-                    return optionValue.isEmpty() ? null : optionValue;
-                }
+            // ObjectMapper를 사용한 JSON 파싱
+            JsonNode rootNode = objectMapper.readTree(response);
+            if (rootNode.has("recommendedOption")) {
+                String option = rootNode.get("recommendedOption").asText();
+                return (option != null && !option.trim().isEmpty()) ? option : null;
             }
         } catch (Exception e) {
             // JSON 파싱 실패 시 null 반환
