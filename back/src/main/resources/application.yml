@@ -58,9 +58,9 @@ spring:
   task:
     execution:
       pool:
-        core-size: 2           # AWS t2.small (1 vCPU) 기준 기본 쓰레드
-        max-size: 4            # 최대 쓰레드 (버스트 대응)
-        queue-capacity: 50     # 대기 큐 크기
+        core-size: 2           # AWS Small 티어 (1-2 vCPU) 기준 기본 스레드
+        max-size: 4            # 최대 스레드 (버스트 대응)
+        queue-capacity: 100    # 대기 큐 크기 (메모리 2GB 고려, 버퍼링 증가)
       thread-name-prefix: "async-ai-"
 logging:
   level:

@@ -229,7 +229,7 @@ public class ScenarioService {
     }
 
     // 비동기 방식으로 AI 시나리오 생성
-    @Async
+    @Async("aiTaskExecutor")
     public void processScenarioGenerationAsync(Long scenarioId) {
         try {
             // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
