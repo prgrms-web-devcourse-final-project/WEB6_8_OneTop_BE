@@ -8,15 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "ai.situation")
 public class SituationAiProperties {
-    private int topK = 5;
-    private int contextCharLimit = 1000;
-    private int maxOutputTokens = 384;
+    private int topK = 3;
+    private int maxOutputTokens = 128;
 
     // getters/setters
     public int getTopK() { return topK; }
     public void setTopK(int topK) { this.topK = topK; }
-    public int getContextCharLimit() { return contextCharLimit; }
-    public void setContextCharLimit(int contextCharLimit) { this.contextCharLimit = contextCharLimit; }
     public int getMaxOutputTokens() { return maxOutputTokens; }
     public void setMaxOutputTokens(int maxOutputTokens) { this.maxOutputTokens = maxOutputTokens; }
 }

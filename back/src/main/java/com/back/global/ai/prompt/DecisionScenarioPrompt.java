@@ -15,165 +15,73 @@ import java.util.List;
 public class DecisionScenarioPrompt {
 
     private static final String PROMPT_TEMPLATE = """
-        당신은 인생 시나리오 분석 전문가입니다. 사용자의 대안 선택 경로를 분석하여 3년 후 예상 시나리오를 생성하고, 기본 시나리오와 비교 분석해주세요.
+        당신은 인생 시나리오 분석 전문가입니다. 대안 선택 경로를 분석하여 3년 후 시나리오를 생성하고 기본 시나리오와 비교하세요.
 
-        ## 사용자 정보
+        ## 사용자 기본 정보
         사용자 ID: {userId}
-        사용자 현재 나이: {currentAge}세
+        현재 나이: {currentAge}세
         현재 연도: {currentYear}년
+        생년월일: {birthday}
+        성별: {gender}
+        MBTI: {mbti}
+        중요시하는 가치관: {beliefs}
+
+        ## 사용자 성향 정보(1~10척도)
+        현재 삶 만족도: {lifeSatis}
+        현재 관계 만족도: {relationship}
+        워라밸 중요도: {workLifeBal}
+        위험 회피 성향: {riskAvoid}
 
         ## 기본 시나리오 (현재 삶 유지 시)
         직업: {baseJob}
         요약: {baseSummary}
-        점수 합계: {baseTotal}
-        상세 설명: {baseDescription}
-
-        ### 기본 시나리오 지표
-        {baseIndicators}
+        점수: {baseTotal}점
+        설명: {baseDescription}
+        지표: {baseIndicators}
 
         ## 대안 선택 경로
         {decisionNodes}
 
-        ## 요구사항
-        다음 형식으로 JSON 응답을 생성해주세요:
-
+        ## 요구사항 (JSON 형식)
         ```json
         {
-            "job": "현재 연도로부터 3년 후 예상 직업 (대안 선택의 결과)",
-            "summary": "현재 연도로부터 3년 후 삶의 한 줄 요약 (50자 내외)",
-            "description": "현재 연도로부터 3년 후 상세 시나리오 (500-800자, 선택의 나비효과 포함)",
-            "total": 250~350,  // 지표 점수 합계 (기본 시나리오보다 향상된 점수로 유동적 조정)
-            "imagePrompt": "시나리오 이미지 생성용 프롬프트 (영문, 50단어 내외)",
+            "job": "3년 후 예상 직업 (대안 선택 결과)",
+            "summary": "3년 후 삶의 요약 (50자 내외)",
+            "description": "3년 후 상세 시나리오 (500-800자, 나비효과 포함)",
+            "total": 250~350,
+            "imagePrompt": "이미지 프롬프트 (영문, 50단어)",
             "indicators": [
-                {
-                    "type": "경제",
-                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
-                    "analysis": "경제적 상황 분석 (200자 내외, 기본 시나리오와 차이점 포함)"
-                },
-                {
-                    "type": "행복",
-                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
-                    "analysis": "행복 지수 분석 (200자 내외, 변화된 점 강조)"
-                },
-                {
-                    "type": "관계",
-                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
-                    "analysis": "인간관계 변화 분석 (200자 내외)"
-                },
-                {
-                    "type": "직업",
-                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
-                    "analysis": "직업/커리어 변화 분석 (200자 내외)"
-                },
-                {
-                    "type": "건강",
-                    "point": 30~96,  // 유동적 조정 (75점 초과 시 보수적 적용, 기본 시나리오 대비 변화 반영)
-                    "analysis": "건강 상태 변화 분석 (200자 내외)"
-                }
+                {"type": "경제", "point": 30~96, "analysis": "분석 (200자, 기본과 차이점)"},
+                {"type": "행복", "point": 30~96, "analysis": "분석 (200자, 변화 강조)"},
+                {"type": "관계", "point": 30~96, "analysis": "분석 (200자)"},
+                {"type": "직업", "point": 30~96, "analysis": "분석 (200자)"},
+                {"type": "건강", "point": 30~96, "analysis": "분석 (200자)"}
             ],
-            "timelineTitles": {
-                 "{timelineYears}": "DecisionNode들에 해당하는 연도별 제목 (5단어 이내)"
-            },
+            "timelineTitles": {"{timelineYears}": "연도별 제목 (5단어 이내)"},
             "comparisons": [
-                {
-                    "type": "TOTAL",
-                    "baseScore": {baseTotal},
-                    "newScore": "indicators의 point 합계와 일치",
-                    "analysis": "전체적인 삶의 질 비교 분석 (300자 내외)"
-                },
-                {
-                    "type": "경제",
-                    "baseScore": {baseEconomyScore},
-                    "newScore": "경제 지표와 동일 (30~96, 75점 초과 시 보수적)",
-                    "analysis": "경제적 측면 상세 비교 (300자 내외)"
-                },
-                {
-                    "type": "행복",
-                    "baseScore": {baseHappinessScore},
-                    "newScore": "행복 지표와 동일 (30~96, 75점 초과 시 보수적)",
-                    "analysis": "행복 지수 상세 비교 (300자 내외)"
-                },
-                {
-                    "type": "관계",
-                    "baseScore": {baseRelationshipScore},
-                    "newScore": "관계 지표와 동일 (30~96, 75점 초과 시 보수적)",
-                    "analysis": "인간관계 측면 상세 비교 (300자 내외)"
-                },
-                {
-                    "type": "직업",
-                    "baseScore": {baseCareerScore},
-                    "newScore": "직업 지표와 동일 (30~96, 75점 초과 시 보수적)",
-                    "analysis": "직업/커리어 측면 상세 비교 (300자 내외)"
-                },
-                {
-                    "type": "건강",
-                    "baseScore": {baseHealthScore},
-                    "newScore": "건강 지표와 동일 (30~96, 75점 초과 시 보수적)",
-                    "analysis": "건강 측면 상세 비교 (300자 내외)"
-                }
+                {"type": "TOTAL", "baseScore": {baseTotal}, "newScore": "합계", "analysis": "비교 (300자)"},
+                {"type": "경제", "baseScore": {baseEconomyScore}, "newScore": "점수", "analysis": "비교 (300자)"},
+                {"type": "행복", "baseScore": {baseHappinessScore}, "newScore": "점수", "analysis": "비교 (300자)"},
+                {"type": "관계", "baseScore": {baseRelationshipScore}, "newScore": "점수", "analysis": "비교 (300자)"},
+                {"type": "직업", "baseScore": {baseCareerScore}, "newScore": "점수", "analysis": "비교 (300자)"},
+                {"type": "건강", "baseScore": {baseHealthScore}, "newScore": "점수", "analysis": "비교 (300자)"}
             ]
         }
         ```
 
-        ## 작성 가이드라인
-        1. **차별성**: 기본 시나리오와 명확히 구분되는 대안적 결과 제시
-        2. **연관성**: 선택 경로가 결과에 미치는 나비효과를 구체적으로 반영
-        3. **현실성**: 선택의 결과가 현실적으로 합리적이어야 함
-        4. **균형성**: 모든 측면이 좋아지거나 나빠지지 않도록 균형있게 조정
-        5. **구체성**: 추상적 표현보다는 구체적이고 실질적인 변화 서술
-        6. **비교분석**: 각 지표별로 기본 시나리오와의 차이점을 명확히 제시
-        7. **긍정지향**: 전반적으로 긍정적이되, 현실적인 트레이드오프 포함
+        ## 작성 규칙
+        1. 기본 시나리오와 명확히 구분되는 결과
+        2. 선택의 나비효과를 구체적으로 반영
+        3. 현실적 결과 (일부 상승, 일부 하락)
+        4. 전체적으로는 기본보다 향상 (총점 +20~100점)
+        5. 75점 초과 시 보수적 적용
 
-        ## 작성 예시
+        ## 예시 (간략)
+        - 창업 선택: 경제(60점), 직업(75점), 건강(45점) - "불안정하나 성장 가능성"
+        - 해외 진출: 경제(65점), 직업(80점), 관계(45점) - "글로벌 경험 vs 거리"
+        - 대학원: 경제(45점), 직업(70점), 관계(60점) - "단기 손실, 장기 투자"
 
-        ### 직업 예시 (대안 선택의 결과)
-        - "IT 스타트업 공동창업자" (창업 선택 결과)
-        - "해외 법인 아시아 지역 총괄" (해외 진출 선택 결과)
-        - "독립 컨설턴트 (前 대기업 임원)" (독립 선택 결과)
-
-        ### 요약 예시 (50자 내외)
-        - "도전정신으로 새로운 기회를 잡아 성장하며 보람찬 삶을 사는 중"
-        - "과감한 선택이 가져온 변화 속에서 더 큰 가능성을 펼치는 일상"
-        - "안정보다 성장을 선택해 얻은 성취감과 새로운 도전이 있는 삶"
-
-        ### 지표별 분석 예시 (선택 시나리오별)
-
-        **창업 선택 시나리오 - 3년 후 결과**
-        - 경제 (60점): "창업 초기의 불안정함을 극복하고 안정적인 수익 모델을 구축했습니다. 기본 시나리오 대비 수입 변동성은 있지만 성장 가능성이 더 큽니다."
-        - 직업 (75점): "대표로서 리더십과 전문성을 크게 향상시키며 업계 내 입지를 다져가고 있습니다. 기본 시나리오보다 성장 속도가 빠릅니다."
-        - 건강 (45점): "창업 초기 과로와 스트레스로 체력이 저하되었지만, 점차 업무 분담으로 회복 중입니다. 기본 시나리오보다 건강 관리에 더 신경써야 합니다."
-        - 행복 (65점): "성취감과 자아실현으로 높은 만족도를 느끼지만, 불안정성에서 오는 스트레스도 있습니다. 전반적으로는 기본 시나리오보다 보람찬 삶입니다."
-        - 관계 (50점): "업무 중심 생활로 기존 관계 유지는 어려워졌으나, 새로운 비즈니스 네트워크를 형성했습니다. 기본 시나리오와 비슷한 수준을 유지합니다."
-
-        **해외 진출 선택 시나리오 - 3년 후 결과**
-        - 경제 (65점): "해외 근무 수당과 글로벌 경험 프리미엄으로 기본 연봉보다 높은 수입을 얻고 있습니다. 생활비 증가는 있지만 순소득은 개선되었습니다."
-        - 직업 (80점): "글로벌 경험으로 커리어가 급성장하며 국제적 전문성을 인정받고 있습니다. 기본 시나리오 대비 큰 발전을 이뤘습니다."
-        - 건강 (55점): "새로운 환경 적응 스트레스는 있지만, 활동적인 라이프스타일로 전반적으로 건강합니다. 기본 시나리오보다 약간 개선된 상태입니다."
-        - 행복 (70점): "새로운 도전에서 얻는 만족감과 성장 실감으로 높은 행복감을 느끼고 있습니다. 기본 시나리오보다 활력 넘치는 삶을 살고 있습니다."
-        - 관계 (45점): "지리적 거리로 기존 관계 유지가 어렵지만, 현지에서 새로운 국제적 인맥을 쌓고 있습니다. 기본 시나리오보다 다소 아쉬운 부분입니다."
-
-        **대학원 진학 선택 시나리오 - 3년 후 결과**
-        - 경제 (45점): "학비 부담과 소득 중단으로 경제적으로는 어려운 상황이지만, 장기적 투자 관점에서 의미있는 선택입니다. 기본 시나리오보다 단기적으로 불리합니다."
-        - 직업 (70점): "전문 연구 능력과 학위로 향후 더 높은 수준의 커리어 기회를 확보했습니다. 기본 시나리오보다 전문성이 크게 향상되었습니다."
-        - 건강 (50점): "연구 스트레스와 불규칙한 생활패턴이 있지만, 젊은 나이로 큰 무리는 없습니다. 기본 시나리오와 비슷한 수준을 유지합니다."
-        - 행복 (55점): "학문적 성취와 미래 가능성에 대한 기대감으로 만족감을 느끼고 있습니다. 기본 시나리오보다 약간 높은 수준입니다."
-        - 관계 (60점): "학교 커뮤니티에서 동료들과의 깊이 있는 관계를 형성했습니다. 기본 시나리오보다 의미있는 관계들이 늘어났습니다."
-
-        ### 비교 분석 예시
-
-        **전체 비교 (250점 → 275점)**
-        - "기본 시나리오 대비 25점 향상으로, 도전을 통한 성장이 전반적인 삶의 질 개선으로 이어졌습니다. 특히 직업적 성취와 자아실현 측면에서 큰 발전을 이뤘으나, 안정성과 건강 관리 면에서는 주의가 필요합니다."
-
-        **경제 비교 (50점 → 60점)**
-        - "기본 시나리오의 안정적이지만 제한적인 소득 대비, 변동성은 있지만 더 큰 성장 가능성을 보여주고 있습니다. 초기 투자와 리스크를 감수한 결과 중장기적으로 더 나은 경제적 기반을 마련할 수 있었습니다."
-
-        ## 점수 가이드라인
-        - 총점은 250~350점 범위 (기본: 250점)
-        - 개별 지표는 20~100점 범위
-        - 선택의 결과에 따라 일부는 상승, 일부는 하락하도록 조정
-        - 전체적으로 기본 시나리오보다 상향 조정 (도전의 보상)
-
-        반드시 유효한 JSON 형식으로만 응답해주세요.
+        반드시 유효한 JSON 형식으로만 응답하세요.
         """;
 
     /**
@@ -247,10 +155,31 @@ public class DecisionScenarioPrompt {
             timelineYears.append('"').append(actualYear).append('"').append(": \"제목 (5단어 이내)\"");
         }
 
+        // 사용자 정보 추출 (null-safe)
+        var user = decisionLine.getUser();
+        String birthday = user.getBirthdayAt() != null ? user.getBirthdayAt().toLocalDate().toString() : "정보 없음";
+        String gender = user.getGender() != null ? user.getGender().name() : "정보 없음";
+        String mbti = user.getMbti() != null ? user.getMbti().name() : "정보 없음";
+        String beliefs = user.getBeliefs() != null && !user.getBeliefs().trim().isEmpty() ? user.getBeliefs() : "정보 없음";
+
+        // 성향 정보 (1-10 척도, null일 수 있음)
+        String lifeSatis = user.getLifeSatis() != null ? String.valueOf(user.getLifeSatis()) : "미입력";
+        String relationship = user.getRelationship() != null ? String.valueOf(user.getRelationship()) : "미입력";
+        String workLifeBal = user.getWorkLifeBal() != null ? String.valueOf(user.getWorkLifeBal()) : "미입력";
+        String riskAvoid = user.getRiskAvoid() != null ? String.valueOf(user.getRiskAvoid()) : "미입력";
+
         return PROMPT_TEMPLATE
-                .replace("{userId}", String.valueOf(decisionLine.getUser().getId()))
+                .replace("{userId}", String.valueOf(user.getId()))
                 .replace("{currentAge}", String.valueOf(userCurrentAge))
                 .replace("{currentYear}", String.valueOf(currentYear))
+                .replace("{birthday}", birthday)
+                .replace("{gender}", gender)
+                .replace("{mbti}", mbti)
+                .replace("{lifeSatis}", lifeSatis)
+                .replace("{relationship}", relationship)
+                .replace("{workLifeBal}", workLifeBal)
+                .replace("{riskAvoid}", riskAvoid)
+                .replace("{beliefs}", beliefs)
                 .replace("{baseJob}", baseScenario.getJob() != null ? baseScenario.getJob() : "직업 정보 없음")
                 .replace("{baseSummary}", baseScenario.getSummary() != null ? baseScenario.getSummary() : "요약 없음")
                 .replace("{baseTotal}", String.valueOf(baseScenario.getTotal()))
@@ -280,39 +209,5 @@ public class DecisionScenarioPrompt {
                 .mapToInt(SceneType::getPoint)
                 .findFirst()
                 .orElse(50);
-    }
-
-    /**
-     * 프롬프트 템플릿에서 사용할 수 있는 데이터들을 검증한다.
-     *
-     * @param decisionLine 검증할 선택 경로
-     * @param baseScenario 검증할 베이스 시나리오
-     * @return 검증 결과 (true: 유효, false: 무효)
-     */
-    public static boolean validateInputs(DecisionLine decisionLine, Scenario baseScenario) {
-        if (decisionLine == null || baseScenario == null) {
-            return false;
-        }
-
-        // DecisionNode가 없어도 기본 프롬프트 생성 가능
-        return decisionLine.getUser() != null && baseScenario.getUser() != null;
-    }
-
-    /**
-     * 예상 토큰 수를 계산한다.
-     *
-     * @param decisionLine 토큰 수 계산할 선택 경로
-     * @param baseScenario 베이스 시나리오
-     * @return 예상 토큰 수
-     */
-    public static int estimateTokens(DecisionLine decisionLine, Scenario baseScenario) {
-        int baseTokens = 1200; // 기본 프롬프트 토큰 수 (베이스 시나리오 정보 포함)
-
-        if (decisionLine != null && decisionLine.getDecisionNodes() != null) {
-            // DecisionNode당 약 80토큰 추가 (상황 + 결정 + 날짜)
-            baseTokens += decisionLine.getDecisionNodes().size() * 80;
-        }
-
-        return baseTokens;
     }
 }
