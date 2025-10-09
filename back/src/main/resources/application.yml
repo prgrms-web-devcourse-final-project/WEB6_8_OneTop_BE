@@ -128,3 +128,8 @@ custom:
     baseDomain: ${custom.dev.baseDomain}
     frontUrl: ${custom.dev.frontUrl}
     backUrl: ${custom.dev.backUrl}
+
+dvcs:
+  backfill:
+    enabled: false
+    http-enabled: false

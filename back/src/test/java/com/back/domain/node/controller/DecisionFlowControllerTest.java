@@ -11,6 +11,7 @@ package com.back.domain.node.controller;
 import com.back.domain.node.entity.NodeCategory;
 import com.back.domain.user.entity.*;
 import com.back.domain.user.repository.UserRepository;
+import com.back.global.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
@@ -23,18 +24,21 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc(addFilters = true)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ActiveProfiles("test")
 @Import(AiOnceDelegateTestConfig.class)
@@ -43,12 +47,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(
         statements = {
                 "SET REFERENTIAL_INTEGRITY FALSE",
+
+                "TRUNCATE TABLE BASELINE_PATCHES",
+                "TRUNCATE TABLE BASELINE_COMMITS",
+                "TRUNCATE TABLE BASELINE_BRANCHES",
+                "TRUNCATE TABLE NODE_ATOM_VERSIONS",
+                "TRUNCATE TABLE NODE_ATOMS",
                 "TRUNCATE TABLE DECISION_NODES",
                 "TRUNCATE TABLE DECISION_LINES",
                 "TRUNCATE TABLE BASE_NODES",
                 "TRUNCATE TABLE BASE_LINES",
                 "TRUNCATE TABLE USERS",
 
+                "ALTER TABLE BASELINE_PATCHES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASELINE_COMMITS ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE BASELINE_BRANCHES ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE NODE_ATOM_VERSIONS ALTER COLUMN ID RESTART WITH 1",
+                "ALTER TABLE NODE_ATOMS ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE DECISION_NODES ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE DECISION_LINES ALTER COLUMN ID RESTART WITH 1",
                 "ALTER TABLE BASE_NODES ALTER COLUMN ID RESTART WITH 1",
@@ -84,6 +99,11 @@ public class DecisionFlowControllerTest {
         userId = userRepository.save(user).getId();
     }
 
+    private RequestPostProcessor authed(Long uid) {
+        var me = userRepository.findById(uid).orElseThrow();
+        return user(new CustomUserDetails(me));
+    }
+
     // ===========================
     // 첫 결정(from-base)
     // ===========================
@@ -111,6 +131,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.EDUCATION);
 
             var res = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(req))
                     .andExpect(status().isCreated())
@@ -145,6 +166,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, baseInfo.pivotAge, NodeCategory.RELATIONSHIP);
 
             mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(req))
                     .andExpect(status().isNotFound())
@@ -171,6 +193,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge + 99, NodeCategory.ETC);
 
             mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(bad))
                     .andExpect(status().isBadRequest())
@@ -197,12 +220,14 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.CAREER);
 
             mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(first))
                     .andExpect(status().isCreated());
 
             String secondSameSlot = first.replace("\"첫 분기\"", "\"중복 분기\"");
             mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(secondSameSlot))
                     .andExpect(status().isBadRequest())
@@ -236,6 +261,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, parentId, NodeCategory.CAREER);
 
             var res = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isCreated())
@@ -265,6 +291,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, NodeCategory.CAREER);
 
             mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isNotFound())
@@ -289,6 +316,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, head.decisionNodeId, NodeCategory.ETC, head.ageYear);
 
             mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isBadRequest())
@@ -313,6 +341,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, head.decisionNodeId, NodeCategory.ETC, invalidAge);
 
             mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isBadRequest())
@@ -332,7 +361,8 @@ public class DecisionFlowControllerTest {
         void success_cancel() throws Exception {
             aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", head.decisionLineId))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", head.decisionLineId)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.decisionLineId").value(head.decisionLineId))
                     .andExpect(jsonPath("$.status").value("CANCELLED"));
@@ -343,7 +373,8 @@ public class DecisionFlowControllerTest {
         void success_complete() throws Exception {
             aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.decisionLineId").value(head.decisionLineId))
                     .andExpect(jsonPath("$.status").value("COMPLETED"));
@@ -353,10 +384,12 @@ public class DecisionFlowControllerTest {
         @DisplayName("실패 : 존재하지 않는 decisionLineId 취소/완료 시 404/N003를 반환한다")
         void fail_lineNotFound_onLifecycle() throws Exception {
             aiCallBudget.reset(0);
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", 9999999L))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", 9999999L)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("N003"));
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", 9999999L))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", 9999999L)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("N003"));
         }
@@ -366,7 +399,8 @@ public class DecisionFlowControllerTest {
         void fail_nextAfterLocked() throws Exception {
             aiCallBudget.reset(0);
             var head = startDecisionFromBase(userId);
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/complete", head.decisionLineId)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isOk());
 
             String nextReq = """
@@ -381,13 +415,15 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, head.decisionNodeId, NodeCategory.CAREER);
 
             mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("C001"));
 
             var head2 = startDecisionFromBase(userId);
-            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", head2.decisionLineId))
+            mockMvc.perform(post("/api/v1/decision-flow/{decisionLineId}/cancel", head2.decisionLineId)
+                            .with(csrf()).with(authed(userId)))
                     .andExpect(status().isOk());
 
             String nextReq2 = """
@@ -400,6 +436,7 @@ public class DecisionFlowControllerTest {
             """.formatted(userId, head2.decisionNodeId, NodeCategory.ETC);
 
             mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq2))
                     .andExpect(status().isBadRequest())
@@ -407,18 +444,16 @@ public class DecisionFlowControllerTest {
         }
     }
 
-
     // 세계선 포크(fork) — DecisionNode에서 다른 선택지로 새 DecisionLine 생성
     @Nested
     @DisplayName("세계선 포크(fork)")
     class ForkBranch {
 
-        // 가장 중요한: 헤드 결정 노드에서 다른 선택을 골라 새 라인을 만든다
         @Test
         @DisplayName("성공 : 헤드 결정에서 다른 선택지로 fork 하면 새 decisionLineId와 교체된 decision을 반환한다")
         void success_forkFromHead_changesSelection_createsNewLine() throws Exception {
             aiCallBudget.reset(0);
-            var head = startDecisionFromBase(userId); // 기존 헬퍼: options ["선택 A","선택 B"], selectedIndex=0
+            var head = startDecisionFromBase(userId); // selectedIndex=0, options ["선택 A","선택 B"]
 
             String req = """
         {
@@ -430,8 +465,8 @@ public class DecisionFlowControllerTest {
         }
         """.formatted(userId, head.decisionNodeId);
 
-            // 가장 많이 쓰는 호출: /decision-flow/fork 엔드포인트 POST
             var res = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(req))
                     .andExpect(status().isCreated())
@@ -441,14 +476,38 @@ public class DecisionFlowControllerTest {
                     .andReturn();
 
             JsonNode body = om.readTree(res.getResponse().getContentAsString());
-            long newLineId = body.get("decisionLineId").asLong();
-            String decision = body.get("decision").asText();
-            int age = body.get("ageYear").asInt();
+            long newLineId    = body.path("decisionLineId").asLong();
+            long newNodeId    = body.path("id").asLong();
+            long forkParentId = body.path("parentId").asLong();
 
             assertThat(newLineId).isNotEqualTo(head.decisionLineId);
-            assertThat(decision).isEqualTo("선택 B");
-            assertThat(age).isEqualTo(head.ageYear);
-            assertThat(body.get("parentId").isNull()).isTrue();
+            assertThat(body.path("decision").asText()).isEqualTo("선택 B");
+
+            // 상세 재조회
+            var detailRes = mockMvc.perform(get("/api/v1/decision-lines/{id}", newLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode nodes = om.readTree(detailRes.getResponse().getContentAsString()).path("nodes");
+            assertThat(nodes.isArray()).isTrue();
+            assertThat(nodes.size()).isGreaterThanOrEqualTo(2);
+
+            // 1) parentId 노드가 실제 존재하는지
+            JsonNode parentNode = null;
+            JsonNode replacedHead = null;
+            for (JsonNode n : nodes) {
+                if (n.path("id").asLong() == forkParentId) parentNode = n;
+                if (n.path("id").asLong() == newNodeId)    replacedHead = n;
+            }
+            assertThat(parentNode).isNotNull();
+
+            // 2) 교체된 헤드 노드가 헤드 나이(20)이며 ‘선택 B’인지
+            assertThat(replacedHead).isNotNull();
+            assertThat(replacedHead.path("decision").asText()).isEqualTo("선택 B");
+            assertThat(replacedHead.path("ageYear").asInt()).isEqualTo(head.ageYear);
+
+            // 3) 교체된 헤드의 parentId가 forkParentId인지
+            assertThat(replacedHead.path("parentId").asLong()).isEqualTo(forkParentId);
         }
 
         @Test
@@ -465,11 +524,13 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, head.decisionNodeId);
 
             var r0 = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(fork0))
                     .andExpect(status().isCreated())
                     .andReturn();
             var r1 = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(fork1))
                     .andExpect(status().isCreated())
@@ -494,6 +555,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, head.decisionNodeId);
 
             var forkRes = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(fork))
                     .andExpect(status().isCreated())
@@ -514,6 +576,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, forkHeadId, NodeCategory.CAREER);
 
             var nextRes = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextReq))
                     .andExpect(status().isCreated())
@@ -535,6 +598,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, head.decisionNodeId);
 
             mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(bad))
                     .andExpect(status().isBadRequest())
@@ -559,6 +623,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, head.decisionNodeId, NodeCategory.ETC);
 
             var nextRes = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(nextNoOptions))
                     .andExpect(status().isCreated())
@@ -571,6 +636,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId, nodeId);
 
             mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(fork))
                     .andExpect(status().isBadRequest())
@@ -586,6 +652,7 @@ public class DecisionFlowControllerTest {
         """.formatted(userId);
 
             mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(csrf()).with(authed(userId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(req))
                     .andExpect(status().isNotFound())
@@ -594,7 +661,6 @@ public class DecisionFlowControllerTest {
         }
     }
 
-
     // ===========================
     // 공통 헬퍼
     // ===========================
@@ -602,6 +668,7 @@ public class DecisionFlowControllerTest {
     // 베이스라인 생성 → 첫 피벗에서 options[2] 입력/선택으로 결정 시작 → 헤드 결정 정보 반환
     private HeadDecision startDecisionFromBase(Long uid) throws Exception {
         var createRes = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                        .with(csrf()).with(authed(uid))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(sampleLineJson(uid)))
                 .andExpect(status().isCreated())
@@ -609,7 +676,8 @@ public class DecisionFlowControllerTest {
         JsonNode created = om.readTree(createRes.getResponse().getContentAsString());
         long baseLineId = created.get("baseLineId").asLong();
 
-        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                        .with(authed(uid)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
@@ -629,6 +697,7 @@ public class DecisionFlowControllerTest {
         """.formatted(uid, baseLineId, pivotAge, NodeCategory.EDUCATION);
 
         var fromBaseRes = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                        .with(csrf()).with(authed(uid))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(fromBaseReq))
                 .andExpect(status().isCreated())
@@ -644,13 +713,15 @@ public class DecisionFlowControllerTest {
     // 베이스라인을 만들고 첫 피벗(age) 정보를 반환
     private BaseInfo createBaseLineAndPickFirstPivot(Long uid) throws Exception {
         var res = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                        .with(csrf()).with(authed(uid))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(sampleLineJson(uid)))
                 .andExpect(status().isCreated())
                 .andReturn();
         long baseLineId = om.readTree(res.getResponse().getContentAsString()).get("baseLineId").asLong();
 
-        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId))
+        var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                        .with(authed(uid)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
@@ -658,7 +729,7 @@ public class DecisionFlowControllerTest {
         return new BaseInfo(baseLineId, pivotAge);
     }
 
-    // 정상 입력 샘플 JSON — 헤더/중간/중간/꼬리 4노드 (fixedChoice=decision을 채워 유효성 통과)
+    // 정상 입력 샘플 JSON — 헤더/중간/중간/꼬리 4노드
     private String sampleLineJson(Long uid) {
         return """
         { "userId": %d,

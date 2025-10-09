@@ -1,10 +1,11 @@
 /**
- * [DTO-RES] BaseNode 응답
- * - 고정 선택과 분기 2칸 및 각 타겟 링크를 포함한다
+ * [DTO-RES] BaseNode 응답(보강)
+ * - currentVersionId와 effective* 필드를 추가해 버전 해석 결과를 노출
  */
 package com.back.domain.node.dto.base;
 
 import com.back.domain.node.entity.NodeCategory;
+import java.util.List;
 
 public record BaseNodeDto(
         Long id,
@@ -22,5 +23,13 @@ public record BaseNodeDto(
         String altOpt2,
         Long altOpt1TargetDecisionId,
         Long altOpt2TargetDecisionId,
-        String description
+        String description,
+
+        // 버전/해석 결과
+        Long currentVersionId,
+        NodeCategory effectiveCategory,
+        String effectiveSituation,
+        String effectiveDecision,
+        List<String> effectiveOptions,
+        String effectiveDescription
 ) {}

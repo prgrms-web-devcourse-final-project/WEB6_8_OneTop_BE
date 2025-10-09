@@ -307,8 +307,17 @@ public class InitData implements CommandLineRunner {
             throw new IllegalStateException("Expected 2 DecisionLines but found: " + decisionLines.size());
         }
 
-        DecisionLine decisionLine1 = decisionLines.get(0);  // 첫 번째 DecisionLine (완성 시나리오용)
-        DecisionLine decisionLine2 = decisionLines.get(1);  // 두 번째 DecisionLine (처리중 시나리오용)
+        Long decisionLineId1 = d0.decisionLineId();
+        Long decisionLineId2 = d5.decisionLineId();
+
+        DecisionLine decisionLine1 = decisionLineRepository.findById(decisionLineId1)
+                .orElseThrow(() -> new IllegalStateException("DecisionLine not found: " + decisionLineId1));
+        DecisionLine decisionLine2 = decisionLineRepository.findById(decisionLineId2)
+                .orElseThrow(() -> new IllegalStateException("DecisionLine not found: " + decisionLineId2));
+
+        if (decisionLine1.getId().equals(decisionLine2.getId())) {
+            throw new IllegalStateException("Two scenarios cannot share the same DecisionLine: " + decisionLine1.getId());
+        }
 
         // 1. 베이스 시나리오 생성 (현재 삶 기준)
         Scenario baseScenario = Scenario.builder()
@@ -339,42 +348,48 @@ public class InitData implements CommandLineRunner {
         createSceneTypes(baseScenario, 70, 75, 70, 65, 70);
 
         // 2. 완성된 시나리오 생성 (첫 번째 DecisionLine 기반)
-        Scenario completedScenario = Scenario.builder()
-                .user(user1)
-                .baseLine(baseLine)  // 베이스 시나리오와 같은 BaseLine 참조
-                .decisionLine(decisionLine1)
-                .status(ScenarioStatus.COMPLETED)
-                .job("클라우드 아키텍트")
-                .total(430)
-                .summary("클라우드와 보안 전문성을 갖춘 시니어 아키텍트로 성장하는 시나리오입니다.")
-                .description("""
-                        AWS/GCP 클라우드 플랫폼 심화 학습과 보안 인증을 통해 시스템 아키텍트로 성장합니다.
-                        대용량 트래픽 처리 경험과 인프라 자동화 능력을 갖추어 기술 리더로 인정받습니다.
-                        컨설팅 프로젝트와 기술 강연을 통해 업계 전문가로 자리매김하며,
-                        궁극적으로 스타트업 CTO 또는 대기업 기술 이사로 성장합니다.
-                        """)
-                .timelineTitles("""
-                        {
-                          "2025": "AWS Solutions Architect 자격증 취득",
-                          "2027": "솔루션 아키텍트 승진",
-                          "2030": "기술 이사 (CTO)"
-                        }
-                        """)
-                .img("https://picsum.photos/seed/decision-scenario/400/300")
-                .build();
-        scenarioRepository.save(completedScenario);
+        if (!scenarioRepository.existsByDecisionLine_Id(decisionLine1.getId())) {
+            Scenario completedScenario = Scenario.builder()
+                    .user(user1)
+                    .baseLine(baseLine)
+                    .decisionLine(decisionLine1)
+                    .status(ScenarioStatus.COMPLETED)
+                    .job("클라우드 아키텍트")
+                    .total(430)
+                    .summary("클라우드와 보안 전문성을 갖춘 시니어 아키텍트로 성장하는 시나리오입니다.")
+                    .description("""
+                    AWS/GCP 클라우드 플랫폼 심화 학습과 보안 인증을 통해 시스템 아키텍트로 성장합니다.
+                    대용량 트래픽 처리 경험과 인프라 자동화 능력을 갖추어 기술 리더로 인정받습니다.
+                    컨설팅 프로젝트와 기술 강연을 통해 업계 전문가로 자리매김하며,
+                    궁극적으로 스타트업 CTO 또는 대기업 기술 이사로 성장합니다.
+                    """)
+                    .timelineTitles("""
+                    {
+                      "2025": "AWS Solutions Architect 자격증 취득",
+                      "2027": "솔루션 아키텍트 승진",
+                      "2030": "기술 이사 (CTO)"
+                    }
+                    """)
+                    .img("https://picsum.photos/seed/decision-scenario/400/300")
+                    .build();
+            scenarioRepository.save(completedScenario);
 
-        // 완성 시나리오 지표 생성 (더 높은 점수)
-        createSceneTypes(completedScenario, 90, 85, 80, 88, 87);
+
+            // 완성 시나리오 지표 생성 (더 높은 점수)
+            createSceneTypes(completedScenario, 90, 85, 80, 88, 87);
+        }
+
 
         // 3. 처리 중 시나리오 생성 (두 번째 DecisionLine 기반, 폴링 테스트용)
-        Scenario processingScenario = Scenario.builder()
-                .user(user1)
-                .baseLine(baseLine)
-                .decisionLine(decisionLine2)  // 두 번째 DecisionLine 사용
-                .status(ScenarioStatus.PROCESSING)
-                .build();
-        scenarioRepository.save(processingScenario);
+        if (!scenarioRepository.existsByDecisionLine_Id(decisionLine2.getId())) {
+            Scenario processingScenario = Scenario.builder()
+                    .user(user1)
+                    .baseLine(baseLine)
+                    .decisionLine(decisionLine2)
+                    .status(ScenarioStatus.PROCESSING)
+                    .build();
+            scenarioRepository.save(processingScenario);
+        }
 
         log.info("[InitData] 초기화 데이터 생성 완료!");
         log.info("[InitData] - 사용자: admin, user1");

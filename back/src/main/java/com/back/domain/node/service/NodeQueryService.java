@@ -1,11 +1,7 @@
 /**
- * [QUERY SERVICE] NodeQueryService — 읽기 전용 조회 파사드
- *
- * 흐름 요약
- * - getTreeInfo(userId): 사용자 검증 → BaseNode 전량 조회·정렬 → 각 DecisionLine 노드를 정렬 조회 → DTO 매핑 후 합쳐서 TreeDto 반환
- * - getBaseLineNodes(baseLineId): 라인 존재성 보장 → 정렬된 BaseNode 목록 DTO로 반환
- * - getBaseNode(baseNodeId): 단건 조회 → DTO 매핑
- * - getDecisionLines(userId), getDecisionLineDetail(decisionLineId): 메타/상세 조회(기존 로직 유지)
+ * NodeQueryService (개선판)
+ * - 읽기 경로를 인스턴스 매퍼로 통일하여 버전 해석 값(effective*)을 포함해 반환
+ * - 기존 응답 계약은 유지
  */
 package com.back.domain.node.service;
 
@@ -15,25 +11,20 @@ import com.back.domain.node.dto.base.BaseNodeDto;
 import com.back.domain.node.dto.decision.DecNodeDto;
 import com.back.domain.node.dto.decision.DecisionLineDetailDto;
 import com.back.domain.node.dto.decision.DecisionLineListDto;
-import com.back.domain.node.entity.BaseNode;
-import com.back.domain.node.entity.DecisionLine;
-import com.back.domain.node.entity.DecisionNode;
+import com.back.domain.node.entity.*;
 import com.back.domain.node.mapper.NodeMappers;
-import com.back.domain.node.repository.BaseLineRepository;
-import com.back.domain.node.repository.BaseNodeRepository;
-import com.back.domain.node.repository.DecisionLineRepository;
-import com.back.domain.node.repository.DecisionNodeRepository;
+import com.back.domain.node.repository.*;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -45,35 +36,70 @@ public class NodeQueryService {
     private final DecisionNodeRepository decisionNodeRepository;
     private final DecisionLineRepository decisionLineRepository;
     private final BaseLineRepository baseLineRepository;
+
+    private final VersionResolver versionResolver;
+    private final NodeAtomVersionRepository versionRepo;
+
+    private final NodeMappers mappers;
     private final NodeDomainSupport support;
 
-    // 가장 중요한: 특정 BaseLine 전체 트리 조회
+    private final ObjectMapper objectMapper;
+
+    // 가장 많이 사용하는: 특정 BaseLine 전체 트리에도 동일한 편의 필드 주입
     public TreeDto getTreeForBaseLine(Long baseLineId) {
         support.ensureBaseLineExists(baseLineId);
 
         List<BaseNode> orderedBase = support.getOrderedBaseNodes(baseLineId);
-        List<BaseNodeDto> baseDtos = new ArrayList<>(orderedBase.size());
-        for (BaseNode n : orderedBase) baseDtos.add(NodeMappers.BASE_READ.map(n));
+        List<BaseNodeDto> baseDtos = orderedBase.stream().map(mappers.BASE_READ::map).toList();
 
-        List<DecisionLine> lines = decisionLineRepository.findByBaseLine_Id(baseLineId);
+        // 전체 라인 공용 pivot 역인덱스
+        Map<Long, PivotMark> pivotIndex = buildPivotIndex(baseLineId);
 
         List<DecNodeDto> decDtos = new ArrayList<>();
+        List<DecisionLine> lines = decisionLineRepository.findByBaseLine_Id(baseLineId);
+
         for (DecisionLine line : lines) {
             List<DecisionNode> ordered = decisionNodeRepository
                     .findByDecisionLine_IdOrderByAgeYearAscIdAsc(line.getId());
-            for (DecisionNode dn : ordered) decDtos.add(NodeMappers.DECISION_READ.map(dn));
-        }
 
+            Map<Long, List<Long>> childrenIndex = buildChildrenIndex(ordered);
+
+            for (DecisionNode dn : ordered) {
+                DecNodeDto base = mappers.DECISION_READ.map(dn);
+
+                List<Long> childrenIds = childrenIndex.getOrDefault(dn.getId(), List.of());
+                boolean isRoot = (dn.getParent() == null);
+
+                PivotMark mark = pivotIndex.get(base.id());
+                Long pivotBaseId = (mark != null) ? mark.baseNodeId() : null;
+                Integer pivotSlot = (mark != null) ? mark.slotIndex() : null;
+
+                // effective*는 DECISION_READ에서 이미 계산/주입되어 있다면 그대로 사용
+                decDtos.add(new DecNodeDto(
+                        base.id(), base.userId(), base.type(), base.category(),
+                        base.situation(), base.decision(), base.ageYear(),
+                        base.decisionLineId(), base.parentId(), base.baseNodeId(),
+                        base.background(), base.options(), base.selectedIndex(),
+                        base.parentOptionIndex(), base.description(),
+                        base.aiNextSituation(), base.aiNextRecommendedOption(),
+                        base.followPolicy(), base.pinnedCommitId(), base.virtual(),
+                        base.effectiveCategory(), base.effectiveSituation(), base.effectiveDecision(),
+                        base.effectiveOptions(), base.effectiveDescription(),
+                        // ▼ 렌더 편의 필드
+                        List.copyOf(childrenIds), isRoot, pivotBaseId, pivotSlot
+                ));
+            }
+        }
         return new TreeDto(baseDtos, decDtos);
     }
 
-    // 라인별 베이스 노드를 정렬하여 반환
+    // 라인별 베이스 노드 정렬 반환
     public List<BaseNodeDto> getBaseLineNodes(Long baseLineId) {
         support.ensureBaseLineExists(baseLineId);
         List<BaseNode> nodes = baseNodeRepository.findByBaseLine_IdOrderByAgeYearAscIdAsc(baseLineId);
         if (nodes == null || nodes.isEmpty()) return List.of();
         List<BaseNodeDto> result = new ArrayList<>(nodes.size());
-        for (BaseNode n : nodes) result.add(NodeMappers.BASE_READ.map(n));
+        for (BaseNode n : nodes) result.add(mappers.BASE_READ.map(n));
         return result;
     }
 
@@ -81,7 +107,7 @@ public class NodeQueryService {
     public BaseNodeDto getBaseNode(Long baseNodeId) {
         BaseNode node = baseNodeRepository.findById(baseNodeId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NODE_NOT_FOUND, "BaseNode not found: " + baseNodeId));
-        return NodeMappers.BASE_READ.map(node);
+        return mappers.BASE_READ.map(node);
     }
 
     // 사용자별 결정 라인 요약 조회
@@ -113,28 +139,140 @@ public class NodeQueryService {
         return new DecisionLineListDto(summaries);
     }
 
-    // 특정 결정 라인의 상세(정렬된 노드 포함)
+    // 가장 중요한: 특정 라인의 상세를 childrenIds/root/pivotLink*와 함께 반환
     public DecisionLineDetailDto getDecisionLineDetail(Long decisionLineId) {
         DecisionLine line = decisionLineRepository.findById(decisionLineId)
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND, "DecisionLine not found: " + decisionLineId));
 
-        List<DecisionNode> nodes = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(decisionLineId);
-        List<DecNodeDto> nodeDtos = new ArrayList<>(nodes.size());
-        for (DecisionNode n : nodes) nodeDtos.add(NodeMappers.DECISION_READ.map(n));
+        Long baseLineId   = line.getBaseLine().getId();
+        Long baseBranchId = (line.getBaseBranch() != null) ? line.getBaseBranch().getId() : null;
+
+        // 가장 많이 사용하는: 라인 노드를 타임라인 정렬 조회
+        List<DecisionNode> ordered = decisionNodeRepository
+                .findByDecisionLine_IdOrderByAgeYearAscIdAsc(line.getId());
+
+        // parent→children 인덱스 구성
+        Map<Long, List<Long>> childrenIndex = buildChildrenIndex(ordered);
+        // 베이스 분기 슬롯 역인덱스 구성(altOpt1/2TargetDecisionId → (baseNodeId, slot))
+        Map<Long, PivotMark> pivotIndex = buildPivotIndex(baseLineId);
+
+        List<DecNodeDto> nodes = ordered.stream().map(n -> {
+            // 기존 읽기 매퍼로 기본 DTO 생성(effective* 일부 포함)
+            DecNodeDto base = mappers.DECISION_READ.map(n);
+
+            // 정책/핀/오버라이드에서 최종 버전 해석 (필요 시 덮어쓰기)
+            FollowPolicy policy = n.getFollowPolicy();
+            Long pinnedCommitId = base.pinnedCommitId();
+            Long overrideVersionId = (n.getOverrideVersion() != null) ? n.getOverrideVersion().getId() : null;
+
+            Long verId = versionResolver.resolveVersionId(
+                    baseLineId, baseBranchId, pinnedCommitId, policy, n.getAgeYear(), overrideVersionId
+            );
+
+            NodeCategory effCategory   = base.category();
+            String       effSituation  = base.situation();
+            String       effDecision   = base.decision();
+            List<String> effOpts       = base.options();
+            String       effDesc       = base.description();
+
+            if (verId != null) {
+                NodeAtomVersion v = versionRepo.findById(verId).orElse(null);
+                if (v != null) {
+                    if (v.getCategory()   != null) effCategory  = v.getCategory();
+                    if (v.getSituation()  != null) effSituation = v.getSituation();
+                    if (v.getDecision()   != null) effDecision  = v.getDecision();
+                    List<String> parsed = parseOptionsJson(v.getOptionsJson());
+                    if (parsed != null)           effOpts      = parsed;
+                    if (v.getDescription() != null) effDesc     = v.getDescription();
+                }
+            }
+
+            List<Long> childrenIds = childrenIndex.getOrDefault(n.getId(), List.of());
+            boolean isRoot = (n.getParent() == null);
+
+            PivotMark mark = pivotIndex.get(base.id());
+            Long pivotBaseId = (mark != null) ? mark.baseNodeId() : null;
+            Integer pivotSlot = (mark != null) ? mark.slotIndex() : null;
+
+            return new DecNodeDto(
+                    base.id(), base.userId(), base.type(), base.category(),
+                    base.situation(), base.decision(), base.ageYear(),
+                    base.decisionLineId(), base.parentId(), base.baseNodeId(),
+                    base.background(), base.options(), base.selectedIndex(),
+                    base.parentOptionIndex(), base.description(),
+                    base.aiNextSituation(), base.aiNextRecommendedOption(),
+                    base.followPolicy(), base.pinnedCommitId(), base.virtual(),
+                    // effective*
+                    effCategory, effSituation, effDecision, effOpts, effDesc,
+                    // ▼ 렌더 편의 필드
+                    List.copyOf(childrenIds), isRoot, pivotBaseId, pivotSlot
+            );
+        }).toList();
 
         return new DecisionLineDetailDto(
                 line.getId(),
                 line.getUser().getId(),
                 line.getBaseLine().getId(),
                 line.getStatus(),
-                nodeDtos
+                nodes
         );
+    }
+
+    // ===== helpers =====
+    private List<String> parseOptionsJson(String optionsJson) {
+        if (optionsJson == null || optionsJson.isBlank()) return null;
+        try {
+            List<String> list = objectMapper.readValue(optionsJson, new TypeReference<List<String>>() {});
+            if (list == null) return null;
+            List<String> cleaned = list.stream()
+                    .filter(s -> s != null && !s.isBlank())
+                    .toList();
+            return cleaned.isEmpty() ? null : cleaned;
+        } catch (Exception ignore) {
+            return null; // 파싱 실패 시 안전 폴백
+        }
     }
 
     public List<BaseLineDto> getMyBaseLines(Long userId) {
         return baseLineRepository.findByUser_IdOrderByIdDesc(userId)
                 .stream()
-                .map(NodeMappers.BASELINE_READ::map)
+                .map(mappers.BASELINE_READ::map)
                 .toList();
     }
+
+
+    // 가장 많이 사용하는 함수 호출 위에 한줄 요약: DECISION parent→children 인덱스 구성
+    private Map<Long, List<Long>> buildChildrenIndex(List<DecisionNode> ordered) {
+        Map<Long, List<Long>> map = new LinkedHashMap<>();
+        for (DecisionNode d : ordered) {
+            map.computeIfAbsent(d.getId(), k -> new ArrayList<>());
+        }
+        for (DecisionNode d : ordered) {
+            if (d.getParent() != null) {
+                map.get(d.getParent().getId()).add(d.getId());
+            }
+        }
+        return map;
+    }
+
+
+
+    // 가장 많이 사용하는 함수 호출 위에 한줄 요약: BaseNode의 altOpt1/2TargetDecisionId로 pivot 역인덱스 구성
+    private Map<Long, PivotMark> buildPivotIndex(Long baseLineId) {
+        Map<Long, PivotMark> index = new HashMap<>();
+        List<BaseNode> bases = baseNodeRepository.findByBaseLine_IdOrderByAgeYearAscIdAsc(baseLineId);
+
+        for (BaseNode b : bases) {
+            if (b.getAltOpt1TargetDecisionId() != null) {
+                index.put(b.getAltOpt1TargetDecisionId(), new PivotMark(b.getId(), 0));
+            }
+            if (b.getAltOpt2TargetDecisionId() != null) {
+                index.put(b.getAltOpt2TargetDecisionId(), new PivotMark(b.getId(), 1));
+            }
+        }
+        return index;
+    }
+
+    // 가장 중요한 함수 위에 한줄 요약: 분기 표식 컨테이너(베이스 id와 슬롯 인덱스)
+    private record PivotMark(Long baseNodeId, Integer slotIndex) {}
 }

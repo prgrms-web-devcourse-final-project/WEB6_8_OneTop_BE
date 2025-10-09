@@ -1,6 +1,7 @@
 /**
- * [ENTITY] 사용자의 현재 삶의 분기점(Base 노드)
- * - 베이스라인에 속하며 선형(parent 체인)으로 연결
+ * [ENTITY] BaseNode (추가 필드 포함)
+ * - NodeAtomVersion 참조를 통해 현재 적용 중인 콘텐츠 버전을 가리킴
+ * - 기존 필드는 변경하지 않으며, 마이그레이션 후 currentVersion을 채워 읽기 해석에 사용
  */
 package com.back.domain.node.entity;
 
@@ -50,22 +51,27 @@ public class BaseNode extends BaseEntity {
     private int ageYear;
 
     @Column(length = 255)
-    private String fixedChoice; // 고정 선택 1개
+    private String fixedChoice;
 
     @Column(length = 255)
-    private String altOpt1; // 분기 선택지 1
+    private String altOpt1;
 
     @Column(length = 255)
-    private String altOpt2; // 분기 선택지 2
+    private String altOpt2;
 
-    private Long altOpt1TargetDecisionId; // 분기1 연결 대상 결정노드 id
+    private Long altOpt1TargetDecisionId;
 
-    private Long altOpt2TargetDecisionId; // 분기2 연결 대상 결정노드 id
+    private Long altOpt2TargetDecisionId;
 
     @Column(columnDefinition = "TEXT")
-    private String description; // 추가 설명
+    private String description;
 
-    // 헤더 판단 헬퍼
+    // ▼ 추가: 현재 적용 버전(Resolver가 우선 사용)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_version_id")
+    private NodeAtomVersion currentVersion;
+
+    // 헤더 노드 판별
     public boolean isHeaderOf(BaseLine baseLine) {
         if (baseLine == null) return false;
         return this.getBaseLine() != null
@@ -73,7 +79,7 @@ public class BaseNode extends BaseEntity {
                 && this.getParent() == null;
     }
 
-    // 베이스 분기 규칙 검증
+    // 분기 슬롯 유효성 검증
     public void guardBaseOptionsValid() {
         if (fixedChoice == null || fixedChoice.isBlank()) throw new IllegalArgumentException("fixedChoice required");
         if (altOpt1 != null && altOpt1.isBlank()) throw new IllegalArgumentException("altOpt1 blank");
