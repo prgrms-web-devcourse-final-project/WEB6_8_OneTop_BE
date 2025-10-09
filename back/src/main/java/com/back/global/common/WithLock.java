@@ -9,5 +9,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface WithLock {
     String key();
-    long waitTime() default 1000; // 락 획득 대기 시간 (ms)
+    long waitTime() default 5000; // 락 획득 대기 시간 (ms)
 }
