@@ -18,10 +18,10 @@ import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.domain.user.entity.User;
-import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,12 +36,12 @@ import java.util.stream.Collectors;
 /**
  * 게시글 관련 비즈니스 로직을 처리하는 서비스.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostService {
 
-    private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final PollVoteRepository pollVoteRepository;
@@ -51,10 +51,7 @@ public class PostService {
     private final PollConverter pollConverter;
 
     @Transactional
-    public PostDetailResponse createPost(Long userId, PostRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
+    public PostDetailResponse createPost(User user, PostRequest request) {
         Scenario scenario = null;
         if (request.category() == PostCategory.SCENARIO) { {
             scenario = scenarioRepository.findById(request.scenarioId())
@@ -72,22 +69,22 @@ public class PostService {
         );
     }
 
-    public PostDetailResponse getPost(Long userId, Long postId) {
+    public PostDetailResponse getPost(User user, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        boolean isLiked = userId != null &&
-                postLikeRepository.existsByPostIdAndUserId(postId, userId);
+        boolean isLiked = user != null && user.getId() != null &&
+                postLikeRepository.existsByPostIdAndUserId(postId, user.getId());
 
         return postMappers.toDetailByCategory(
                 post,
                 isLiked,
-                p -> getPollInfo(userId, postId, p),
+                p -> getPollInfo(user, postId, p),
                 this::getScenarioInfoForCreate
         );
     }
 
-    private PollOptionResponse getPollInfo(Long userId, Long postId, Post post) {
+    private PollOptionResponse getPollInfo(User user, Long postId, Post post) {
         // 전체 투표 결과 카운트
         Map<Integer, Long> countMap = pollVoteRepository.findByPostId(postId).stream()
                 .flatMap(pv -> pollConverter.fromChoiceJson(pv.getChoiceJson()).stream())
@@ -104,8 +101,8 @@ public class PostService {
                         .toList();
 
         // 현재 유저 선택값
-        List<Integer> selected = userId != null
-                ? pollVoteRepository.findByPostIdAndUserId(postId, userId)
+        List<Integer> selected = user != null && user.getId() != null
+                ? pollVoteRepository.findByPostIdAndUserId(postId, user.getId())
                 .map(vote -> pollConverter.fromChoiceJson(vote.getChoiceJson()))
                 .orElse(Collections.emptyList())
                 : Collections.emptyList();
@@ -113,11 +110,11 @@ public class PostService {
         return new PollOptionResponse(selected, options);
     }
 
-    public Page<PostSummaryResponse> getPosts(Long userId, PostSearchCondition condition, Pageable pageable) {
+    public Page<PostSummaryResponse> getPosts(User user, PostSearchCondition condition, Pageable pageable) {
         Page<Post> posts = postRepository.searchPosts(condition, pageable);
 
-        Set<Long> likedPostIds = userId != null
-                ? getUserLikedPostIds(userId, posts)
+        Set<Long> likedPostIds = user != null && user.getId() != null
+                ? getUserLikedPostIds(user.getId(), posts)
                 : Collections.emptySet();
 
         return posts.map(post -> postMappers.toSummaryResponse(
@@ -127,31 +124,33 @@ public class PostService {
     }
 
     @Transactional
-    public Long updatePost(Long userId, Long postId, PostRequest request) {
-        if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+    public Long updatePost(User user, Long postId, PostRequest request) {
+        if (user == null || user.getId() == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+        }
 
-        Post post = validatePostOwnership(userId, postId);
+        Post post = validatePostOwnership(user, postId);
         post.updatePost(request.title(), request.content(), request.category());
 
         return postId;
     }
 
     @Transactional
-    public void deletePost(Long userId, Long postId) {
-        if (userId == null) throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+    public void deletePost(User user, Long postId) {
+        if (user == null || user.getId() == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
+        }
 
-        Post post = validatePostOwnership(userId, postId);
+        Post post = validatePostOwnership(user, postId);
         postRepository.delete(post);
     }
 
-    private Post validatePostOwnership(Long userId, Long postId) {
+    private Post validatePostOwnership(User requestUser, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        User requestUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
-        post.checkUser(requestUser);
+        log.info("Validating post ownership for user ID: {} and post ID: {}", requestUser.getId(), post.getUser().getId());
+        post.checkUser(requestUser.getId());
 
         return post;
     }

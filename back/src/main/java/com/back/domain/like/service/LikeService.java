@@ -32,19 +32,21 @@ public class LikeService {
     private final CommentLikeRepository commentLikeRepository;
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
 
     @Transactional
     @WithLock(key = "'post:' + #postId")
-    public void addLike(Long userId, Long postId) {
+    public void addLike(User user, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        if (postLikeRepository.existsByPostIdAndUserId(postId, userId)) {
+        if (postLikeRepository.existsByPostIdAndUserId(postId, user.getId())) {
             throw new ApiException(ErrorCode.POST_ALREADY_LIKED);
         }
 
-        PostLike postLike = createPostLike(post, userId);
+        PostLike postLike = PostLike.builder()
+                .post(post)
+                .user(user)
+                .build();
 
         postLikeRepository.save(postLike);
         post.incrementLikeCount();
@@ -52,11 +54,11 @@ public class LikeService {
 
     @Transactional
     @WithLock(key = "'post:' + #postId")
-    public void removeLike(Long postId, Long userId) {
+    public void removeLike(User user, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
-        boolean deleted = postLikeRepository.deleteByPostIdAndUserId(postId, userId) > 0;
+        boolean deleted = postLikeRepository.deleteByPostIdAndUserId(postId, user.getId()) > 0;
 
         if (!deleted) {
             throw new ApiException(ErrorCode.LIKE_NOT_FOUND);
@@ -67,15 +69,18 @@ public class LikeService {
 
     @Transactional
     @WithLock(key = "'comment:' + #commentId")
-    public void addCommentLike(Long userId, Long postId, Long commentId) {
+    public void addCommentLike(User user, Long postId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (commentLikeRepository.existsByCommentIdAndUserId(commentId, userId)) {
+        if (commentLikeRepository.existsByCommentIdAndUserId(commentId, user.getId())) {
             throw new ApiException(ErrorCode.COMMENT_ALREADY_LIKED);
         }
 
-        CommentLike commentLike = createCommentLike(comment, userId);
+        CommentLike commentLike = CommentLike.builder()
+                .comment(comment)
+                .user(user)
+                .build();
 
         commentLikeRepository.save(commentLike);
         comment.incrementLikeCount();
@@ -83,32 +88,16 @@ public class LikeService {
 
     @Transactional
     @WithLock(key = "'comment:' + #commentId")
-    public void removeCommentLike(Long userId, Long postId, Long commentId) {
+    public void removeCommentLike(User user, Long postId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
 
-        boolean deleted = commentLikeRepository.deleteByCommentIdAndUserId(commentId, userId) > 0;
+        boolean deleted = commentLikeRepository.deleteByCommentIdAndUserId(commentId, user.getId()) > 0;
 
         if (!deleted) {
             throw new ApiException(ErrorCode.LIKE_NOT_FOUND);
         }
 
         comment.decrementLikeCount();
-    }
-
-    private PostLike createPostLike(Post post, Long userId) {
-        User userReference = userRepository.getReferenceById(userId);
-        return PostLike.builder()
-                .post(post)
-                .user(userReference)
-                .build();
-    }
-
-    private CommentLike createCommentLike(Comment comment, Long userId) {
-        User userReference = userRepository.getReferenceById(userId);
-        return CommentLike.builder()
-                .comment(comment)
-                .user(userReference)
-                .build();
     }
 }

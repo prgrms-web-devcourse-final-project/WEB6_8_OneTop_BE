@@ -10,6 +10,7 @@ import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.service.spi.ServiceException;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Entity
 @Getter
 @Table(name = "post",
@@ -80,8 +82,8 @@ public class Post extends BaseEntity {
         this.category = category;
     }
 
-    public void checkUser(User targetUser) {
-        if (!user.equals(targetUser))
+    public void checkUser(Long targetUserId) {
+        if (!user.getId().equals(targetUserId))
             throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
     }
 
