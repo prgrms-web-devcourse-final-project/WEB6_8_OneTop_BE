@@ -11,6 +11,7 @@ public record PollOptionResponse(
 ) {
     public record VoteOption(
             int index,
-            String text
+            String text,
+            Integer voteCount
     ) {}
 }

@@ -22,7 +22,6 @@ import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -88,9 +88,22 @@ public class PostService {
     }
 
     private PollOptionResponse getPollInfo(Long userId, Long postId, Post post) {
-        List<PollOptionResponse.VoteOption> options =
-                pollConverter.fromPollOptionJson(post.getVoteContent()).options();
+        // 전체 투표 결과 카운트
+        Map<Integer, Long> countMap = pollVoteRepository.findByPostId(postId).stream()
+                .flatMap(pv -> pollConverter.fromChoiceJson(pv.getChoiceJson()).stream())
+                .collect(Collectors.groupingBy(i -> i, Collectors.counting()));
 
+        // 옵션별 매핑 + 각 옵션에 voteCount 채우기
+        List<PollOptionResponse.VoteOption> options =
+                pollConverter.fromPollOptionJson(post.getVoteContent()).options().stream()
+                        .map(opt -> new PollOptionResponse.VoteOption(
+                                opt.index(),
+                                opt.text(),
+                                countMap.getOrDefault(opt.index(), 0L).intValue()
+                        ))
+                        .toList();
+
+        // 현재 유저 선택값
         List<Integer> selected = userId != null
                 ? pollVoteRepository.findByPostIdAndUserId(postId, userId)
                 .map(vote -> pollConverter.fromChoiceJson(vote.getChoiceJson()))
@@ -155,7 +168,13 @@ public class PostService {
 
     private PollOptionResponse getPollInfoForCreate(Post post) {
         List<PollOptionResponse.VoteOption> options =
-                pollConverter.fromPollOptionJson(post.getVoteContent()).options();
+                pollConverter.fromPollOptionJson(post.getVoteContent()).options().stream()
+                        .map(opt -> new PollOptionResponse.VoteOption(
+                                opt.index(),
+                                opt.text(),
+                                0
+                        ))
+                        .toList();
 
         return new PollOptionResponse(Collections.emptyList(), options);
     }
