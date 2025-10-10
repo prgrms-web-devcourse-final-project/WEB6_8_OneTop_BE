@@ -38,3 +38,11 @@ out/
 
 ### Environment Variables ###
 .env
+
+# AI 생성 이미지 저장 경로
+uploads/
+./uploads/
+
+# 테스트 이미지 경로 (LocalStorageServiceTest)
+test-uploads/
+./test-uploads/
