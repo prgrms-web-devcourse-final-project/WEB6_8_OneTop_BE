@@ -87,15 +87,17 @@ ai:
       timeout-seconds: 30
       max-retries: 3
   image:
-    enabled: true
+    enabled: false                                    # 개발 환경에서는 기본 비활성화
     provider: stable-diffusion
     api-key: ${STABILITY_API_KEY}
     base-url: https://api.stability.ai
     timeout-seconds: 60
     max-retries: 3
-    storage-type: s3
-    s3-bucket-name: ${AWS_S3_BUCKET_NAME:}
-    s3-region: ${AWS_S3_REGION:ap-northeast-2}
+    # Storage 설정 (local 또는 s3)
+    storage-type: local                               # 개발 환경: local 사용
+    # 로컬 스토리지 설정
+    local-storage-path: ./uploads/images
+    local-base-url: http://localhost:8080/images
   situation:
     topK: 3                    # 성능 최적화 (5 → 3)
     maxOutputTokens: 128       # 성능 최적화 완료

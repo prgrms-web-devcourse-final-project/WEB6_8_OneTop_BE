@@ -44,6 +44,7 @@ public class AiServiceImpl implements AiService {
     private final BaseScenarioAiProperties baseScenarioAiProperties;
     private final DecisionScenarioAiProperties decisionScenarioAiProperties;
     private final ImageAiClient imageAiClient;
+    private final com.back.global.storage.StorageService storageService;
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
@@ -197,11 +198,24 @@ public class AiServiceImpl implements AiService {
             return CompletableFuture.completedFuture("placeholder-image-url");
         }
 
-        log.info("Generating image with prompt: {}", prompt);
+        log.info("Generating image with prompt: {} (Storage: {})", prompt, storageService.getStorageType());
 
+        // Stable Diffusion API 호출 → Base64 이미지 생성
         return imageAiClient.generateImage(prompt)
+                .thenCompose(base64Data -> {
+                    // Base64 데이터를 스토리지에 업로드 → URL 반환
+                    if (base64Data == null || base64Data.isEmpty() || "placeholder-image-url".equals(base64Data)) {
+                        log.warn("Empty or placeholder Base64 data received from image AI");
+                        return CompletableFuture.completedFuture("placeholder-image-url");
+                    }
+
+                    log.info("Image generated successfully (Base64 length: {}), uploading to {} storage...",
+                            base64Data.length(), storageService.getStorageType());
+
+                    return storageService.uploadBase64Image(base64Data);
+                })
                 .exceptionally(e -> {
-                    log.error("Failed to generate image: {}", e.getMessage(), e);
+                    log.error("Failed to generate or upload image: {}", e.getMessage(), e);
                     return "placeholder-image-url";
                 });
     }

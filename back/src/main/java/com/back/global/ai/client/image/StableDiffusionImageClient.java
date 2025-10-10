@@ -70,10 +70,6 @@ public class StableDiffusionImageClient implements ImageAiClient {
     /**
      * Stable Diffusion API Multipart 요청 바디를 구성합니다.
      * SD 3.5 Large Turbo는 multipart/form-data 형식을 사용합니다.
-     *
-     * @param prompt 이미지 생성 프롬프트 (영어)
-     * @param options 추가 옵션
-     * @return MultipartBodyBuilder
      */
     private MultipartBodyBuilder buildMultipartRequestBody(String prompt, Map<String, Object> options) {
         MultipartBodyBuilder builder = new MultipartBodyBuilder();

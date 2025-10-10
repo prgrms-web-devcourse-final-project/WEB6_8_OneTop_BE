@@ -74,3 +74,11 @@ custom:
     baseDomain: "${custom.prod.baseDomain}"
     frontUrl: "${custom.prod.frontUrl}"
     backUrl: "${custom.prod.backUrl}"
+
+# AI Services Configuration (Production)
+ai:
+  image:
+    enabled: true                                     # 프로덕션 환경에서는 활성화
+    storage-type: s3                                  # S3 스토리지 사용
+    s3-bucket-name: ${AWS_S3_BUCKET_NAME}
+    s3-region: ${AWS_S3_REGION:ap-northeast-2}
