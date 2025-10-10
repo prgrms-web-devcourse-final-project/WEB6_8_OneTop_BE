@@ -210,4 +210,23 @@ public class DecisionScenarioPrompt {
                 .findFirst()
                 .orElse(50);
     }
+
+    /**
+     * 예상 토큰 수를 계산한다. (로깅 목적)
+     * 결정 시나리오는 베이스 시나리오 정보와 선택 경로를 모두 포함하여 가장 큰 프롬프트이다.
+     *
+     * @param decisionLine 선택 경로
+     * @param baseScenario 베이스 시나리오
+     * @return 예상 토큰 수
+     */
+    public static int estimateTokens(DecisionLine decisionLine, Scenario baseScenario) {
+        int baseTokens = 1200; // 기본 프롬프트 토큰 수 (사용자 정보 + 베이스 시나리오 정보 포함)
+
+        if (decisionLine != null && decisionLine.getDecisionNodes() != null) {
+            // DecisionNode당 약 80토큰 (상황 + 결정 상세 포함)
+            baseTokens += decisionLine.getDecisionNodes().size() * 80;
+        }
+
+        return baseTokens;
+    }
 }

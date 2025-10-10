@@ -56,7 +56,7 @@ public class StableDiffusionImageClient implements ImageAiClient {
                 .doOnError(error -> log.error("Stable Diffusion API error: {}", error.getMessage()))
                 .retryWhen(reactor.util.retry.Retry.fixedDelay(
                         imageAiConfig.getMaxRetries(),
-                        Duration.ofSeconds(2)
+                        Duration.ofSeconds(imageAiConfig.getRetryDelaySeconds())
                 ))
                 .flatMap(this::extractImageData)
                 .toFuture();

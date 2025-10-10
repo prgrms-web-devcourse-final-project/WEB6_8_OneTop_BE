@@ -37,6 +37,11 @@ public class LocalStorageService implements StorageService {
     public CompletableFuture<String> uploadBase64Image(String base64Data) {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                // Input validation
+                if (base64Data == null || base64Data.isEmpty()) {
+                    throw new ApiException(ErrorCode.STORAGE_INVALID_FILE, "Base64 data cannot be null or empty");
+                }
+
                 // Base64 디코딩
                 byte[] imageBytes = Base64.getDecoder().decode(base64Data);
                 log.debug("Decoded Base64 image, size: {} bytes", imageBytes.length);

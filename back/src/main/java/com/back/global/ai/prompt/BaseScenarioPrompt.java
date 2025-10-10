@@ -155,4 +155,22 @@ public class BaseScenarioPrompt {
                 .replace("{baseNodes}", baseNodesInfo.toString())
                 .replace("{timelineYears}", timelineYears.toString());
     }
+
+    /**
+     * 예상 토큰 수를 계산한다. (로깅 목적)
+     * 베이스 시나리오는 중간 크기의 응답을 요구한다.
+     *
+     * @param baseLine 토큰 수 계산할 베이스라인
+     * @return 예상 토큰 수
+     */
+    public static int estimateTokens(BaseLine baseLine) {
+        int baseTokens = 800; // 기본 프롬프트 토큰 수 (사용자 정보 포함)
+
+        if (baseLine != null && baseLine.getBaseNodes() != null) {
+            // BaseNode당 약 50토큰 (카테고리, 나이, 상황, 결정 포함)
+            baseTokens += baseLine.getBaseNodes().size() * 50;
+        }
+
+        return baseTokens;
+    }
 }

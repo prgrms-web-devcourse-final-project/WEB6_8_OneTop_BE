@@ -10,6 +10,7 @@ import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.SceneCompare;
+import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
@@ -19,10 +20,10 @@ import com.back.global.ai.service.AiService;
 import com.back.global.common.PageResponse;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Nullable;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,93 +69,144 @@ public class ScenarioService {
     // 노드 서비스 추가(시나리오 생성과 동시에 마지막 노드 처리용)
     private final DecisionFlowService decisionFlowService;
 
-    // 시나리오 생성
-    @Transactional
+    /**
+     * 시나리오 생성 요청 처리.
+     * 트랜잭션을 최소화하기 위해 검증 → 생성 → 비동기 트리거 순서로 분리.
+     */
     public ScenarioStatusResponse createScenario(Long userId,
                                                  ScenarioCreateRequest request,
                                                  @Nullable DecisionNodeNextRequest lastDecision) {
+        // 1. 검증 및 기존 시나리오 확인 (읽기 전용)
+        ScenarioValidationResult validationResult = validateScenarioCreation(userId, request, lastDecision);
+
+        if (validationResult.existingScenario != null) {
+            // 기존 시나리오가 있으면 상태에 따라 처리
+            return handleExistingScenario(validationResult.existingScenario);
+        }
+
+        // 2. 시나리오 생성 (짧은 트랜잭션)
+        Long scenarioId = createScenarioInTransaction(
+            userId,
+            request,
+            lastDecision,
+            validationResult.decisionLine
+        );
+
+        // 3. 비동기 AI 처리 트리거 (트랜잭션 외부)
+        processScenarioGenerationAsync(scenarioId);
+
+        return new ScenarioStatusResponse(
+            scenarioId,
+            ScenarioStatus.PENDING,
+            "시나리오 생성이 시작되었습니다."
+        );
+    }
+
+    // 시나리오 생성 요청 검증
+    private ScenarioValidationResult validateScenarioCreation(
+            Long userId,
+            ScenarioCreateRequest request,
+            @Nullable DecisionNodeNextRequest lastDecision) {
+
         // DecisionLine 존재 여부 확인
         DecisionLine decisionLine = decisionLineRepository.findById(request.decisionLineId())
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
 
-        // 권한 검증 (DecisionLine 소유자와 요청자 일치 여부)
+        // 권한 검증
         if (!decisionLine.getUser().getId().equals(userId)) {
             throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
         }
 
-        // 원자적 조회 + 상태 확인
+        ensureOwnerEditable(userId, decisionLine);
+
+        // lastDecision 검증
+        if (lastDecision != null) {
+            ensureSameLine(decisionLine, lastDecision);
+        }
+
+        // 기존 시나리오 확인 (Unique Constraint로 동시성 제어)
         Optional<Scenario> existingScenario = scenarioRepository
                 .findByDecisionLineId(request.decisionLineId());
 
-        if (existingScenario.isPresent()) {
-            Scenario existing = existingScenario.get();
+        return new ScenarioValidationResult(decisionLine, existingScenario.orElse(null));
+    }
 
-            // PENDING/PROCESSING 상태면 중복 생성 방지
-            if (existing.getStatus() == ScenarioStatus.PENDING ||
-                    existing.getStatus() == ScenarioStatus.PROCESSING) {
-                throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
-                        "해당 선택 경로의 시나리오가 이미 생성 중입니다.");
-            }
+    /**
+     * 기존 시나리오 처리 로직
+     */
+    private ScenarioStatusResponse handleExistingScenario(Scenario existing) {
+        ScenarioStatus status = existing.getStatus();
 
-            // FAILED 상태면 재시도 로직
-            if (existing.getStatus() == ScenarioStatus.FAILED) {
-                return handleFailedScenarioRetry(existing);
-            }
-
-            // COMPLETED 상태면 기존 시나리오 반환
-            if (existing.getStatus() == ScenarioStatus.COMPLETED) {
-                return new ScenarioStatusResponse(
-                        existing.getId(),
-                        existing.getStatus(),
-                        "이미 완료된 시나리오가 존재합니다."
-                );
-            }
+        // PENDING/PROCESSING 상태면 중복 생성 방지
+        if (status == ScenarioStatus.PENDING || status == ScenarioStatus.PROCESSING) {
+            throw new ApiException(ErrorCode.SCENARIO_ALREADY_IN_PROGRESS,
+                    "해당 선택 경로의 시나리오가 이미 생성 중입니다.");
         }
 
-        ensureOwnerEditable(userId, decisionLine);
-
-        if (lastDecision != null) {
-            ensureSameLine(decisionLine, lastDecision);
-            decisionFlowService.createDecisionNodeNext(lastDecision);
+        // FAILED 상태면 재시도 로직
+        if (status == ScenarioStatus.FAILED) {
+            return handleFailedScenarioRetry(existing);
         }
 
-        // 라인 완료 처리(외부 완료 API 제거 시 내부에서만 호출)
-        try { decisionLine.complete(); } catch (RuntimeException e) {
-            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, e.getMessage());
-        }
+        // COMPLETED 상태면 기존 시나리오 반환
+        return new ScenarioStatusResponse(
+                existing.getId(),
+                existing.getStatus(),
+                "이미 완료된 시나리오가 존재합니다."
+        );
+    }
 
-        // 새 시나리오 생성 (DataIntegrityViolationException 처리)
+    /**
+     * 시나리오 생성 트랜잭션 (최소한의 DB 작업만 수행)
+     */
+    @Transactional
+    protected Long createScenarioInTransaction(
+            Long userId,
+            ScenarioCreateRequest request,
+            @Nullable DecisionNodeNextRequest lastDecision,
+            DecisionLine decisionLine) {
+
         try {
-            // DecisionLine에서 BaseLine 가져오기
-            BaseLine baseLine = decisionLine.getBaseLine();
+            // lastDecision 처리 (필요 시)
+            if (lastDecision != null) {
+                decisionFlowService.createDecisionNodeNext(lastDecision);
+            }
 
+            // DecisionLine 완료 처리
+            try {
+                decisionLine.complete();
+            } catch (RuntimeException e) {
+                throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, e.getMessage());
+            }
+
+            // 시나리오 생성
+            BaseLine baseLine = decisionLine.getBaseLine();
             Scenario scenario = Scenario.builder()
                     .user(decisionLine.getUser())
                     .decisionLine(decisionLine)
-                    .baseLine(baseLine)  // DecisionLine의 BaseLine 연결
+                    .baseLine(baseLine)
                     .status(ScenarioStatus.PENDING)
                     .build();
 
             Scenario savedScenario = scenarioRepository.save(scenario);
-            processScenarioGenerationAsync(savedScenario.getId());
 
-            return new ScenarioStatusResponse(
-                    savedScenario.getId(),
-                    savedScenario.getStatus(),
-                    "시나리오 생성이 시작되었습니다."
-            );
+            return savedScenario.getId();
 
         } catch (DataIntegrityViolationException e) {
-            // 동시성으로 인한 중복 생성 시 기존 시나리오 조회 후 반환
+            // 동시성으로 인한 중복 생성 시 기존 시나리오 ID 반환
             return scenarioRepository.findByDecisionLineId(request.decisionLineId())
-                    .map(existing -> new ScenarioStatusResponse(
-                            existing.getId(),
-                            existing.getStatus(),
-                            "기존 시나리오를 반환합니다."
-                    ))
+                    .map(Scenario::getId)
                     .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_CREATION_FAILED));
         }
     }
+
+    /**
+     * 검증 결과를 담는 내부 클래스
+     */
+    private record ScenarioValidationResult(
+        DecisionLine decisionLine,
+        Scenario existingScenario
+    ) {}
 
     // 가장 많이 사용하는 함수 호출 위 한줄 요약: 시나리오 요청에서 lineId 필수 추출
     private Long requireLineId(ScenarioCreateRequest scenario) {
@@ -212,20 +264,39 @@ public class ScenarioService {
     }
 
 
-    // FAILED 시나리오 재시도 로직 분리
+    /**
+     * FAILED 시나리오 재시도 로직.
+     * 트랜잭션과 비동기 처리를 분리하여 커넥션 풀 효율성 향상.
+     */
     private ScenarioStatusResponse handleFailedScenarioRetry(Scenario failedScenario) {
-        failedScenario.setStatus(ScenarioStatus.PENDING);
-        failedScenario.setErrorMessage(null);
-        failedScenario.setUpdatedDate(LocalDateTime.now());
+        // 1. 상태 업데이트 (트랜잭션)
+        Long scenarioId = retryScenarioInTransaction(failedScenario.getId());
 
-        Scenario savedScenario = scenarioRepository.save(failedScenario);
-        processScenarioGenerationAsync(savedScenario.getId());
+        // 2. 비동기 AI 처리 트리거 (트랜잭션 외부)
+        processScenarioGenerationAsync(scenarioId);
 
         return new ScenarioStatusResponse(
-                savedScenario.getId(),
-                savedScenario.getStatus(),
+                scenarioId,
+                ScenarioStatus.PENDING,
                 "시나리오 재생성이 시작되었습니다."
         );
+    }
+
+    /**
+     * FAILED 시나리오를 PENDING으로 되돌리는 트랜잭션
+     */
+    @Transactional
+    protected Long retryScenarioInTransaction(Long scenarioId) {
+        Scenario scenario = scenarioRepository.findById(scenarioId)
+                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
+
+        scenario.setStatus(ScenarioStatus.PENDING);
+        scenario.setErrorMessage(null);
+        scenario.setUpdatedDate(LocalDateTime.now());
+
+        scenarioRepository.save(scenario);
+
+        return scenario.getId();
     }
 
     // 비동기 방식으로 AI 시나리오 생성
@@ -383,8 +454,9 @@ public class ScenarioService {
             // JSON 문자열을 Map으로 파싱
             return objectMapper.readValue(timelineTitles,
                     new TypeReference<Map<String, String>>() {});
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             // JSON 파싱 실패 시 예외 처리
+            log.error("Failed to parse timeline JSON: {}", e.getMessage());
             throw new ApiException(ErrorCode.SCENARIO_TIMELINE_NOT_FOUND);
         }
     }
@@ -392,17 +464,43 @@ public class ScenarioService {
     // 시나리오 비교 분석
     @Transactional(readOnly = true)
     public ScenarioCompareResponse compareScenarios(Long baseId, Long compareId, Long userId) {
-        // 권한 검증 및 시나리오 조회
-        Scenario baseScenario = scenarioRepository.findByIdAndUserId(baseId, userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
-        Scenario compareScenario = scenarioRepository.findByIdAndUserId(compareId, userId)
+        // 1. 두 시나리오를 배치 조회 (권한 검증 포함)
+        List<Scenario> scenarios = scenarioRepository.findAllById(List.of(baseId, compareId));
+
+        // 존재 여부 및 권한 검증
+        if (scenarios.size() != 2) {
+            throw new ApiException(ErrorCode.SCENARIO_NOT_FOUND);
+        }
+
+        Scenario baseScenario = scenarios.stream()
+                .filter(s -> s.getId().equals(baseId))
+                .findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        // 지표 조회
-        var baseTypes = sceneTypeRepository.findByScenarioIdOrderByTypeAsc(baseId);
-        var compareTypes = sceneTypeRepository.findByScenarioIdOrderByTypeAsc(compareId);
+        Scenario compareScenario = scenarios.stream()
+                .filter(s -> s.getId().equals(compareId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
-        // 비교 분석 결과 조회
+        // 권한 검증
+        if (!baseScenario.getUser().getId().equals(userId) ||
+            !compareScenario.getUser().getId().equals(userId)) {
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        // 2. 두 시나리오의 지표를 배치 조회
+        List<SceneType> allSceneTypes = sceneTypeRepository.findByScenarioIdInOrderByScenarioIdAscTypeAsc(
+                List.of(baseId, compareId));
+
+        var baseTypes = allSceneTypes.stream()
+                .filter(st -> st.getScenario().getId().equals(baseId))
+                .toList();
+
+        var compareTypes = allSceneTypes.stream()
+                .filter(st -> st.getScenario().getId().equals(compareId))
+                .toList();
+
+        // 3. 비교 분석 결과 조회
         List<SceneCompare> compareResults = sceneCompareRepository.findByScenarioIdOrderByResultType(compareId);
         if (compareResults.isEmpty()) {
             throw new ApiException(ErrorCode.SCENE_COMPARE_NOT_FOUND);
@@ -461,26 +559,4 @@ public class ScenarioService {
         };
     }
 
-    // AI 생성 결과를 담는 래퍼 클래스 (트랜잭션 분리용)
-    @Getter
-    static class AiScenarioGenerationResult {
-        private final boolean isBaseScenario;
-        private final BaseScenarioResult baseResult;
-        private final DecisionScenarioResult decisionResult;
-
-        // 베이스 시나리오용 생성자
-        public AiScenarioGenerationResult(BaseScenarioResult baseResult) {
-            this.isBaseScenario = true;
-            this.baseResult = baseResult;
-            this.decisionResult = null;
-        }
-
-        // 결정 시나리오용 생성자
-        public AiScenarioGenerationResult(DecisionScenarioResult decisionResult) {
-            this.isBaseScenario = false;
-            this.baseResult = null;
-            this.decisionResult = decisionResult;
-        }
-
-    }
 }

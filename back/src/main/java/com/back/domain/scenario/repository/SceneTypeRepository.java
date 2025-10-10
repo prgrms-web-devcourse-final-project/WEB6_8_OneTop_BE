@@ -20,5 +20,9 @@ public interface SceneTypeRepository extends JpaRepository<SceneType, Long> {
     @Query("SELECT st FROM SceneType st WHERE st.scenario.id IN :scenarioIds")
     List<SceneType> findByScenarioIdIn(@Param("scenarioIds") List<Long> scenarioIds);
 
+    // 여러 시나리오의 지표들을 배치 조회 (시나리오 ID, 타입 순서대로 정렬)
+    @Query("SELECT st FROM SceneType st WHERE st.scenario.id IN :scenarioIds ORDER BY st.scenario.id ASC, st.type ASC")
+    List<SceneType> findByScenarioIdInOrderByScenarioIdAscTypeAsc(@Param("scenarioIds") List<Long> scenarioIds);
+
     List<SceneType> findByScenarioId(Long scenarioId);
 }

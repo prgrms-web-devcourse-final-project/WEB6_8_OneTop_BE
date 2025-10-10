@@ -2,6 +2,7 @@ package com.back.domain.scenario.service;
 
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.repository.BaseLineRepository;
+import com.back.domain.scenario.dto.AiScenarioGenerationResult;
 import com.back.domain.scenario.entity.*;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
@@ -11,6 +12,7 @@ import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.service.AiService;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +63,7 @@ public class ScenarioTransactionService {
 
     // AI 결과 저장 전용 트랜잭션 메서드
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveAiResult(Long scenarioId, ScenarioService.AiScenarioGenerationResult result) {
+    public void saveAiResult(Long scenarioId, AiScenarioGenerationResult result) {
         Scenario scenario = scenarioRepository.findById(scenarioId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
@@ -125,7 +127,7 @@ public class ScenarioTransactionService {
         try {
             String timelineTitlesJson = objectMapper.writeValueAsString(timelineTitles);
             scenario.setTimelineTitles(timelineTitlesJson);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             log.error("Failed to serialize timeline titles for scenario {}: {}",
                     scenario.getId(), e.getMessage());
             scenario.setTimelineTitles("{}");
@@ -135,7 +137,14 @@ public class ScenarioTransactionService {
     private void handleImageGeneration(Scenario scenario, String imagePrompt) {
         try {
             if (imagePrompt != null && !imagePrompt.trim().isEmpty()) {
-                String imageUrl = aiService.generateImage(imagePrompt).join();
+                String imageUrl = aiService.generateImage(imagePrompt)
+                        .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .exceptionally(ex -> {
+                            log.warn("Image generation timeout or error for scenario {}: {}",
+                                    scenario.getId(), ex.getMessage());
+                            return null;
+                        })
+                        .join();
 
                 if ("placeholder-image-url".equals(imageUrl) || imageUrl == null || imageUrl.trim().isEmpty()) {
                     scenario.setImg(null);

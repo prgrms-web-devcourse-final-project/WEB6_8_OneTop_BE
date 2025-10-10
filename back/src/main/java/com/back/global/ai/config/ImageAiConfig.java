@@ -29,6 +29,8 @@ public class ImageAiConfig {
 
     private int maxRetries = 3;
 
+    private int retryDelaySeconds = 2; // 재시도 간격 (초)
+
     // 이미지 저장 방식 (s3, local 등)
     private String storageType = "local";
 

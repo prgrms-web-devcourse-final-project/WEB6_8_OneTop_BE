@@ -11,6 +11,7 @@ import com.back.global.ai.client.text.TextAiClient;
 import com.back.global.ai.config.SituationAiProperties;
 import com.back.global.ai.dto.AiRequest;
 import com.back.global.ai.prompt.SituationPrompt;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class AIVectorServiceImpl implements AIVectorService {
     private final TextAiClient textAiClient;
     private final AIVectorServiceSupportDomain support;
     private final SituationAiProperties props;
+    private final ObjectMapper objectMapper;
 
     // 프로퍼티 바인딩 필드
     private int topK = 5;
@@ -56,8 +58,8 @@ public class AIVectorServiceImpl implements AIVectorService {
         String response = textAiClient.generateText(req).join();
 
         // 4) JSON 2필드만 추출
-        String situation = SituationPrompt.extractSituation(response);
-        String option = SituationPrompt.extractRecommendedOption(response);
+        String situation = SituationPrompt.extractSituation(response, objectMapper);
+        String option = SituationPrompt.extractRecommendedOption(response, objectMapper);
 
         return new AiNextHint(emptyToNull(situation), emptyToNull(option));
     }
