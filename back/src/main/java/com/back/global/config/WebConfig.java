@@ -42,8 +42,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         if ("local".equals(storageType)) {
             registry.addResourceHandler("/images/**")
-                    .addResourceLocations("file:" + localStoragePath + "/")
-                    .setCachePeriod(3600); // 1시간 캐싱
+                    .addResourceLocations("file:" + localStoragePath + "/");
         }
     }
 }
