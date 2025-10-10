@@ -31,33 +31,27 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CommentService {
 
-    private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final CommentLikeRepository commentLikeRepository;
 
-    public CommentResponse createComment(Long userId, Long postId, CommentRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
+    public CommentResponse createComment(User user, Long postId, CommentRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+
         CommentMappers.CommentCtxMapper ctxMapper = new CommentMappers.CommentCtxMapper(user, post);
         Comment savedComment = commentRepository.save(ctxMapper.toEntity(request));
         return ctxMapper.toResponse(savedComment);
     }
 
-    public Page<CommentResponse> getComments(Long userId, Long postId, Pageable pageable) {
-        User user = userId != null
-                ? userRepository.findById(userId).orElse(null)
-                : null;
-
+    public Page<CommentResponse> getComments(User user, Long postId, Pageable pageable) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
+
         Page<Comment> commentsPage = commentRepository.findCommentsByPostId(postId, pageable);
 
-        Set<Long> userLikedComments = userId != null
-                ? getUserLikedComments(userId, commentsPage)
+        Set<Long> userLikedComments = user != null
+                ? getUserLikedComments(user, commentsPage)
                 : Collections.emptySet();
 
         return commentsPage.map(comment -> CommentMappers.toCommentResponse(
@@ -68,29 +62,30 @@ public class CommentService {
     }
 
     @Transactional
-    public Long updateComment(Long userId, Long commentId, CommentRequest request) {
+    public Long updateComment(User user, Long commentId, CommentRequest request) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
-        comment.checkUser(userId);
+
+        comment.checkUser(user.getId());
         comment.updateContent(request.content());
         return comment.getId();
     }
 
     @Transactional
-    public void deleteComment(Long userId, Long commentId) {
+    public void deleteComment(User user, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMMENT_NOT_FOUND));
-        comment.checkUser(userId);
+
+        comment.checkUser(user.getId());
         commentRepository.delete(comment);
     }
 
-    // 특정 사용자가 한 게시글 내 댓글에서 좋아요를 누른 댓글 ID 집합 조회
-    private Set<Long> getUserLikedComments(Long userId, Page<Comment> comments) {
+    private Set<Long> getUserLikedComments(User user, Page<Comment> comments) {
         Set<Long> commentIds = comments.getContent()
                 .stream()
                 .map(Comment::getId)
                 .collect(Collectors.toSet());
 
-        return commentLikeRepository.findLikedCommentsIdsByUserAndCommentIds(userId, commentIds);
+        return commentLikeRepository.findLikedCommentsIdsByUserAndCommentIds(user.getId(), commentIds);
     }
 }

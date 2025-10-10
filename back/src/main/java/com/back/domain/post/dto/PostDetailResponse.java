@@ -2,6 +2,7 @@ package com.back.domain.post.dto;
 
 import com.back.domain.poll.dto.PollOptionResponse;
 import com.back.domain.post.enums.PostCategory;
+import com.back.domain.scenario.dto.ScenarioDetailResponse;
 import com.back.global.common.DateFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -35,8 +36,13 @@ public record PostDetailResponse(
         @DateFormat
         LocalDateTime createdDate,
 
-        @Schema(description = "투표 정보, 투표가 없는 게시글인 경우 null")
+        @Schema(description = "투표 정보, 투표 게시글이 아닌 경우 반환 되지 않는다")
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        PollOptionResponse polls
-) {}
+        PollOptionResponse polls,
+
+        @Schema(description = "게시글에 첨부된 시나리오 정보, 시나리오 게시글이 아닌 경우 반환되지 않는다.")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        ScenarioDetailResponse scenario
+) {
+}
 
