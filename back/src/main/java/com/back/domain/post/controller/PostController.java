@@ -5,6 +5,7 @@ import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.dto.PostSummaryResponse;
 import com.back.domain.post.service.PostService;
+import com.back.domain.user.entity.User;
 import com.back.global.common.PageResponse;
 import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,9 +40,9 @@ public class PostController {
                     required = true
             )
             @RequestBody @Valid PostRequest request,
-            @AuthenticationPrincipal CustomUserDetails cs
-            ) {
-        PostDetailResponse response = postService.createPost(cs.getUser().getId(), request);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        PostDetailResponse response = postService.createPost(user, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -51,9 +52,9 @@ public class PostController {
     public ResponseEntity<PageResponse<PostSummaryResponse>> getPosts(
             @Parameter(description = "검색 조건") @ModelAttribute PostSearchCondition condition,
             @Parameter(description = "페이지 정보") Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails cs) {
-        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
-        Page<PostSummaryResponse> responses = postService.getPosts(userId, condition, pageable);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = (userDetails != null) ? userDetails.getUser() : null;
+        Page<PostSummaryResponse> responses = postService.getPosts(user, condition, pageable);
         return ResponseEntity.ok(PageResponse.of(responses));
     }
 
@@ -62,9 +63,9 @@ public class PostController {
     @Operation(summary = "게시글 상세 조회", description = "게시글 ID로 게시글을 조회합니다.")
     public ResponseEntity<PostDetailResponse> getPost(
             @Parameter(description = "조회할 게시글 ID", required = true) @PathVariable Long postId,
-            @AuthenticationPrincipal CustomUserDetails cs) {
-        Long userId = (cs != null && cs.getUser() != null) ? cs.getUser().getId() : null;
-        return ResponseEntity.ok(postService.getPost(userId, postId));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = (userDetails != null) ? userDetails.getUser() : null;
+        return ResponseEntity.ok(postService.getPost(user, postId));
     }
 
     @PutMapping("/{postId}")
@@ -76,16 +77,18 @@ public class PostController {
                     required = true
             )
             @RequestBody @Valid PostRequest request,
-            @AuthenticationPrincipal CustomUserDetails cs) {
-        return ResponseEntity.ok(postService.updatePost(cs.getUser().getId(), postId, request));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        return ResponseEntity.ok(postService.updatePost(user, postId, request));
     }
 
     @DeleteMapping("/{postId}")
     @Operation(summary = "게시글 삭제", description = "게시글 ID로 게시글을 삭제합니다.")
     public ResponseEntity<Void> deletePost(
             @Parameter(description = "삭제할 게시글 ID", required = true) @PathVariable Long postId,
-            @AuthenticationPrincipal CustomUserDetails cs) {
-        postService.deletePost(cs.getUser().getId(), postId);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDetails.getUser();
+        postService.deletePost(user, postId);
         return ResponseEntity.ok(null);
     }
 }

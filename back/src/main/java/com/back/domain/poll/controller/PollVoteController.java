@@ -21,13 +21,13 @@ public class PollVoteController {
     private final PollVoteService pollVoteService;
 
     @PostMapping
-    public ResponseEntity<Void> vote(
+    public ResponseEntity<PollResponse> vote(
             @PathVariable Long postId,
             @RequestBody @Valid VoteRequest request,
             @AuthenticationPrincipal CustomUserDetails cs) {
 
-        pollVoteService.vote(cs.getUser(), postId, request);
-        return ResponseEntity.ok().build();
+        PollResponse response = pollVoteService.vote(cs.getUser(), postId, request);
+        return ResponseEntity.ok().body(response);
     }
 
     @GetMapping
