@@ -1,5 +1,5 @@
 ########################################################
-# 마지막 수정: 251001
+# 마지막 수정: 251010
 # 작성자: gooraeng
 #
 # AWS 인프라를 코드로 관리하기 위한 Terraform 메인 설정 파일
@@ -27,6 +27,12 @@ terraform {
 ################
 provider "aws" {
   region = var.region
+}
+
+# CloudFront는 us-east-1 리전의 ACM 인증서가 필요
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
 }
 
 ################

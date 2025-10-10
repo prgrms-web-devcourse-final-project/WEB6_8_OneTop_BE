@@ -36,37 +36,29 @@ resource "aws_s3_bucket_ownership_controls" "s3_1_ownership" {
 # S3 버킷 정책
 #########################
 # CloudFront OAI가 S3 버킷에 접근할 수 있도록 허용
+# EC2 인스턴스가 파일 업로드/관리 가능
+# AWS 계정 소유자 및 Admin 사용자 접근 허용
 # Presigned URL을 통한 접근 차단
 resource "aws_s3_bucket_policy" "s3_1_policy" {
   bucket = aws_s3_bucket.s3_1.id
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
-      # CloudFront가 S3 버킷에 접근할 수 있도록 허용
+      # 1. CloudFront OAI: S3 객체 읽기 (CDN 콘텐츠 제공)
       {
         Sid = "AllowCloudFrontOAIReadOnly",
         Effect = "Allow",
         Principal = {
           AWS = aws_cloudfront_origin_access_identity.oai_1.iam_arn
         },
-        Action = "s3:GetObject",
-        Resource = "${aws_s3_bucket.s3_1.arn}/*"
-      },
-      # Presigned URL을 통한 접근 차단
-      {
-        Sid = "DenyPresignedUrls",
-        Effect = "Deny",
-        Principal = "*",
-        Action = "s3:*",
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
         Resource = [
           aws_s3_bucket.s3_1.arn,
           "${aws_s3_bucket.s3_1.arn}/*"
-        ],
-        Condition = {
-          StringLike = {
-            "s3:authType" = "REST-QUERY-STRING"
-          }
-        }
+        ]
       }
     ]
   })
