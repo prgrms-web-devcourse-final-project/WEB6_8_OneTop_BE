@@ -4,12 +4,16 @@ import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.enums.SearchType;
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
@@ -32,7 +36,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(getCategoryCondition(condition.category()),
                         getSearchCondition(condition.keyword(), condition.searchType()),
                         excludeHiddenIfSearch(condition.keyword(), condition.searchType()))
-                .orderBy(post.createdDate.desc())
+                .orderBy(toOrderSpecifier(pageable))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -79,5 +83,24 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             return null;
         }
         return post.hide.eq(false);
+    }
+
+    private OrderSpecifier<?>[] toOrderSpecifier(Pageable pageable) {
+        if (pageable.getSort().isEmpty()) {
+            return new OrderSpecifier[]{post.createdDate.desc()};
+        }
+
+        return pageable.getSort().stream()
+                .map(order -> {
+                    Order direction = order.isAscending() ? Order.ASC : Order.DESC;
+                    String property = order.getProperty();
+
+                    return switch (property) {
+                        case "createdDate" -> new OrderSpecifier<>(direction, post.createdDate);
+                        case "likeCount" -> new OrderSpecifier<>(direction, post.likeCount);
+                        default -> new OrderSpecifier<>(direction, post.createdDate);
+                    };
+                })
+                .toArray(OrderSpecifier[]::new);
     }
 }

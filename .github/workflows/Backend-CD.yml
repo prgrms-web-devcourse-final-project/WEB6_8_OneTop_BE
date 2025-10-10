@@ -249,6 +249,7 @@ jobs:
             HEALTH_PORT="${{ env.HEALTH_CHECK_PORT }}"
             NET="${{ env.DOCKER_NETWORK }}"
             ENV_FILE="/tmp/relife.env"
+            DOCKER_PROJECT_DIR="/dockerProjects/relife_app"
 
             echo "🔹 Use image: ${IMAGE}"
             if ! docker pull "${IMAGE}"; then
@@ -317,21 +318,28 @@ jobs:
             # ---------------------------------------------------------
             # 4) green 역할 컨테이너 재기동
             #    - 같은 네트워크 상에서 NPM이 컨테이너명:PORT로 프록시하므로 -p 불필요
+            #    - 호스트 볼륨 마운트로 Blue/Green 간 데이터 영속성 보장
             # ---------------------------------------------------------
             docker rm -f "${GREEN}" >/dev/null 2>&1 || true
+
+            # 볼륨 디렉토리 생성 (없으면)
+            mkdir -p ${DOCKER_PROJECT_DIR}/{data,logs}
+
             echo "🚀 run new container → ${GREEN}"
             docker run -d --name "${GREEN}" \
               --restart unless-stopped \
               --network "${NET}" \
               --env-file "${ENV_FILE}" \
               -e TZ=Asia/Seoul \
+              -v ${DOCKER_PROJECT_DIR}/data:/app/data \
+              -v ${DOCKER_PROJECT_DIR}/logs:/app/logs \
               "${IMAGE}"
 
             # ---------------------------------------------------------
             # 5) 헬스체크 (/actuator/health/readiness 200 OK까지 대기)
             # ---------------------------------------------------------
             echo "⏱ health-check: ${GREEN}"
-            TIMEOUT=120
+            TIMEOUT=180
             INTERVAL=3
             ELAPSED=0
             sleep 8  # 초기 부팅 여유
@@ -350,7 +358,7 @@ jobs:
             
             if [[ "${CODE:-000}" != "200" ]]; then
               echo "❌ ${GREEN} health failed"
-              docker logs --tail=200 "${GREEN}" || true
+              docker logs --tail=300 "${GREEN}" || true
               docker rm -f "${GREEN}" || true
               exit 1;
             fi
@@ -371,7 +379,7 @@ jobs:
             else
               echo "❌ Failed to switch upstream! Received HTTP status code: ${HTTP_CODE}"
               # [수정] 전환 실패 시, 새로 띄운 Green 컨테이너는 즉시 제거하고 실패 처리
-              docker logs --tail=200 "${GREEN}" || true
+              docker logs --tail=300 "${GREEN}" || true
               docker rm -f "${GREEN}" || true
               exit 1
             fi

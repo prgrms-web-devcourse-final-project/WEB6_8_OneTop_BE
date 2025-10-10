@@ -31,6 +31,7 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "S3-${aws_s3_bucket.s3_1.id}"
     viewer_protocol_policy = "redirect-to-https"
+    compress               = true  # Gzip/Brotli 압축 활성화
 
     forwarded_values {
       query_string = false
@@ -39,10 +40,10 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
       }
     }
 
-    # 캐시 설정
+    # 캐시 설정 - 정적 리소스는 길게
     min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
+    default_ttl = 86400    # 1일
+    max_ttl     = 31536000 # 1년
   }
 
   restrictions {
@@ -51,9 +52,22 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     }
   }
 
+  # 존재하지 않는 오브젝트 요청 시
   custom_error_response {
-    error_caching_min_ttl = 600
     error_code            = 404
+    error_caching_min_ttl = 300  # 5분 (에러 캐싱으로 Origin 부하 감소)
+  }
+
+  # 권한 없음 에러 (예: S3 퍼미션 문제)
+  custom_error_response {
+    error_code            = 403
+    error_caching_min_ttl = 120
+  }
+
+  # S3 서비스 장애 시
+  custom_error_response {
+    error_code            = 503
+    error_caching_min_ttl = 10
   }
 
   # 과금 정책
@@ -62,15 +76,15 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
   # PriceClass_All: 전세계
   price_class = "PriceClass_100"
 
-  # fixme: CDN 도메인 설정
-  # aliases = [var.cdn_domain]
+  # CDN 도메인 설정
+  aliases = [var.cdn_domain]
 
   viewer_certificate {
-    cloudfront_default_certificate = true
-    # fixme: ACM 인증서 사용(CDN 도메인 설정) 시 아래 주석 해제
-    # acm_certificate_arn = aws_acm_certificate.cdn_domain_cert.arn
-    # ssl_support_method = "sni-only"
-    # minimum_protocol_version = "TLSv1.2_2021"
+    # cloudfront_default_certificate = true
+    # ACM 인증서 사용(CDN 도메인 설정) 시 아래 주석 해제
+    acm_certificate_arn = aws_acm_certificate_validation.cdn_domain_cert_validation.certificate_arn
+    ssl_support_method = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = merge(local.common_tags, {
@@ -82,17 +96,26 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
 # ACM 인증서
 ##################
 # CloudFront는 us-east-1 리전에 있어야 함
-# fixme: CDN 도메인 설정 시 주석 해제
-# resource "aws_acm_certificate" "cdn_domain_cert" {
-#   provider = "us-east-1"
-#   domain_name = var.cdn_domain
-#   validation_method = "DNS"
-#
-#   lifecycle {
-#     create_before_destroy = true
-#   }
-#
-#   tags = merge(local.common_tags, {
-#     Name = "${var.prefix}-cdn-domain-cert"
-#   })
-# }
+resource "aws_acm_certificate" "cdn_domain_cert" {
+  provider          = aws.us_east_1
+  domain_name       = var.cdn_domain
+  key_algorithm     = "EC_prime256v1"
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.prefix}-cdn-domain-cert"
+  })
+}
+
+resource "aws_acm_certificate_validation" "cdn_domain_cert_validation" {
+  provider = aws.us_east_1
+  certificate_arn = aws_acm_certificate.cdn_domain_cert.arn
+
+  timeouts {
+    create = "1h"
+  }
+}
