@@ -76,12 +76,12 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
   # PriceClass_All: 전세계
   price_class = "PriceClass_100"
 
-  # fixme: CDN 도메인 설정
+  # CDN 도메인 설정
   aliases = [var.cdn_domain]
 
   viewer_certificate {
     # cloudfront_default_certificate = true
-    # fixme: ACM 인증서 사용(CDN 도메인 설정) 시 아래 주석 해제
+    # ACM 인증서 사용(CDN 도메인 설정) 시 아래 주석 해제
     acm_certificate_arn = aws_acm_certificate_validation.cdn_domain_cert_validation.certificate_arn
     ssl_support_method = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
@@ -96,7 +96,6 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
 # ACM 인증서
 ##################
 # CloudFront는 us-east-1 리전에 있어야 함
-# fixme: CDN 도메인 설정 시 주석 해제
 resource "aws_acm_certificate" "cdn_domain_cert" {
   provider          = aws.us_east_1
   domain_name       = var.cdn_domain

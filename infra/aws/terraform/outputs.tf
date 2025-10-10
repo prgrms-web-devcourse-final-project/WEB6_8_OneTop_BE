@@ -33,7 +33,6 @@ output "cloudfront_domain" {
 ##################
 # ACM 인증서 출력 (CDN 도메인 설정 시)
 ##################
-# fixme: CDN 도메인 설정 시 주석 해제
 output "cdn_domain_cert_arn" {
   description = "ACM Certificate ARN"
   value       = aws_acm_certificate.cdn_domain_cert.arn

@@ -27,7 +27,6 @@ variable "base_domain" {
   default     = "relife.kr"
 }
 
-# fixme: CDN 도메인 변수
 variable "cdn_domain" {
   description = "cdn domain"
   type        = string
