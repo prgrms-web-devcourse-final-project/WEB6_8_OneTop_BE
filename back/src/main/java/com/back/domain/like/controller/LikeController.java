@@ -15,33 +15,34 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/posts")
 public class LikeController {
+
     private final LikeService likeService;
 
     @PostMapping("/{postId}/likes")
     public ResponseEntity<Void> addLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
-        likeService.addLike(cs.getUser().getId(), postId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(null);
+        likeService.addLike(cs.getUser(), postId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @DeleteMapping("/{postId}/likes")
     public ResponseEntity<Void> removeLike(@PathVariable Long postId, @AuthenticationPrincipal CustomUserDetails cs) {
-        likeService.removeLike(postId, cs.getUser().getId());
-        return ResponseEntity.ok(null);
+        likeService.removeLike(cs.getUser(), postId);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{postId}/comments/{commentId}/likes")
     public ResponseEntity<Void> addCommentLike(@PathVariable Long postId,
                                                @PathVariable Long commentId,
                                                @AuthenticationPrincipal CustomUserDetails cs) {
-        likeService.addCommentLike(cs.getUser().getId(), postId, commentId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(null);
+        likeService.addCommentLike(cs.getUser(), postId, commentId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @DeleteMapping("/{postId}/comments/{commentId}/likes")
     public ResponseEntity<Void> removeCommentLike(@PathVariable Long postId,
                                                   @PathVariable Long commentId,
                                                   @AuthenticationPrincipal CustomUserDetails cs) {
-        likeService.removeCommentLike(cs.getUser().getId(), postId, commentId);
-        return ResponseEntity.ok(null);
+        likeService.removeCommentLike(cs.getUser(), postId, commentId);
+        return ResponseEntity.ok().build();
     }
 }

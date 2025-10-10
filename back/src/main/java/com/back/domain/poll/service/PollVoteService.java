@@ -33,7 +33,7 @@ public class PollVoteService {
     private final PollConverter pollConverter;
 
     @Transactional
-    public void vote(User user, Long postId, @Valid VoteRequest request) {
+    public PollResponse vote(User user, Long postId, @Valid VoteRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ApiException(ErrorCode.POST_NOT_FOUND));
 
@@ -54,6 +54,8 @@ public class PollVoteService {
                 .build();
 
         pollVoteRepository.save(pollVote);
+
+        return getVote(postId);
     }
 
     public PollResponse getVote(Long postId) {

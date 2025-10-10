@@ -50,8 +50,8 @@ public class Comment extends BaseEntity {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public void checkUser(Long userId) {
-        if (!user.getId().equals(userId))
+    public void checkUser(Long targetUserId) {
+        if (!targetUserId.equals(user.getId()))
             throw new ApiException(ErrorCode.UNAUTHORIZED_USER);
     }
 

@@ -19,5 +19,7 @@ public record PostRequest(
 
         Boolean hide,
 
-        PollRequest poll
+        PollRequest poll,
+
+        Long scenarioId
 ) { }

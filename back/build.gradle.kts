@@ -78,6 +78,13 @@ dependencies {
     // AI Services - WebFlux for non-blocking HTTP clients
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+
+    // macOS Netty 네이티브 DNS 리졸버 (WebFlux 필요)
+    val isMacOS: Boolean = System.getProperty("os.name").startsWith("Mac OS X")
+    val architecture = System.getProperty("os.arch").lowercase()
+    if (isMacOS && architecture == "aarch64") {
+        developmentOnly("io.netty:netty-resolver-dns-native-macos:4.1.68.Final:osx-aarch_64")
+    }
 }
 
 tasks.withType<Test> {
