@@ -4,6 +4,7 @@ import com.back.domain.post.dto.PostDetailResponse;
 import com.back.domain.post.dto.PostRequest;
 import com.back.domain.post.dto.PostSearchCondition;
 import com.back.domain.post.dto.PostSummaryResponse;
+import com.back.domain.post.enums.PostSortType;
 import com.back.domain.post.service.PostService;
 import com.back.domain.user.entity.User;
 import com.back.global.common.PageResponse;
@@ -14,7 +15,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -52,9 +55,14 @@ public class PostController {
     public ResponseEntity<PageResponse<PostSummaryResponse>> getPosts(
             @Parameter(description = "검색 조건") @ModelAttribute PostSearchCondition condition,
             @Parameter(description = "페이지 정보") Pageable pageable,
+            @RequestParam(defaultValue = "LATEST") PostSortType sortType,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         User user = (userDetails != null) ? userDetails.getUser() : null;
-        Page<PostSummaryResponse> responses = postService.getPosts(user, condition, pageable);
+
+        Sort sort = Sort.by(Sort.Direction.DESC, sortType.getProperty());
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        Page<PostSummaryResponse> responses = postService.getPosts(user, condition, sortedPageable);
         return ResponseEntity.ok(PageResponse.of(responses));
     }
 
