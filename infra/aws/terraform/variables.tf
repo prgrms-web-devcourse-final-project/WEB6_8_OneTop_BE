@@ -28,11 +28,11 @@ variable "base_domain" {
 }
 
 # fixme: CDN 도메인 변수
-# variable "cdn_domain" {
-#   description = "cdn domain"
-#   type        = string
-#   default = "cdn.gooraeng.xyz"
-# }
+variable "cdn_domain" {
+  description = "cdn domain"
+  type        = string
+  default = "cdn.relife.kr"
+}
 
 variable "encryption_type" {
   description = "S3 암호화 타입 (AES256, aws:kms)"

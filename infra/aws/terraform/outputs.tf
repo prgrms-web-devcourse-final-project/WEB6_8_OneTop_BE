@@ -34,23 +34,23 @@ output "cloudfront_domain" {
 # ACM 인증서 출력 (CDN 도메인 설정 시)
 ##################
 # fixme: CDN 도메인 설정 시 주석 해제
-# output "cdn_domain_cert_arn" {
-#   description = "ACM Certificate ARN"
-#   value       = aws_acm_certificate.cdn_domain_cert.arn
-# }
-#
-# output "cdn_domain_cert_status" {
-#   description = "Certificate Status"
-#   value       = aws_acm_certificate.cdn_domain_cert.status
-# }
-#
-# output "cdn_domain_cert_validation_records" {
-#   description = "DNS validation records for certificate"
-#   value = {
-#     for dvo in aws_acm_certificate.cdn_domain_cert.domain_validation_options : dvo.domain_name => {
-#       name   = dvo.resource_record_name
-#       record = dvo.resource_record_value
-#       type   = dvo.resource_record_type
-#     }
-#   }
-# }
+output "cdn_domain_cert_arn" {
+  description = "ACM Certificate ARN"
+  value       = aws_acm_certificate.cdn_domain_cert.arn
+}
+
+output "cdn_domain_cert_status" {
+  description = "Certificate Status"
+  value       = aws_acm_certificate.cdn_domain_cert.status
+}
+
+output "cdn_domain_cert_validation_records" {
+  description = "DNS validation records for certificate"
+  value = {
+    for dvo in aws_acm_certificate.cdn_domain_cert.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+}
