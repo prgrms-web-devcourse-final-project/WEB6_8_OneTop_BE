@@ -484,15 +484,191 @@ class AiServiceImplTest {
     @DisplayName("이미지 생성 테스트")
     class GenerateImageTests {
 
+        @Mock
+        private com.back.global.ai.client.image.ImageAiClient imageAiClient;
+
+        @Mock
+        private com.back.global.storage.StorageService storageService;
+
         @Test
-        @DisplayName("기본 구현 - placeholder 이미지 URL 반환")
-        void generateImage_DefaultImplementation() throws Exception {
+        @DisplayName("실패 - Image AI 비활성화 시 placeholder 반환")
+        void generateImage_Fail_ImageAiDisabled() throws Exception {
+            // given
+            String prompt = "test prompt";
+
+            // ImageAiClient를 aiService에 수동 주입 (필드 설정)
+            setField(aiService, "imageAiClient", imageAiClient);
+
+            given(imageAiClient.isEnabled()).willReturn(false);
+
             // when
-            CompletableFuture<String> future = aiService.generateImage("test prompt");
+            CompletableFuture<String> future = aiService.generateImage(prompt);
             String result = future.get();
 
             // then
             assertThat(result).isEqualTo("placeholder-image-url");
+            verify(imageAiClient, times(1)).isEnabled();
+            verify(imageAiClient, never()).generateImage(anyString());
+        }
+
+        @Test
+        @DisplayName("실패 - 빈 프롬프트 시 placeholder 반환")
+        void generateImage_Fail_EmptyPrompt() throws Exception {
+            // given
+            setField(aiService, "imageAiClient", imageAiClient);
+            given(imageAiClient.isEnabled()).willReturn(true);
+
+            // when - 빈 프롬프트
+            CompletableFuture<String> future1 = aiService.generateImage("");
+            String result1 = future1.get();
+
+            // when - 공백만 있는 프롬프트
+            CompletableFuture<String> future2 = aiService.generateImage("   ");
+            String result2 = future2.get();
+
+            // when - null 프롬프트
+            CompletableFuture<String> future3 = aiService.generateImage(null);
+            String result3 = future3.get();
+
+            // then
+            assertThat(result1).isEqualTo("placeholder-image-url");
+            assertThat(result2).isEqualTo("placeholder-image-url");
+            assertThat(result3).isEqualTo("placeholder-image-url");
+
+            verify(imageAiClient, never()).generateImage(anyString());
+        }
+
+        @Test
+        @DisplayName("성공 - 전체 플로우 (AI 생성 → 스토리지 업로드)")
+        void generateImage_Success_FullFlow() throws Exception {
+            // given
+            String prompt = "A beautiful sunset over mountains";
+            String base64Data = "mock-base64-data";
+            String uploadedUrl = "https://test-bucket.s3.ap-northeast-2.amazonaws.com/scenario-test.jpeg";
+
+            setField(aiService, "imageAiClient", imageAiClient);
+            setField(aiService, "storageService", storageService);
+
+            given(imageAiClient.isEnabled()).willReturn(true);
+            given(imageAiClient.generateImage(prompt))
+                    .willReturn(CompletableFuture.completedFuture(base64Data));
+            given(storageService.getStorageType()).willReturn("s3");
+            given(storageService.uploadBase64Image(base64Data))
+                    .willReturn(CompletableFuture.completedFuture(uploadedUrl));
+
+            // when
+            CompletableFuture<String> future = aiService.generateImage(prompt);
+            String result = future.get();
+
+            // then
+            assertThat(result).isEqualTo(uploadedUrl);
+            verify(imageAiClient, times(1)).isEnabled();
+            verify(imageAiClient, times(1)).generateImage(prompt);
+            verify(storageService, times(1)).uploadBase64Image(base64Data);
+        }
+
+        @Test
+        @DisplayName("실패 - AI가 빈 Base64 반환 시 placeholder")
+        void generateImage_Fail_EmptyBase64FromAi() throws Exception {
+            // given
+            String prompt = "test prompt";
+
+            setField(aiService, "imageAiClient", imageAiClient);
+            setField(aiService, "storageService", storageService);
+
+            given(imageAiClient.isEnabled()).willReturn(true);
+            given(imageAiClient.generateImage(prompt))
+                    .willReturn(CompletableFuture.completedFuture(""));  // 빈 문자열
+            given(storageService.getStorageType()).willReturn("local");
+
+            // when
+            CompletableFuture<String> future = aiService.generateImage(prompt);
+            String result = future.get();
+
+            // then
+            assertThat(result).isEqualTo("placeholder-image-url");
+            verify(imageAiClient, times(1)).generateImage(prompt);
+            verify(storageService, never()).uploadBase64Image(anyString());
+        }
+
+        @Test
+        @DisplayName("실패 - AI가 placeholder 반환 시 placeholder")
+        void generateImage_Fail_PlaceholderFromAi() throws Exception {
+            // given
+            String prompt = "test prompt";
+
+            setField(aiService, "imageAiClient", imageAiClient);
+            setField(aiService, "storageService", storageService);
+
+            given(imageAiClient.isEnabled()).willReturn(true);
+            given(imageAiClient.generateImage(prompt))
+                    .willReturn(CompletableFuture.completedFuture("placeholder-image-url"));
+            given(storageService.getStorageType()).willReturn("local");
+
+            // when
+            CompletableFuture<String> future = aiService.generateImage(prompt);
+            String result = future.get();
+
+            // then
+            assertThat(result).isEqualTo("placeholder-image-url");
+            verify(storageService, never()).uploadBase64Image(anyString());
+        }
+
+        @Test
+        @DisplayName("실패 - AI 에러 시 placeholder 반환")
+        void generateImage_Fail_AiError() throws Exception {
+            // given
+            String prompt = "test prompt";
+
+            setField(aiService, "imageAiClient", imageAiClient);
+            setField(aiService, "storageService", storageService);
+
+            given(imageAiClient.isEnabled()).willReturn(true);
+            given(imageAiClient.generateImage(prompt))
+                    .willReturn(CompletableFuture.failedFuture(new RuntimeException("AI API Error")));
+            given(storageService.getStorageType()).willReturn("s3");
+
+            // when
+            CompletableFuture<String> future = aiService.generateImage(prompt);
+            String result = future.get();
+
+            // then
+            assertThat(result).isEqualTo("placeholder-image-url");
+            verify(imageAiClient, times(1)).generateImage(prompt);
+            verify(storageService, never()).uploadBase64Image(anyString());
+        }
+
+        @Test
+        @DisplayName("실패 - 스토리지 업로드 에러 시 placeholder 반환")
+        void generateImage_Fail_StorageError() throws Exception {
+            // given
+            String prompt = "test prompt";
+            String base64Data = "mock-base64-data";
+
+            setField(aiService, "imageAiClient", imageAiClient);
+            setField(aiService, "storageService", storageService);
+
+            given(imageAiClient.isEnabled()).willReturn(true);
+            given(imageAiClient.generateImage(prompt))
+                    .willReturn(CompletableFuture.completedFuture(base64Data));
+            given(storageService.getStorageType()).willReturn("s3");
+            given(storageService.uploadBase64Image(base64Data))
+                    .willReturn(CompletableFuture.failedFuture(new RuntimeException("S3 Upload Error")));
+
+            // when
+            CompletableFuture<String> future = aiService.generateImage(prompt);
+            String result = future.get();
+
+            // then
+            assertThat(result).isEqualTo("placeholder-image-url");
+            verify(imageAiClient, times(1)).generateImage(prompt);
+            verify(storageService, times(1)).uploadBase64Image(base64Data);
+        }
+
+        private void setField(Object target, String fieldName, Object value) throws Exception {
+            var field = AiServiceImpl.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
         }
     }
 

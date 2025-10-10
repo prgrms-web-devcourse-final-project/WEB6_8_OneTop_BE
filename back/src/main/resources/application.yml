@@ -87,7 +87,7 @@ ai:
       timeout-seconds: 30
       max-retries: 3
   image:
-    enabled: false                                    # 개발 환경에서는 기본 비활성화
+    enabled: true
     provider: stable-diffusion
     api-key: ${STABILITY_API_KEY}
     base-url: https://api.stability.ai
