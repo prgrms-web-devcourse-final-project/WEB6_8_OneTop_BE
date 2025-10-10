@@ -110,9 +110,10 @@ resource "aws_instance" "ec2_1" {
 
   # 루트 볼륨 설정
   root_block_device {
-    volume_type = "gp2"
-    volume_size = 30 # 볼륨 크기를 30GB로 설정
-    encrypted   = true
+    volume_type           = "gp2"
+    volume_size           = 30 # 볼륨 크기를 30GB로 설정
+    encrypted             = true
+    delete_on_termination = false
   }
 
   user_data = local.ec2_user_data
