@@ -6,6 +6,7 @@ import com.back.domain.node.entity.DecisionNode;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.SceneTypeRepository;
+import com.back.global.ai.client.image.ImageAiClient;
 import com.back.global.ai.client.text.TextAiClient;
 import com.back.global.ai.config.BaseScenarioAiProperties;
 import com.back.global.ai.config.DecisionScenarioAiProperties;
@@ -42,6 +43,7 @@ public class AiServiceImpl implements AiService {
     private final SituationAiProperties situationAiProperties;
     private final BaseScenarioAiProperties baseScenarioAiProperties;
     private final DecisionScenarioAiProperties decisionScenarioAiProperties;
+    private final ImageAiClient imageAiClient;
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
@@ -181,5 +183,26 @@ public class AiServiceImpl implements AiService {
                      previousNodes.size(), e.getMessage(), e);
             return CompletableFuture.failedFuture(e);
         }
+    }
+
+    @Override
+    public CompletableFuture<String> generateImage(String prompt) {
+        if (!imageAiClient.isEnabled()) {
+            log.warn("Image AI is disabled. Returning placeholder.");
+            return CompletableFuture.completedFuture("placeholder-image-url");
+        }
+
+        if (prompt == null || prompt.trim().isEmpty()) {
+            log.warn("Image prompt is empty. Returning placeholder.");
+            return CompletableFuture.completedFuture("placeholder-image-url");
+        }
+
+        log.info("Generating image with prompt: {}", prompt);
+
+        return imageAiClient.generateImage(prompt)
+                .exceptionally(e -> {
+                    log.error("Failed to generate image: {}", e.getMessage(), e);
+                    return "placeholder-image-url";
+                });
     }
 }
