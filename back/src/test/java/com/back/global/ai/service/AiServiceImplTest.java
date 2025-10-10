@@ -17,6 +17,7 @@ import com.back.global.ai.dto.AiRequest;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.exception.AiParsingException;
+import com.back.global.ai.exception.AiServiceException;
 import com.back.global.baseentity.BaseEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,8 @@ class AiServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    private final ObjectMapper realObjectMapper = new ObjectMapper();
 
     @Mock
     private SceneTypeRepository sceneTypeRepository;
@@ -212,7 +215,7 @@ class AiServiceImplTest {
             // when & then
             assertThatThrownBy(() -> aiService.generateBaseScenario(null).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("BaseLine cannot be null");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -306,7 +309,7 @@ class AiServiceImplTest {
             // when & then
             assertThatThrownBy(() -> aiService.generateDecisionScenario(null, testScenario).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("DecisionLine cannot be null");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -318,7 +321,7 @@ class AiServiceImplTest {
             // when & then
             assertThatThrownBy(() -> aiService.generateDecisionScenario(testDecisionLine, null).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("BaseScenario cannot be null");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -383,6 +386,8 @@ class AiServiceImplTest {
         @DisplayName("성공 - 유효한 이전 선택들로 새로운 상황 생성")
         void generateSituation_Success() throws Exception {
             // given
+            setField(aiService, "objectMapper", realObjectMapper);  // 실제 ObjectMapper 사용
+
             List<DecisionNode> previousNodes = testDecisionLine.getDecisionNodes();
             String mockAiResponse = """
                 {
@@ -406,13 +411,19 @@ class AiServiceImplTest {
             verify(textAiClient, times(1)).generateText(any(AiRequest.class));
         }
 
+        private void setField(Object target, String fieldName, Object value) throws Exception {
+            var field = AiServiceImpl.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        }
+
         @Test
         @DisplayName("실패 - previousNodes가 null인 경우")
         void generateSituation_Fail_NullPreviousNodes() {
             // when & then
             assertThatThrownBy(() -> aiService.generateSituation(null).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("Previous nodes cannot be null or empty");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -424,7 +435,7 @@ class AiServiceImplTest {
             // when & then
             assertThatThrownBy(() -> aiService.generateSituation(List.of()).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("Previous nodes cannot be null or empty");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -446,7 +457,7 @@ class AiServiceImplTest {
             // when & then
             assertThatThrownBy(() -> aiService.generateSituation(invalidNodes).get())
                     .isInstanceOf(ExecutionException.class)
-                    .hasCauseInstanceOf(AiParsingException.class)
+                    .hasCauseInstanceOf(AiServiceException.class)
                     .hasMessageContaining("Previous nodes contain invalid data");
 
             verify(textAiClient, never()).generateText(any(AiRequest.class));
@@ -456,6 +467,8 @@ class AiServiceImplTest {
         @DisplayName("성공 - AI 응답에서 상황 추출 (JSON 형식)")
         void generateSituation_Success_ExtractSituationFromJson() throws Exception {
             // given
+            setField(aiService, "objectMapper", realObjectMapper);  // 실제 ObjectMapper 사용
+
             List<DecisionNode> previousNodes = testDecisionLine.getDecisionNodes();
             String mockAiResponse = """
                 {

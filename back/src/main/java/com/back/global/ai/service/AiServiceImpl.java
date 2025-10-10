@@ -14,6 +14,7 @@ import com.back.global.ai.config.SituationAiProperties;
 import com.back.global.ai.dto.AiRequest;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
+import com.back.global.ai.exception.AiParsingException;
 import com.back.global.ai.exception.AiServiceException;
 import com.back.global.ai.prompt.BaseScenarioPrompt;
 import com.back.global.ai.prompt.DecisionScenarioPrompt;
@@ -71,13 +72,17 @@ public class AiServiceImpl implements AiService {
                         } catch (Exception e) {
                             log.error("Failed to parse BaseScenario AI response for BaseLine ID: {}, error: {}",
                                     baseLine.getId(), e.getMessage(), e);
-                            throw new AiServiceException(com.back.global.exception.ErrorCode.AI_RESPONSE_PARSING_ERROR,
-                                    "Failed to parse BaseScenario response: " + e.getMessage());
+                            throw new AiParsingException("Failed to parse BaseScenario response: " + e.getMessage());
                         }
                     })
                     .exceptionally(e -> {
                         log.error("AI generation failed for BaseLine ID: {}, error: {}",
                                 baseLine.getId(), e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
                         throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
                                 "Failed to generate base scenario: " + e.getMessage());
                     });
@@ -120,13 +125,17 @@ public class AiServiceImpl implements AiService {
                         } catch (Exception e) {
                             log.error("Failed to parse DecisionScenario AI response for DecisionLine ID: {}, error: {}",
                                     decisionLine.getId(), e.getMessage(), e);
-                            throw new AiServiceException(com.back.global.exception.ErrorCode.AI_RESPONSE_PARSING_ERROR,
-                                    "Failed to parse DecisionScenario response: " + e.getMessage());
+                            throw new AiParsingException("Failed to parse DecisionScenario response: " + e.getMessage());
                         }
                     })
                     .exceptionally(e -> {
                         log.error("AI generation failed for DecisionLine ID: {}, error: {}",
                                 decisionLine.getId(), e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
                         throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
                                 "Failed to generate decision scenario: " + e.getMessage());
                     });
@@ -196,13 +205,17 @@ public class AiServiceImpl implements AiService {
                         } catch (Exception e) {
                             log.error("Failed to parse situation AI response, error: {}",
                                      e.getMessage(), e);
-                            throw new AiServiceException(com.back.global.exception.ErrorCode.AI_RESPONSE_PARSING_ERROR,
-                                    "Failed to parse situation response: " + e.getMessage());
+                            throw new AiParsingException("Failed to parse situation response: " + e.getMessage());
                         }
                     })
                     .exceptionally(e -> {
                         log.error("AI generation failed for situation, error: {}",
                                 e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
                         throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
                                 "Failed to generate situation: " + e.getMessage());
                     });
@@ -224,9 +237,7 @@ public class AiServiceImpl implements AiService {
 
         if (prompt == null || prompt.trim().isEmpty()) {
             log.warn("Image prompt is empty. Returning placeholder.");
-            return CompletableFuture.failedFuture(
-                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST,
-                            "Image prompt cannot be null or empty"));
+            return CompletableFuture.completedFuture("placeholder-image-url");
         }
 
         log.info("Generating image with prompt: {} (Storage: {})", prompt, storageService.getStorageType());
@@ -247,15 +258,12 @@ public class AiServiceImpl implements AiService {
                         return storageService.uploadBase64Image(base64Data);
                     })
                     .exceptionally(e -> {
-                        log.error("Failed to generate or upload image: {}", e.getMessage(), e);
-                        throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
-                                "Failed to generate or upload image: " + e.getMessage());
+                        log.warn("Failed to generate or upload image, returning placeholder: {}", e.getMessage());
+                        return "placeholder-image-url";
                     });
         } catch (Exception e) {
-            log.error("Error in generateImage, error: {}", e.getMessage(), e);
-            return CompletableFuture.failedFuture(
-                    new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
-                            "Unexpected error in image generation: " + e.getMessage()));
+            log.warn("Error in generateImage, returning placeholder: {}", e.getMessage());
+            return CompletableFuture.completedFuture("placeholder-image-url");
         }
     }
 }
