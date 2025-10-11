@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @Table(name = "scenarios",
     indexes = {
         @Index(name = "idx_scenario_user_status", columnList = "user_id, status, created_date"),
-        @Index(name = "idx_scenario_decision_line", columnList = "decision_line_id"),
         @Index(name = "idx_scenario_baseline", columnList = "base_line_id")
     },
     uniqueConstraints = {
