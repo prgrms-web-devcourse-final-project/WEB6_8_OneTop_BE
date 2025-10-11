@@ -4,6 +4,8 @@ import com.back.domain.node.dto.decision.DecisionNodeNextRequest;
 import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.service.ScenarioService;
 import com.back.global.common.PageResponse;
+import com.back.global.exception.ApiException;
+import com.back.global.exception.ErrorCode;
 import com.back.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,12 +32,11 @@ public class ScenarioController {
 
     /**
      * 인증된 사용자의 ID를 안전하게 추출합니다.
-     * 테스트 환경에서 userDetails가 null일 수 있으므로 기본값을 제공합니다.
+     * 인증되지 않은 사용자는 예외를 발생시킵니다.
      */
     private Long getUserId(CustomUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUser() == null) {
-            // 테스트 환경이나 인증이 비활성화된 환경에서는 기본 사용자 ID 사용
-            return 1L;
+        if (userDetails == null || userDetails.getUser() == null || userDetails.getUser().getId() == null) {
+            throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "인증이 필요한 서비스입니다.");
         }
         return userDetails.getUser().getId();
     }
@@ -48,6 +49,14 @@ public class ScenarioController {
             @AuthenticationPrincipal CustomUserDetails userDetails
             ) {
         Long userId = getUserId(userDetails);
+
+        // lastDecision 기본 검증: userId 일치 확인
+        if (lastDecision != null && lastDecision.userId() != null) {
+            if (!lastDecision.userId().equals(userId)) {
+                throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED,
+                    "lastDecision의 userId가 인증된 사용자와 일치하지 않습니다.");
+            }
+        }
 
         ScenarioStatusResponse scenarioCreateResponse = scenarioService.createScenario(userId,request, lastDecision);
 

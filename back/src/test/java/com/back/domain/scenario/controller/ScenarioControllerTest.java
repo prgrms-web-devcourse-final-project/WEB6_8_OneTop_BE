@@ -6,14 +6,13 @@ import com.back.domain.scenario.dto.*;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.entity.Type;
 import com.back.domain.scenario.service.ScenarioService;
+import com.back.domain.user.entity.User;
 import com.back.global.common.PageResponse;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import com.back.global.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +31,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -40,11 +41,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * ScenarioController 통합 테스트.
- * 세션 기반 인증이 구현되었지만 테스트에서는 필터를 비활성화하고
- * Service를 모킹하여 테스트합니다.
+ * 세션 기반 인증을 활성화하고 MockMvc의 .with(user())를 통해
+ * 인증된 사용자로 API를 테스트합니다. Service는 모킹하여 테스트합니다.
  */
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false) // 인증 필터 비활성화로 테스트 단순화
+@AutoConfigureMockMvc // Security 필터 활성화하여 @AuthenticationPrincipal 정상 동작
 @ActiveProfiles("test")
 @Transactional
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -59,6 +60,38 @@ class ScenarioControllerTest {
 
     @MockBean
     private ScenarioService scenarioService;
+
+    // Mock 사용자 생성
+    private CustomUserDetails mockUserDetails;
+
+    @BeforeEach
+    void setUp() {
+        // Mock User 생성 (ID = 1L)
+        User mockUser = User.builder()
+                .email("test@example.com")
+                .username("테스트사용자")
+                .nickname("테스트닉네임")
+                .birthdayAt(LocalDateTime.of(1990, 1, 1, 0, 0))
+                .role(com.back.domain.user.entity.Role.USER)
+                .build();
+
+        // BaseEntity의 id는 Reflection으로 설정
+        try {
+            java.lang.reflect.Field idField = mockUser.getClass().getSuperclass().getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(mockUser, 1L);
+
+            // Reflection이 제대로 작동했는지 검증
+            Long verifyId = (Long) idField.get(mockUser);
+            if (verifyId == null || !verifyId.equals(1L)) {
+                throw new RuntimeException("Failed to set user ID via Reflection, got: " + verifyId);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set mock user ID", e);
+        }
+
+        mockUserDetails = new CustomUserDetails(mockUser);
+    }
 
     @Nested
     @DisplayName("시나리오 생성")
@@ -111,7 +144,9 @@ class ScenarioControllerTest {
             mockMvc.perform(multipart("/api/v1/scenarios")
                             .file(scenarioPart)
                             .file(lastDecisionPart)
-                            .with(req -> { req.setMethod("POST"); return req; }))
+                            .with(req -> { req.setMethod("POST"); return req; })
+                            .with(csrf())
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.scenarioId").value(1001))
@@ -132,7 +167,9 @@ class ScenarioControllerTest {
             // When & Then
             mockMvc.perform(multipart("/api/v1/scenarios")
                             .file(scenarioPart)
-                            .with(req -> { req.setMethod("POST"); return req; }))
+                            .with(req -> { req.setMethod("POST"); return req; })
+                            .with(csrf())
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isBadRequest());
         }
@@ -176,7 +213,9 @@ class ScenarioControllerTest {
             mockMvc.perform(multipart("/api/v1/scenarios")
                             .file(scenarioPart)
                             .file(lastDecisionPart)
-                            .with(req -> { req.setMethod("POST"); return req; }))
+                            .with(req -> { req.setMethod("POST"); return req; })
+                            .with(csrf())
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isNotFound());
         }
@@ -201,7 +240,8 @@ class ScenarioControllerTest {
                     .willReturn(mockResponse);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/status", scenarioId))
+            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/status", scenarioId)
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.scenarioId").value(scenarioId))
@@ -219,7 +259,8 @@ class ScenarioControllerTest {
                     .willThrow(new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/status", scenarioId))
+            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/status", scenarioId)
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isNotFound());
         }
@@ -259,7 +300,8 @@ class ScenarioControllerTest {
                     .willReturn(mockResponse);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/info/{scenarioId}", scenarioId))
+            mockMvc.perform(get("/api/v1/scenarios/info/{scenarioId}", scenarioId)
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.scenarioId").value(scenarioId))
@@ -292,7 +334,8 @@ class ScenarioControllerTest {
                     .willReturn(mockResponse);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/timeline", scenarioId))
+            mockMvc.perform(get("/api/v1/scenarios/{scenarioId}/timeline", scenarioId)
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.scenarioId").value(scenarioId))
@@ -334,7 +377,8 @@ class ScenarioControllerTest {
             // When & Then
             mockMvc.perform(get("/api/v1/scenarios/baselines")
                             .param("page", "0")
-                            .param("size", "10"))
+                            .param("size", "10")
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.items").isArray())
@@ -377,7 +421,8 @@ class ScenarioControllerTest {
                     .willReturn(mockResponse);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/scenarios/compare/{baseId}/{compareId}", baseId, compareId))
+            mockMvc.perform(get("/api/v1/scenarios/compare/{baseId}/{compareId}", baseId, compareId)
+                            .with(user(mockUserDetails)))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.baseScenarioId").value(baseId))

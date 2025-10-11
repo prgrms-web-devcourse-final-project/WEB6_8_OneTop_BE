@@ -15,7 +15,15 @@ import java.time.LocalDateTime;
  * AI를 통해 생성된 시나리오의 상세 정보와 처리 상태를 저장합니다.
  */
 @Entity
-@Table(name = "scenarios")
+@Table(name = "scenarios",
+    indexes = {
+        @Index(name = "idx_scenario_user_status", columnList = "user_id, status, created_date"),
+        @Index(name = "idx_scenario_baseline", columnList = "base_line_id")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_scenario_decision_line", columnNames = "decision_line_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,7 +38,7 @@ public class Scenario extends BaseEntity {
 
     // 시나리오 생성의 기반이 된 선택 경로
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "decision_line_id", unique = true)
+    @JoinColumn(name = "decision_line_id")
     private DecisionLine decisionLine;
 
     // 시나리오가 속한 베이스라인 (하나의 BaseLine에 여러 Scenario 가능)

@@ -6,6 +6,7 @@ import com.back.domain.node.entity.DecisionNode;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.SceneTypeRepository;
+import com.back.global.ai.client.image.ImageAiClient;
 import com.back.global.ai.client.text.TextAiClient;
 import com.back.global.ai.config.BaseScenarioAiProperties;
 import com.back.global.ai.config.DecisionScenarioAiProperties;
@@ -14,6 +15,7 @@ import com.back.global.ai.dto.AiRequest;
 import com.back.global.ai.dto.result.BaseScenarioResult;
 import com.back.global.ai.dto.result.DecisionScenarioResult;
 import com.back.global.ai.exception.AiParsingException;
+import com.back.global.ai.exception.AiServiceException;
 import com.back.global.ai.prompt.BaseScenarioPrompt;
 import com.back.global.ai.prompt.DecisionScenarioPrompt;
 import com.back.global.ai.prompt.SituationPrompt;
@@ -42,12 +44,14 @@ public class AiServiceImpl implements AiService {
     private final SituationAiProperties situationAiProperties;
     private final BaseScenarioAiProperties baseScenarioAiProperties;
     private final DecisionScenarioAiProperties decisionScenarioAiProperties;
+    private final ImageAiClient imageAiClient;
+    private final com.back.global.storage.StorageService storageService;
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
         if (baseLine == null) {
             return CompletableFuture.failedFuture(
-                    new AiParsingException("BaseLine cannot be null"));
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST, "BaseLine cannot be null"));
         }
 
         log.info("Generating base scenario for BaseLine ID: {}", baseLine.getId());
@@ -70,11 +74,24 @@ public class AiServiceImpl implements AiService {
                                     baseLine.getId(), e.getMessage(), e);
                             throw new AiParsingException("Failed to parse BaseScenario response: " + e.getMessage());
                         }
+                    })
+                    .exceptionally(e -> {
+                        log.error("AI generation failed for BaseLine ID: {}, error: {}",
+                                baseLine.getId(), e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
+                        throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                                "Failed to generate base scenario: " + e.getMessage());
                     });
         } catch (Exception e) {
             log.error("Error in generateBaseScenario for BaseLine ID: {}, error: {}",
                     baseLine.getId(), e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                            "Unexpected error in base scenario generation: " + e.getMessage()));
         }
     }
 
@@ -82,11 +99,11 @@ public class AiServiceImpl implements AiService {
     public CompletableFuture<DecisionScenarioResult> generateDecisionScenario(DecisionLine decisionLine, Scenario baseScenario) {
         if (decisionLine == null) {
             return CompletableFuture.failedFuture(
-                    new AiParsingException("DecisionLine cannot be null"));
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST, "DecisionLine cannot be null"));
         }
         if (baseScenario == null) {
             return CompletableFuture.failedFuture(
-                    new AiParsingException("BaseScenario cannot be null"));
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST, "BaseScenario cannot be null"));
         }
 
         log.info("Generating Decision scenario for DecisionLine ID: {}", decisionLine.getId());
@@ -110,11 +127,24 @@ public class AiServiceImpl implements AiService {
                                     decisionLine.getId(), e.getMessage(), e);
                             throw new AiParsingException("Failed to parse DecisionScenario response: " + e.getMessage());
                         }
+                    })
+                    .exceptionally(e -> {
+                        log.error("AI generation failed for DecisionLine ID: {}, error: {}",
+                                decisionLine.getId(), e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
+                        throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                                "Failed to generate decision scenario: " + e.getMessage());
                     });
         } catch (Exception e) {
             log.error("Error in generateDecisionScenario for DecisionLine ID: {}, error: {}",
                     decisionLine.getId(), e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                            "Unexpected error in decision scenario generation: " + e.getMessage()));
         }
     }
 
@@ -137,13 +167,15 @@ public class AiServiceImpl implements AiService {
         // Input validation
         if (previousNodes == null || previousNodes.isEmpty()) {
             return CompletableFuture.failedFuture(
-                    new AiParsingException("Previous nodes cannot be null or empty for situation generation"));
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST,
+                            "Previous nodes cannot be null or empty for situation generation"));
         }
 
         // Validate node data quality
         if (!SituationPrompt.validatePreviousNodes(previousNodes)) {
             return CompletableFuture.failedFuture(
-                    new AiParsingException("Previous nodes contain invalid data (missing situation or decision)"));
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_INVALID_REQUEST,
+                            "Previous nodes contain invalid data (missing situation or decision)"));
         }
 
         try {
@@ -161,10 +193,10 @@ public class AiServiceImpl implements AiService {
                                      aiResponse.length());
 
                             // Step 3: JSON에서 상황 텍스트만 추출
-                            String situation = SituationPrompt.extractSituation(aiResponse);
+                            String situation = SituationPrompt.extractSituation(aiResponse, objectMapper);
 
                             // 추천 선택지는 로깅만 (Trees 도메인에서 별도 처리)
-                            String recommendedOption = SituationPrompt.extractRecommendedOption(aiResponse);
+                            String recommendedOption = SituationPrompt.extractRecommendedOption(aiResponse, objectMapper);
                             if (recommendedOption != null) {
                                 log.debug("AI also provided recommended option: {}", recommendedOption);
                             }
@@ -175,11 +207,63 @@ public class AiServiceImpl implements AiService {
                                      e.getMessage(), e);
                             throw new AiParsingException("Failed to parse situation response: " + e.getMessage());
                         }
+                    })
+                    .exceptionally(e -> {
+                        log.error("AI generation failed for situation, error: {}",
+                                e.getMessage(), e);
+                        // AiParsingException은 그대로 전파, 나머지만 AiServiceException으로 감쌈
+                        Throwable cause = e.getCause() != null ? e.getCause() : e;
+                        if (cause instanceof AiParsingException) {
+                            throw (AiParsingException) cause;
+                        }
+                        throw new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                                "Failed to generate situation: " + e.getMessage());
                     });
         } catch (Exception e) {
             log.error("Error in generateSituation for {} nodes, error: {}",
                      previousNodes.size(), e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(
+                    new AiServiceException(com.back.global.exception.ErrorCode.AI_GENERATION_FAILED,
+                            "Unexpected error in situation generation: " + e.getMessage()));
+        }
+    }
+
+    @Override
+    public CompletableFuture<String> generateImage(String prompt) {
+        if (!imageAiClient.isEnabled()) {
+            log.warn("Image AI is disabled. Returning placeholder.");
+            return CompletableFuture.completedFuture("placeholder-image-url");
+        }
+
+        if (prompt == null || prompt.trim().isEmpty()) {
+            log.warn("Image prompt is empty. Returning placeholder.");
+            return CompletableFuture.completedFuture("placeholder-image-url");
+        }
+
+        log.info("Generating image with prompt: {} (Storage: {})", prompt, storageService.getStorageType());
+
+        try {
+            // Stable Diffusion API 호출 → Base64 이미지 생성
+            return imageAiClient.generateImage(prompt)
+                    .thenCompose(base64Data -> {
+                        // Base64 데이터를 스토리지에 업로드 → URL 반환
+                        if (base64Data == null || base64Data.isEmpty() || "placeholder-image-url".equals(base64Data)) {
+                            log.warn("Empty or placeholder Base64 data received from image AI");
+                            return CompletableFuture.completedFuture("placeholder-image-url");
+                        }
+
+                        log.info("Image generated successfully (Base64 length: {}), uploading to {} storage...",
+                                base64Data.length(), storageService.getStorageType());
+
+                        return storageService.uploadBase64Image(base64Data);
+                    })
+                    .exceptionally(e -> {
+                        log.warn("Failed to generate or upload image, returning placeholder: {}", e.getMessage());
+                        return "placeholder-image-url";
+                    });
+        } catch (Exception e) {
+            log.warn("Error in generateImage, returning placeholder: {}", e.getMessage());
+            return CompletableFuture.completedFuture("placeholder-image-url");
         }
     }
 }

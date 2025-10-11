@@ -76,7 +76,15 @@ public enum ErrorCode {
     POLL_VOTE_INVALID_OPTION(HttpStatus.BAD_REQUEST, "PV003", "존재하지 않는 투표 항목입니다." ),
 
     // Lock Errors
-    LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "L001", "다른 요청이 처리 중입니다. 잠시 후 다시 시도해주세요.");
+    LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "L001", "다른 요청이 처리 중입니다. 잠시 후 다시 시도해주세요."),
+
+    // Storage Errors
+    STORAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "ST001", "Failed to upload file to storage"),
+    STORAGE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "ST002", "Failed to delete file from storage"),
+    STORAGE_INVALID_FILE(HttpStatus.BAD_REQUEST, "ST003", "Invalid file data"),
+    STORAGE_FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "ST004", "File not found in storage"),
+    S3_CONNECTION_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "ST005", "Failed to connect to S3"),
+    LOCAL_STORAGE_IO_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "ST006", "Local storage I/O error");
 
     private final HttpStatus status;
     private final String code;

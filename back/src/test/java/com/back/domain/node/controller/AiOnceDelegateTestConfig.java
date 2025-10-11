@@ -9,6 +9,7 @@ import com.back.global.ai.config.SituationAiProperties;
 import com.back.global.ai.vector.AIVectorService;
 import com.back.global.ai.vector.AIVectorServiceImpl;
 import com.back.global.ai.vector.AIVectorServiceSupportDomain;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -33,9 +34,10 @@ public class AiOnceDelegateTestConfig {
             TextAiClient textAiClient,
             AIVectorServiceSupportDomain support,
             SituationAiProperties props,
+            ObjectMapper objectMapper,
             AiCallBudget budget
     ) {
-        AIVectorService real = new AIVectorServiceImpl(textAiClient, support, props);
+        AIVectorService real = new AIVectorServiceImpl(textAiClient, support, props, objectMapper);
         AIVectorService stub = (u, d, nodes) -> new AIVectorService.AiNextHint("테스트-상황(한 문장)", "테스트-추천");
         return (userId, lineId, orderedNodes) ->
                 budget.consume() ? real.generateNextHint(userId, lineId, orderedNodes)

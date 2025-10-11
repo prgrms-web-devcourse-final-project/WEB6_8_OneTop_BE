@@ -79,6 +79,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
+    // AWS SDK for S3
+    implementation("software.amazon.awssdk:s3:2.20.+")
+
     // macOS Netty 네이티브 DNS 리졸버 (WebFlux 필요)
     val isMacOS: Boolean = System.getProperty("os.name").startsWith("Mac OS X")
     val architecture = System.getProperty("os.arch").lowercase()

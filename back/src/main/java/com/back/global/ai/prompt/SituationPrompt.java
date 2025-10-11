@@ -3,17 +3,20 @@ package com.back.global.ai.prompt;
 import com.back.domain.node.entity.DecisionNode;
 import com.back.global.ai.exception.AiServiceException;
 import com.back.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 
 /**
  * 상황 생성을 위한 프롬프트 템플릿
  * Trees 도메인에서 사용되며, 이전 선택들의 나비효과로 새로운 상황을 생성한다.
+ * ObjectMapper는 Spring Context에서 주입받아 사용한다.
  */
+@Slf4j
 public class SituationPrompt {
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String PROMPT_TEMPLATE = """
         당신은 인생 시뮬레이션 전문가입니다. 이전 선택들의 나비효과로 발생한 새로운 상황을 생성하세요.
@@ -118,7 +121,7 @@ public class SituationPrompt {
                     decision = decision.substring(0, 12) + "...";
                 }
 
-                choicesInfo.append(String.format("%d세 %s", node.getAgeYear(), decision));
+                choicesInfo.append(node.getAgeYear()).append("세 ").append(decision);
                 if (i < previousNodes.size() - 1) {
                     choicesInfo.append(" → ");
                 }
@@ -136,14 +139,13 @@ public class SituationPrompt {
             DecisionNode node = previousNodes.get(i);
             int actualYear = birthYear + node.getAgeYear() - 1; // 실제 연도 계산
 
-            choicesInfo.append(String.format(
-                "%d단계 (%d세, %d년):\n상황: %s\n선택: %s\n\n",
-                i + 1,
-                node.getAgeYear(),
-                actualYear,
-                node.getSituation() != null ? node.getSituation() : "상황 정보 없음",
-                node.getDecision() != null ? node.getDecision() : "선택 정보 없음"
-            ));
+            choicesInfo.append(i + 1).append("단계 (")
+                    .append(node.getAgeYear()).append("세, ")
+                    .append(actualYear).append("년):\n상황: ")
+                    .append(node.getSituation() != null ? node.getSituation() : "상황 정보 없음")
+                    .append("\n선택: ")
+                    .append(node.getDecision() != null ? node.getDecision() : "선택 정보 없음")
+                    .append("\n\n");
         }
 
         String timeContextValue;
@@ -247,10 +249,12 @@ public class SituationPrompt {
      * JSON 형식 응답에서 situation 필드를 파싱한다.
      *
      * @param aiResponse AI의 전체 응답
+     * @param objectMapper JSON 파싱용 ObjectMapper (Spring Context에서 주입)
      * @return 상황 텍스트만 추출된 결과
      */
-    public static String extractSituation(String aiResponse) {
+    public static String extractSituation(String aiResponse, ObjectMapper objectMapper) {
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
+            log.warn("AI response is null or empty");
             return "상황 생성에 실패했습니다.";
         }
 
@@ -265,8 +269,9 @@ public class SituationPrompt {
                     return situation;
                 }
             }
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             // JSON 파싱 실패 시 기존 방식으로 fallback
+            log.warn("Failed to parse AI response as JSON, falling back to text extraction: {}", e.getMessage());
         }
 
         // 기존 방식으로 fallback
@@ -285,9 +290,10 @@ public class SituationPrompt {
      * JSON 형식 응답에서 recommendedOption 필드를 파싱한다.
      *
      * @param aiResponse AI의 전체 응답
+     * @param objectMapper JSON 파싱용 ObjectMapper (Spring Context에서 주입)
      * @return 추천 선택지 텍스트, 추출 실패 시 null
      */
-    public static String extractRecommendedOption(String aiResponse) {
+    public static String extractRecommendedOption(String aiResponse, ObjectMapper objectMapper) {
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
             return null;
         }
@@ -301,8 +307,9 @@ public class SituationPrompt {
                 String option = rootNode.get("recommendedOption").asText();
                 return (option != null && !option.trim().isEmpty()) ? option : null;
             }
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             // JSON 파싱 실패 시 null 반환
+            log.warn("Failed to parse AI response for recommendedOption: {}", e.getMessage());
             return null;
         }
 

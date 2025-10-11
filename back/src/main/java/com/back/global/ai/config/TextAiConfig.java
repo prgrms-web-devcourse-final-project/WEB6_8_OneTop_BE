@@ -24,6 +24,7 @@ public class TextAiConfig {
     String model = "gemini-2.5-flash"; // 추후 변경 가능
     int timeoutSeconds = 30;
     int maxRetries = 3;
+    int retryDelaySeconds = 2; // 재시도 간격 (초)
 
     /**
      * Gemini API 전용 WebClient Bean 생성
