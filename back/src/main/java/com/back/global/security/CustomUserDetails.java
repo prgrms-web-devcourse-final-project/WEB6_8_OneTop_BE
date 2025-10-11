@@ -72,7 +72,8 @@ public class CustomUserDetails implements UserDetails, OAuth2User {
         return attributes;
     }
 
-    @Override public String getName() {
+    @Override
+    public String getName() {
         if (user.getNickname()!=null && !user.getNickname().isBlank()) return user.getNickname();
         return user.getEmail();
     }
