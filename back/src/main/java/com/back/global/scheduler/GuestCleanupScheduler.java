@@ -33,7 +33,7 @@ public class GuestCleanupScheduler {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SessionRepository sessionRepository;
 
-    @Scheduled(cron = "0 */10 * * * ?") // 매 10분마다 실행
+    @Scheduled(cron = "0 */30 * * * ?")
     @Transactional
     public void cleanupExpiredGuests() {
         log.info("=== 게스트 정리 작업 시작 ===");
