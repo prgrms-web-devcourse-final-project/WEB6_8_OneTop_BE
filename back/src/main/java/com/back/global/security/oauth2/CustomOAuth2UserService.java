@@ -25,6 +25,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
     private final DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
     private final UserService userService;
+    private final GithubEmailFetcher githubEmailFetcher;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest req) throws OAuth2AuthenticationException {
@@ -36,8 +37,17 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                     .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
 
             OAuthAttributes attrs = OAuthAttributes.of(registrationId, userNameAttr, raw.getAttributes());
-
             String email = attrs.email();
+
+            // GitHub일 때 이메일이 비어 있으면 API로 재요청
+            if ("github".equalsIgnoreCase(registrationId) && (email == null || email.isBlank())) {
+                String accessToken = req.getAccessToken().getTokenValue();
+                email = githubEmailFetcher.fetchPrimaryEmail(accessToken);
+
+                log.info("GitHub 추가 조회로 얻은 이메일: {}", email);
+            }
+
+            // 여전히 이메일이 null이라면 예외 처리
             if (email == null || email.isBlank()) {
                 throw new OAuth2AuthenticationException(
                         new OAuth2Error("email_not_found", "OAuth2 제공자로부터 이메일을 받을 수 없습니다.", null)
