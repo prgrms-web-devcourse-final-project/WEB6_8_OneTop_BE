@@ -42,8 +42,6 @@ public class DecisionFlowService {
     @PersistenceContext
     private EntityManager entityManager;
 
-
-
     // 가장 중요한: from-base 생성 시 main 브랜치를 보장
     @Transactional
     public DecNodeDto createDecisionNodeFromBase(DecisionNodeFromBaseRequest request) {
@@ -135,6 +133,9 @@ public class DecisionFlowService {
             List<DecisionNode> orderedList = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
             var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), orderedList);
 
+            saved.setAiHint(hint.aiNextSituation(), hint.aiNextRecommendedOption());
+            decisionNodeRepository.save(saved);
+
             return new DecNodeDto(
                     baseDto.id(), baseDto.userId(), baseDto.type(), baseDto.category(),
                     baseDto.situation(), baseDto.decision(), baseDto.ageYear(),
@@ -165,10 +166,6 @@ public class DecisionFlowService {
                     return branchRepo.save(created);
                 });
     }
-
-
-
-
 
     // next 서버 해석(부모 기준 라인/다음 피벗/베이스 매칭 결정)
     @Transactional
@@ -224,6 +221,10 @@ public class DecisionFlowService {
         List<DecisionNode> ordered_decision = decisionNodeRepository
                 .findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
         var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), ordered_decision);
+
+
+        saved.setAiHint(hint.aiNextSituation(), hint.aiNextRecommendedOption());
+        decisionNodeRepository.save(saved);
 
         return new DecNodeDto(
                 baseDto.id(), baseDto.userId(), baseDto.type(), baseDto.category(),
@@ -305,7 +306,6 @@ public class DecisionFlowService {
         return cud.getUser().getId();
     }
 
-
     // 라인 완료
     @Transactional
     public DecisionLineLifecycleDto completeDecisionLine(Long decisionLineId) {
@@ -315,6 +315,7 @@ public class DecisionFlowService {
     }
 
     // 가장 중요한 함수: 포크 지점 생성 시 옵션 교체(from-base와 동일 규칙) 반영
+    // 가장 중요한 함수 한줄 요약: 기존 라인을 부모로 하여 특정 결정노드에서 포크 라인을 만들고 AI 힌트를 엔티티에도 저장
     @Transactional
     public DecNodeDto forkFromDecision(ForkFromDecisionRequest req) {
         if (req == null || req.parentDecisionNodeId() == null)
@@ -322,62 +323,77 @@ public class DecisionFlowService {
         if (req.targetOptionIndex() == null || req.targetOptionIndex() < 0 || req.targetOptionIndex() > 2)
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "targetOptionIndex out of range");
 
+        // 가장 많이 사용하는 호출 한줄 요약: 부모 노드 로드
         DecisionNode parent = decisionNodeRepository.findById(req.parentDecisionNodeId())
-                .orElseThrow(() -> new ApiException(ErrorCode.NODE_NOT_FOUND, "Parent DecisionNode not found: " + req.parentDecisionNodeId()));
+                .orElseThrow(() -> new ApiException(ErrorCode.NODE_NOT_FOUND,
+                        "Parent DecisionNode not found: " + req.parentDecisionNodeId()));
         DecisionLine originLine = parent.getDecisionLine();
 
+        // ★ 새 라인에 원본 라인 id 저장(나머지 흐름 동일)
         DecisionLine newLine = decisionLineRepository.save(
                 DecisionLine.builder()
                         .user(originLine.getUser())
                         .baseLine(originLine.getBaseLine())
                         .baseBranch(originLine.getBaseBranch())
                         .status(DecisionLineStatus.DRAFT)
+                        .parentLineId(originLine.getId())
                         .build()
         );
 
         List<BaseNode> orderedBase = support.getOrderedBaseNodes(originLine.getBaseLine().getId());
 
-        DecisionNode prevNew = null;
-        boolean parentIsHead = (parent.getParent() == null);
-        if (!parentIsHead) {
-            prevNew = createDecisionLineHead(newLine, orderedBase);
+        // 가장 중요한 함수 위에 한줄로만 요약 주석: 베이스 헤더(BaseNode.parent==null) 선별
+        BaseNode baseHeader = null;
+        for (BaseNode b : orderedBase) {
+            if (b.getParent() == null) { baseHeader = b; break; }
         }
+        if (baseHeader == null && !orderedBase.isEmpty()) baseHeader = orderedBase.get(0);
+
+        DecisionNode prevNew = null;
 
         List<DecisionNode> orderedOrigin = decisionNodeRepository
-                // 가장 많이 사용하는 함수 호출 위에 한줄로만 요약 주석: 기존 라인의 노드 목록을 타임라인 정렬로 로드
+                // 가장 많이 사용하는 호출 한줄 요약: 기존 라인의 노드 목록을 타임라인 정렬로 로드
                 .findByDecisionLine_IdOrderByAgeYearAscIdAsc(originLine.getId());
 
         DecNodeDto forkPointDto = null;
+        // 가장 많이 사용하는 호출 한줄 요약: 포크 앵커 엔티티를 추적해 AI 힌트 저장에 사용
+        DecisionNode forkAnchorSaved = null;
 
         for (DecisionNode n : orderedOrigin) {
             boolean isBeforeParent = n.getAgeYear() < parent.getAgeYear();
             boolean isParent = n.getId().equals(parent.getId());
-
-            if (parentIsHead && !isParent) continue;
-            if (!parentIsHead && !isBeforeParent && !isParent) break;
+            if (!isBeforeParent && !isParent) break;
 
             BaseNode matchedBase = null;
-            try { matchedBase = support.findBaseNodeByAge(orderedBase, n.getAgeYear()); } catch (RuntimeException ignore) {}
+            try {
+                // 가장 많이 사용하는 호출 한줄 요약: 헤더면 베이스 헤더로, 아니면 age로 매칭
+                if (n.getParent() == null) {
+                    matchedBase = baseHeader; // 헤더는 항상 베이스 헤더로 고정
+                } else {
+                    matchedBase = support.findBaseNodeByAge(orderedBase, n.getAgeYear());
+                }
+            } catch (RuntimeException ignore) {}
 
-            // ▼ 기본 옵션/선택은 원본 라인의 것을 사용
+            // 기본 옵션/선택은 원본 라인의 것을 사용
             List<String> options = support.extractOptions(n);
             Integer selIdx = n.getSelectedIndex();
 
             if (isParent) {
-                // ▼ 포크 지점이면 선택지 교체 로직 적용 (from-base와 동일 UX)
+                // ★ 포크 앵커에서 선택지 교체/강제 규칙
                 if (req.options() != null && !req.options().isEmpty()) {
-                    // 1) 옵션 검증(1~3, selectedIndex와 일치)
-                    support.validateOptions(req.options(), req.selectedIndex(),
+                    // 가장 많이 사용하는 호출 한줄 요약: 옵션 검증(1~3개, selectedIndex 일치)
+                    support.validateOptions(
+                            req.options(),
+                            req.selectedIndex(),
                             (req.selectedIndex() != null && req.selectedIndex() >= 0
                                     && req.selectedIndex() < req.options().size())
                                     ? req.options().get(req.selectedIndex())
                                     : null
                     );
                     options = req.options();
-                    selIdx = req.selectedIndex();
-                    if (selIdx == null && options.size() == 1) selIdx = 0; // 단일 옵션 생략 시 0 고정
+                    selIdx = (req.selectedIndex() == null && options.size() == 1) ? 0 : req.selectedIndex();
                 } else {
-                    // 2) 입력 옵션이 없으면 기존 옵션 사용 + targetOptionIndex만 강제
+                    // 입력 옵션이 없으면 기존 옵션 사용 + targetOptionIndex 강제
                     if (options == null || options.isEmpty())
                         throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "fork requires options at parent node");
                     if (req.targetOptionIndex() >= options.size())
@@ -396,7 +412,10 @@ public class DecisionFlowService {
             NodeMappers.DecisionNodeCtxMapper mapper =
                     mappers.new DecisionNodeCtxMapper(n.getUser(), newLine, prevNew, matchedBase, background);
 
-            Long newParentId = (isParent && parentIsHead) ? null : (prevNew != null ? prevNew.getId() : null);
+            Long newParentId = (n.getParent() == null) ? null : (prevNew != null ? prevNew.getId() : null);
+
+            // ★★★★★ 핵심(원본 유지): 포크 앵커에서 parentOptionIndex 강제 → 라벨러가 'fork'로 인식
+            Integer parentOptionIndexForCreate = isParent ? req.targetOptionIndex() : null;
 
             DecisionNodeCreateRequestDto createReq = new DecisionNodeCreateRequestDto(
                     newLine.getId(),
@@ -406,9 +425,9 @@ public class DecisionFlowService {
                     situation,
                     finalDecision,
                     n.getAgeYear(),
-                    options,                 // ← 여기서 교체 반영된 options 사용
-                    selIdx,                  // ← 선택 인덱스 반영
-                    (prevNew != null ? prevNew.getSelectedIndex() : null),
+                    options,
+                    selIdx,
+                    parentOptionIndexForCreate,
                     n.getDescription()
             );
 
@@ -417,16 +436,23 @@ public class DecisionFlowService {
 
             if (isParent) {
                 forkPointDto = mapper.toResponse(saved);
+                forkAnchorSaved = saved; // AI 힌트 저장 대상으로 보관
             }
         }
 
         if (forkPointDto == null)
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "fork parent not materialized");
 
-        // (선택) from-base/next와 UX 통일: aiNext* 주입
-        List<DecisionNode> orderedNew = decisionNodeRepository
-                .findByDecisionLine_IdOrderByAgeYearAscIdAsc(forkPointDto.decisionLineId());
+        // 가장 많이 사용하는 호출 한줄 요약: 새 라인의 노드를 타임라인 정렬로 재조회하여 AI 힌트 생성
+        List<DecisionNode> orderedNew =
+                decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(forkPointDto.decisionLineId());
         var hint = aiVectorService.generateNextHint(forkPointDto.userId(), forkPointDto.decisionLineId(), orderedNew);
+
+        // 가장 많이 사용하는 호출 한줄 요약: 생성된 AI 힌트를 앵커 엔티티에 저장(영속)
+        if (forkAnchorSaved != null) {
+            forkAnchorSaved.setAiHint(hint.aiNextSituation(), hint.aiNextRecommendedOption());
+            decisionNodeRepository.save(forkAnchorSaved);
+        }
 
         return new DecNodeDto(
                 forkPointDto.id(), forkPointDto.userId(), forkPointDto.type(), forkPointDto.category(),
@@ -441,6 +467,7 @@ public class DecisionFlowService {
                 forkPointDto.effectiveDescription()
         );
     }
+
 
     // 베이스 헤더를 찾아 결정 라인 헤더 생성
     private DecisionNode createDecisionLineHead(DecisionLine line, List<BaseNode> orderedBase) {

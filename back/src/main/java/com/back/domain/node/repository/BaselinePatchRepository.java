@@ -21,4 +21,6 @@ public interface BaselinePatchRepository extends JpaRepository<BaselinePatch, Lo
 
     // 커밋 집합과 ageYear로 필터링하여 최신 우선 정렬
     List<BaselinePatch> findByCommit_IdInAndAgeYearOrderByIdDesc(Collection<Long> commitIds, Integer ageYear);
+
+    void deleteByCommit_Branch_BaseLine_Id(Long baseLineId);
 }

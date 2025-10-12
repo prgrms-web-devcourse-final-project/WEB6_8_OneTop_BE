@@ -31,13 +31,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -135,7 +136,7 @@ public class BaseLineControllerTest {
             {"category":"%s","situation":"고등학교 졸업","decision":"고등학교 졸업","ageYear":18},
             {"category":"%s","situation":"대학 입학","decision":"대학 입학","ageYear":20},
             {"category":"%s","situation":"첫 인턴","decision":"첫 인턴","ageYear":22},
-            {"category":"%s","situation":"결말","decision":"결말","ageYear":24}
+            {"category":"%s","situation":"두번째 인턴","decision":"두번째 인턴","ageYear":24}
           ]
         }
         """.formatted(uid,
@@ -160,7 +161,7 @@ public class BaseLineControllerTest {
                             .content(payload))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.baseLineId").exists())
-                    .andExpect(jsonPath("$.nodes.length()").value(4));
+                    .andExpect(jsonPath("$.nodes.length()").value(6));
         }
 
         @Test
@@ -306,12 +307,12 @@ public class BaseLineControllerTest {
             var res = mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", baseLineId)
                             .with(authed(userId)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(4))
+                    .andExpect(jsonPath("$.length()").value(6))
                     .andReturn();
 
             JsonNode arr = om.readTree(res.getResponse().getContentAsString());
-            assertThat(arr.get(0).get("ageYear").asInt()).isEqualTo(18);
-            assertThat(arr.get(3).get("ageYear").asInt()).isEqualTo(24);
+            assertThat(arr.get(1).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(arr.get(3).get("ageYear").asInt()).isEqualTo(22);
         }
 
         @Test
@@ -455,13 +456,13 @@ public class BaseLineControllerTest {
             var res = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId)
                             .with(authed(userId)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.baseNodes.length()").value(4))
+                    .andExpect(jsonPath("$.baseNodes.length()").value(6))
                     .andExpect(jsonPath("$.decisionNodes.length()").value(0))
                     .andReturn();
 
             JsonNode body = om.readTree(res.getResponse().getContentAsString());
-            assertThat(body.get("baseNodes").get(0).get("ageYear").asInt()).isEqualTo(18);
-            assertThat(body.get("baseNodes").get(3).get("ageYear").asInt()).isEqualTo(24);
+            assertThat(body.get("baseNodes").get(1).get("ageYear").asInt()).isEqualTo(18);
+            assertThat(body.get("baseNodes").get(3).get("ageYear").asInt()).isEqualTo(22);
         }
 
         @Test
@@ -485,7 +486,7 @@ public class BaseLineControllerTest {
                     .andExpect(status().isOk())
                     .andReturn();
             int pivotAge = om.readTree(pivotsRes.getResponse().getContentAsString())
-                    .get("pivots").get(0).get("ageYear").asInt();
+                    .get("pivots").get(1).get("ageYear").asInt();
 
             // 3) from-base (POST + csrf + 인증)
             String fromBasePayload = """
@@ -536,13 +537,13 @@ public class BaseLineControllerTest {
             var res = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId)
                             .with(authed(userId)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.baseNodes.length()").value(4))
-                    .andExpect(jsonPath("$.decisionNodes.length()").value(3))
+                    .andExpect(jsonPath("$.baseNodes.length()").value(6))
+                    .andExpect(jsonPath("$.decisionNodes.length()").value(4))
                     .andReturn();
 
             JsonNode tree = om.readTree(res.getResponse().getContentAsString());
-            assertThat(tree.get("decisionNodes").get(1).get("ageYear").asInt()).isEqualTo(pivotAge);
-            assertThat(tree.get("decisionNodes").get(2).get("ageYear").asInt()).isEqualTo(22);
+            assertThat(tree.get("decisionNodes").get(2).get("ageYear").asInt()).isEqualTo(pivotAge);
+            assertThat(tree.get("decisionNodes").get(3).get("ageYear").asInt()).isEqualTo(22);
         }
 
         @Test
@@ -555,6 +556,400 @@ public class BaseLineControllerTest {
                     .andExpect(jsonPath("$.code").value("N002"))
                     .andExpect(jsonPath("$.message").exists());
         }
+
+        @Test
+        @DisplayName("성공 : 포크 라인에서 헤더 이후 prelude → fork(앵커) 라벨이 정확히 찍힌다 (인증/CSRF)")
+        void success_tree_labels_on_fork_line() throws Exception {
+            // === given ===
+            // 가장 많이 사용하는 호출 한줄 요약: 베이스 라인 생성(인증/CSRF)
+            var created = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .with(authed(userId))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(sampleLineJson(userId)))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            long baseLineId = om.readTree(created.getResponse().getContentAsString())
+                    .get("baseLineId").asLong();
+
+            // 가장 많이 사용하는 호출 한줄 요약: 피벗(20살) 조회
+            var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            int pivotAge = om.readTree(pivotsRes.getResponse().getContentAsString())
+                    .get("pivots").get(1) // 18,20,22,24 중 20이 두번째 인덱스일 수 있음(헤더 제외)
+                    .get("ageYear").asInt();
+
+            // 가장 많이 사용하는 호출 한줄 요약: from-base 생성(헤더/프렐류드 다음 분기 시작)
+            String fromBasePayload = """
+            {
+              "userId": %d,
+              "baseLineId": %d,
+              "pivotAge": %d,
+              "selectedAltIndex": 0,
+              "category": "%s",
+              "situation": "분기 시작",
+              "options": ["선택-A"],
+              "selectedIndex": 0
+            }
+            """.formatted(userId, baseLineId, pivotAge, NodeCategory.CAREER);
+            var fb = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(authed(userId))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fromBasePayload))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            JsonNode fbBody = om.readTree(fb.getResponse().getContentAsString());
+            long originLineId = fbBody.get("decisionLineId").asLong();
+
+            // 가장 많이 사용하는 호출 한줄 요약: next(22살) 노드 생성 → 포크 부모로 사용
+            String nextPayload = """
+            {
+              "userId": %d,
+              "parentDecisionNodeId": %d,
+              "category": "%s",
+              "situation": "다음 선택",
+              "options": ["선택-A-후속"],
+              "selectedIndex": 0,
+              "ageYear": 22
+            }
+            """.formatted(userId, fbBody.get("id").asLong(), NodeCategory.CAREER);
+            var nx = mockMvc.perform(post("/api/v1/decision-flow/next")
+                            .with(authed(userId))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(nextPayload))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            JsonNode nxBody = om.readTree(nx.getResponse().getContentAsString());
+            long parentAt22 = nxBody.get("id").asLong();
+
+            // 가장 많이 사용하는 호출 한줄 요약: fork(22 지점에서 분기 시작)
+            String forkPayload = """
+            {
+              "userId": %d,
+              "parentDecisionNodeId": %d,
+              "targetOptionIndex": 0
+            }
+            """.formatted(userId, parentAt22);
+            var fk = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                            .with(authed(userId))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(forkPayload))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            JsonNode fkBody = om.readTree(fk.getResponse().getContentAsString());
+            long forkLineId = fkBody.get("decisionLineId").asLong();
+            long forkPointIdOnNewLine = fkBody.get("id").asLong();
+
+            String nextPayloadOnFork = """
+            {
+              "userId": %d,
+              "parentDecisionNodeId": %d,
+              "category": "%s",
+              "situation": "포크 후 선택",
+              "options": ["선택-B-후속"],
+              "selectedIndex": 0,
+              "ageYear": 24
+            }
+            """.formatted(userId, forkPointIdOnNewLine, NodeCategory.CAREER);
+                    mockMvc.perform(post("/api/v1/decision-flow/next")
+                                    .with(authed(userId))
+                                    .with(csrf())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(nextPayloadOnFork))
+                            .andExpect(status().isCreated());
+
+            // === when ===
+            // 가장 많이 사용하는 호출 한줄 요약: /tree 조회로 라벨링 확인
+            var treeRes = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode tree = om.readTree(treeRes.getResponse().getContentAsString());
+            JsonNode dnodes = tree.get("decisionNodes");
+
+            // === then ===
+            // 한줄 요약(가장 중요한): 포크 라인의 노드들만 추려 라벨 시퀀스 검증(root → prelude → fork → normal…)
+            List<JsonNode> forkLineNodes = new ArrayList<>();
+            for (JsonNode n : dnodes) {
+                if (n.get("decisionLineId").asLong() == forkLineId) {
+                    forkLineNodes.add(n);
+                }
+            }
+            // 정렬: ageYear asc, id asc
+            forkLineNodes.sort((a, b) -> {
+                int cmpAge = Integer.compare(
+                        a.get("ageYear").isNull() ? Integer.MIN_VALUE : a.get("ageYear").asInt(),
+                        b.get("ageYear").isNull() ? Integer.MIN_VALUE : b.get("ageYear").asInt()
+                );
+                if (cmpAge != 0) return cmpAge;
+                return Long.compare(a.get("id").asLong(), b.get("id").asLong());
+            });
+
+            // 최소 3개(헤더, 20 프렐류드, 22 앵커) 존재해야 함
+            assertThat(forkLineNodes.size()).isGreaterThanOrEqualTo(5);
+
+            String t0 = forkLineNodes.get(0).get("incomingEdgeType").asText();
+            String t1 = forkLineNodes.get(1).get("incomingEdgeType").asText();
+            String t3 = forkLineNodes.get(2).get("incomingEdgeType").asText();
+            String t2 = forkLineNodes.get(3).get("incomingEdgeType").asText();
+            String t4 = forkLineNodes.get(4).get("incomingEdgeType").asText();
+            int a1 = forkLineNodes.get(2).get("ageYear").asInt();
+            int a2 = forkLineNodes.get(3).get("ageYear").asInt();
+            int a3 = forkLineNodes.get(4).get("ageYear").asInt();
+
+            // 루트/프렐류드/포크 라벨 검증
+            assertThat(t0).isEqualTo("root");
+            assertThat(t1).isEqualTo("prelude");
+            assertThat(t3).isEqualTo("prelude");
+            assertThat(a1).isEqualTo(20); // 프렐류드 20
+            assertThat(t2).isEqualTo("fork");
+            assertThat(a2).isEqualTo(22); // 포크 앵커 22
+            assertThat(t4).isEqualTo("normal");
+            assertThat(a3).isEqualTo(24);
+
+            // 포크 이후 노드는 normal 이어야 함(있다면)
+            for (int i = 5; i < forkLineNodes.size(); i++) {
+                assertThat(forkLineNodes.get(i).get("incomingEdgeType").asText()).isIn("normal", "from-base");
+            }
+        }
+
+        // 가장 중요한 함수 한줄 요약: 포크는 “이미 존재하는 +2 노드”를 부모로 써서 age 중복 생성 에러를 원천 차단
+        @Test
+        @DisplayName("성공 : 긴 베이스라인(10) - from-base×3+, fork×3+, next×6+ (헤더/테일/중복 age 고려) 종합 라벨 검증")
+        void success_tree_labels_massive_routes_fixed() throws Exception {
+            // 가장 많이 사용하는 호출 한줄 요약: 베이스 라인(길이 10) 생성(인증/CSRF)
+            String bulk10 = """
+    {
+      "userId": %d,
+      "nodes": [
+        {"category":"EDUCATION","situation":"N0","decision":"N0","ageYear":18},
+        {"category":"EDUCATION","situation":"N1","decision":"N1","ageYear":20},
+        {"category":"CAREER","situation":"N2","decision":"N2","ageYear":22},
+        {"category":"CAREER","situation":"N3","decision":"N3","ageYear":24},
+        {"category":"CAREER","situation":"N4","decision":"N4","ageYear":26},
+        {"category":"CAREER","situation":"N5","decision":"N5","ageYear":28},
+        {"category":"CAREER","situation":"N6","decision":"N6","ageYear":30},
+        {"category":"ETC","situation":"N7","decision":"N7","ageYear":32},
+        {"category":"ETC","situation":"N8","decision":"N8","ageYear":34},
+        {"category":"ETC","situation":"N9","decision":"N9","ageYear":36}
+      ]
+    }
+    """.formatted(userId);
+
+            var created = mockMvc.perform(post("/api/v1/base-lines/bulk")
+                            .with(authed(userId))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(bulk10))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            long baseLineId = om.readTree(created.getResponse().getContentAsString())
+                    .get("baseLineId").asLong();
+
+            // 가장 많이 사용하는 호출 한줄 요약: 피벗 전체 조회(헤더/테일 제외된 age 목록 확보)
+            var pivotsRes = mockMvc.perform(get("/api/v1/base-lines/{id}/pivots", baseLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode pivots = om.readTree(pivotsRes.getResponse().getContentAsString()).get("pivots");
+
+            // 피벗 나이 후보(>=20) 중 앞 3개 사용
+            List<Integer> pivotAges = new ArrayList<>();
+            for (int i = 0; i < pivots.size(); i++) {
+                int age = pivots.get(i).get("ageYear").asInt();
+                if (age >= 20) pivotAges.add(age);
+            }
+            assertThat(pivotAges.size()).isGreaterThanOrEqualTo(3);
+
+            // ===== from-base ×3 =====
+            List<Long> originLineIds = new ArrayList<>();
+            List<Long> originRootNodeIds = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                int pivotAge = pivotAges.get(i);
+                String fromBase = """
+        {
+          "userId": %d,
+          "baseLineId": %d,
+          "pivotAge": %d,
+          "selectedAltIndex": 0,
+          "category": "%s",
+          "situation": "FB-%d",
+          "options": ["A"],
+          "selectedIndex": 0
+        }
+        """.formatted(userId, baseLineId, pivotAge, NodeCategory.CAREER, pivotAge);
+                var fbRes = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                                .with(authed(userId))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(fromBase))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+                JsonNode fbBody = om.readTree(fbRes.getResponse().getContentAsString());
+                originLineIds.add(fbBody.get("decisionLineId").asLong());
+                originRootNodeIds.add(fbBody.get("id").asLong());
+            }
+
+            // ===== 각 origin 라인에 next 2개(+2, +4)씩 → 총 6개 이상 =====
+            List<Long> firstNextPerOrigin = new ArrayList<>(); // ★ 포크 부모(= +2)
+            int nextCount = 0;
+            for (int i = 0; i < originLineIds.size(); i++) {
+                long rootId = originRootNodeIds.get(i);
+                int baseAge = pivotAges.get(i);
+
+                // 가장 많이 사용하는 호출 한줄 요약: next #1 (+2)
+                String next1 = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "NX1-%d",
+          "options": ["A1"],
+          "selectedIndex": 0,
+          "ageYear": %d
+        }
+        """.formatted(userId, rootId, NodeCategory.CAREER, i, baseAge + 2);
+                var nx1 = mockMvc.perform(post("/api/v1/decision-flow/next")
+                                .with(authed(userId))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(next1))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+                long nx1Id = om.readTree(nx1.getResponse().getContentAsString()).get("id").asLong();
+                firstNextPerOrigin.add(nx1Id);
+                nextCount++;
+
+                // 가장 많이 사용하는 호출 한줄 요약: next #2 (+4)
+                String next2 = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "NX2-%d",
+          "options": ["A2"],
+          "selectedIndex": 0,
+          "ageYear": %d
+        }
+        """.formatted(userId, nx1Id, NodeCategory.CAREER, i, baseAge + 4);
+                mockMvc.perform(post("/api/v1/decision-flow/next")
+                                .with(authed(userId))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(next2))
+                        .andExpect(status().isCreated());
+                nextCount++;
+            }
+            assertThat(nextCount).isGreaterThanOrEqualTo(6);
+
+            // ===== fork ×3 : “이미 만든 +2(next)”를 부모로 사용 (중복 age 생성 금지) =====
+            List<Long> forkLineIds = new ArrayList<>();
+            List<Integer> forkAges = new ArrayList<>();
+            for (int i = 0; i < originLineIds.size(); i++) {
+                long forkParentId = firstNextPerOrigin.get(i);   // ★ 새 next를 만들지 않음
+                int baseAge = pivotAges.get(i);
+
+                String forkReq = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "targetOptionIndex": 0
+        }
+        """.formatted(userId, forkParentId);
+                var fk = mockMvc.perform(post("/api/v1/decision-flow/fork")
+                                .with(authed(userId))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(forkReq))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+                JsonNode fkBody = om.readTree(fk.getResponse().getContentAsString());
+                forkLineIds.add(fkBody.get("decisionLineId").asLong());
+                forkAges.add(baseAge + 2);
+
+                // 포크 라인 후속 next(+4) 1개
+                long forkPointId = fkBody.get("id").asLong();
+                String nextOnFork = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "AFTER-FORK-%d",
+          "options": ["C0"],
+          "selectedIndex": 0,
+          "ageYear": %d
+        }
+        """.formatted(userId, forkPointId, NodeCategory.CAREER, i, baseAge + 4);
+                mockMvc.perform(post("/api/v1/decision-flow/next")
+                                .with(authed(userId))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(nextOnFork))
+                        .andExpect(status().isCreated());
+            }
+            assertThat(forkLineIds.size()).isGreaterThanOrEqualTo(3);
+
+            // === when ===
+            // 가장 많이 사용하는 호출 한줄 요약: /tree 조회
+            var treeRes = mockMvc.perform(get("/api/v1/base-lines/{id}/tree", baseLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode dnodes = om.readTree(treeRes.getResponse().getContentAsString()).get("decisionNodes");
+
+            // === then ===
+            // 한줄 요약(가장 중요한): 모든 포크 라인이 root→prelude*→fork→normal… 시퀀스인지 검증
+            for (int i = 0; i < forkLineIds.size(); i++) {
+                long forkLineId = forkLineIds.get(i);
+                int expectedForkAge = forkAges.get(i);
+
+                List<JsonNode> list = new ArrayList<>();
+                for (JsonNode n : dnodes) {
+                    if (n.get("decisionLineId").asLong() == forkLineId) list.add(n);
+                }
+                // 정렬: ageYear asc(null first), id asc
+                list.sort((a, b) -> {
+                    int aa = a.get("ageYear").isNull() ? Integer.MIN_VALUE : a.get("ageYear").asInt();
+                    int bb = b.get("ageYear").isNull() ? Integer.MIN_VALUE : b.get("ageYear").asInt();
+                    int cmp = Integer.compare(aa, bb);
+                    return (cmp != 0) ? cmp : Long.compare(a.get("id").asLong(), b.get("id").asLong());
+                });
+
+                assertThat(list.size()).isGreaterThanOrEqualTo(4); // root + prelude(>=1) + fork + normal(>=1)
+                assertThat(list.get(0).get("incomingEdgeType").asText()).isEqualTo("root");
+
+                JsonNode anchor = null;
+                for (JsonNode n : list) {
+                    if ("fork".equals(n.get("incomingEdgeType").asText())) { anchor = n; break; }
+                }
+                assertThat(anchor).isNotNull();
+                assertThat(anchor.get("ageYear").asInt()).isEqualTo(expectedForkAge);
+
+                // 앵커 이전은 prelude만(root 제외)
+                for (JsonNode n : list) {
+                    if (n.get("id").asLong() == anchor.get("id").asLong()) break;
+                    String t = n.get("incomingEdgeType").asText();
+                    if (!"root".equals(t)) assertThat(t).isEqualTo("prelude");
+                }
+                // 앵커 이후는 normal 또는 from-base
+                boolean after = false;
+                for (JsonNode n : list) {
+                    if (after) assertThat(n.get("incomingEdgeType").asText()).isIn("normal", "from-base");
+                    if (n.get("id").asLong() == anchor.get("id").asLong()) after = true;
+                }
+                // 앵커-원본 링크 존재
+                assertThat(anchor.get("pivotLinkDecisionNodeId").isNull()).isFalse();
+            }
+        }
+
+
+
+
     }
 
     @Nested
@@ -610,4 +1005,50 @@ public class BaseLineControllerTest {
                     .andExpect(jsonPath("$.length()").value(0));
         }
     }
+
+
+    // ===========================
+    // 베이스 라인 삭제
+    // ===========================
+    @Nested
+    @DisplayName("베이스 라인 삭제")
+    class BaseLine_Delete {
+
+        @Test
+        @DisplayName("성공 : DELETE /{baseLineId} — 연관 전체 삭제 후 204, 재조회 404 (인증/CSRF)")
+        void success_deleteDeep_ok() throws Exception {
+            // given: 라인 생성
+            Long baseLineId = saveAndGetBaseLineId();
+            assertThat(baseLineRepository.existsById(baseLineId)).isTrue();
+
+            // when: 삭제 호출
+            mockMvc.perform(delete("/api/v1/base-lines/{id}", baseLineId)
+                            .with(authed(userId))  // 인증
+                            .with(csrf()))         // CSRF
+                    .andExpect(status().isNoContent());
+
+            // then: 존재하지 않아야 함
+            assertThat(baseLineRepository.existsById(baseLineId)).isFalse();
+
+            // 연관 노드 재조회 시 404/N002
+            mockMvc.perform(get("/api/v1/base-lines/{id}/nodes", baseLineId)
+                            .with(authed(userId)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N002"));
+        }
+
+        @Test
+        @DisplayName("실패 : 존재하지 않는 라인 삭제 시 404/N002 (인증/CSRF)")
+        void fail_delete_unknownLine() throws Exception {
+            long unknownId = 9_999_999L;
+
+            mockMvc.perform(delete("/api/v1/base-lines/{id}", unknownId)
+                            .with(authed(userId))
+                            .with(csrf()))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("N002"))
+                    .andExpect(jsonPath("$.message").exists());
+        }
+    }
+
 }

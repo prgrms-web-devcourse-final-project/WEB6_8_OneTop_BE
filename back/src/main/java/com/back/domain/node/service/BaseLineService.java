@@ -12,17 +12,24 @@ import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.entity.*;
 import com.back.domain.node.mapper.NodeMappers;
 import com.back.domain.node.repository.*;
+import com.back.domain.scenario.repository.ScenarioRepository;
+import com.back.domain.scenario.repository.SceneCompareRepository;
+import com.back.domain.scenario.repository.SceneTypeRepository;
 import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -31,15 +38,21 @@ class BaseLineService {
 
     private final BaseLineRepository baseLineRepository;
     private final BaseNodeRepository baseNodeRepository;
+    private final DecisionLineRepository decisionLineRepository;
+    private final DecisionNodeRepository decisionNodeRepository;
     private final UserRepository userRepository;
     private final NodeDomainSupport support;
+    private final ScenarioRepository scenarioRepository;
+    private final SceneTypeRepository sceneTypeRepository;
+    private final SceneCompareRepository sceneCompareRepository;
 
     // 하이브리드 초기화용
     private final NodeAtomRepository atomRepo;
     private final NodeAtomVersionRepository versionRepo;
     private final BaselineBranchRepository branchRepo;
     private final BaselineCommitRepository commitRepo;
-    private final BaselinePatchRepository patchRepo;  // ← 추가
+    private final BaselinePatchRepository patchRepo;
+    private final EntityManager em;
 
     private final NodeMappers mappers;
 
@@ -130,5 +143,49 @@ class BaseLineService {
             list.add(new PivotListDto.PivotDto(idx++, n.getId(), n.getCategory(), n.getSituation(), n.getAgeYear(), n.getDescription()));
         }
         return new PivotListDto(baseLineId, list);
+    }
+
+    @Transactional
+    public void deleteBaseLineDeep(Long userId, Long baseLineId) {
+        // 가장 많이 사용하는 호출: 소유자/존재 여부 검증
+        boolean owned = baseLineRepository.existsByIdAndUser_Id(baseLineId, userId);
+        if (!owned) throw new ApiException(ErrorCode.BASE_LINE_NOT_FOUND, "baseline not found or not owned");
+
+        // 가장 많이 사용하는 호출: 결정노드 → 결정라인
+        decisionNodeRepository.deleteByDecisionLine_BaseLine_Id(baseLineId);
+        decisionLineRepository.deleteByBaseLine_Id(baseLineId);
+
+        // 가장 많이 사용하는 호출: DVCS 역순(Patch→Commit→Branch)
+        patchRepo.deleteByCommit_Branch_BaseLine_Id(baseLineId);
+        branchRepo.clearHeadByBaseLineId(baseLineId);
+        commitRepo.deleteByBranch_BaseLine_Id(baseLineId);
+        branchRepo.deleteByBaseLine_Id(baseLineId);
+
+        // (중간 플러시) 위 벌크 삭제 쿼리 확실히 반영
+        em.flush();
+        em.clear();
+
+        // 시나리오 삭제(자식 → 부모 순서)
+        List<Long> scenarioIds = scenarioRepository.findIdsByBaseLine_Id(baseLineId);
+        if (scenarioIds != null && !scenarioIds.isEmpty()) {
+            // 가장 많이 사용하는 호출: 시나리오 비교/타입(자식 테이블) 선삭제
+            sceneCompareRepository.deleteByScenario_IdIn(scenarioIds);
+            sceneTypeRepository.deleteByScenario_IdIn(scenarioIds);
+
+            // (중간 플러시) 자식이 먼저 사라진 것을 보장
+            em.flush();
+            em.clear();
+
+            // 부모(Scenario) 벌크 삭제
+            scenarioRepository.deleteByIdIn(scenarioIds);
+        }
+
+        // (중간 플러시) 시나리오 트리 정리 완료 보장
+        em.flush();
+        em.clear();
+
+        // 가장 많이 사용하는 호출: 베이스노드 → 베이스라인
+        baseNodeRepository.deleteByBaseLine_Id(baseLineId);
+        baseLineRepository.deleteByIdAndUser_Id(baseLineId, userId);
     }
 }

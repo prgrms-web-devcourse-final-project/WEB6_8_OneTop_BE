@@ -25,4 +25,6 @@ public interface BaselineCommitRepository extends JpaRepository<BaselineCommit, 
     // N+1 방지용: 부모 커밋 즉시 로딩
     @EntityGraph(attributePaths = {"parentCommit"})
     List<BaselineCommit> findAll();
+
+    void deleteByBranch_BaseLine_Id(Long baseLineId);
 }

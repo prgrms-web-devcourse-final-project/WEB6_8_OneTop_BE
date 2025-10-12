@@ -7,6 +7,9 @@ package com.back.domain.node.repository;
 
 import com.back.domain.node.entity.BaselineBranch;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,4 +23,10 @@ public interface BaselineBranchRepository extends JpaRepository<BaselineBranch, 
 
     // BaseLine 기준 브랜치 목록 조회
     List<BaselineBranch> findByBaseLine_Id(Long baseLineId);
+
+    void deleteByBaseLine_Id(Long baseLineId);
+
+    @Modifying
+    @Query("update BaselineBranch b set b.headCommit = null where b.baseLine.id = :baseLineId")
+    void clearHeadByBaseLineId(@Param("baseLineId") Long baseLineId);
 }

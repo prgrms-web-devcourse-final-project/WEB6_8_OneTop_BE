@@ -661,6 +661,81 @@ public class DecisionFlowControllerTest {
         }
     }
 
+    @Test
+    @DisplayName("성공 : from-base/next 생성 후 라인 상세 재조회 시 각 노드에 aiNextSituation/aiNextRecommendedOption이 영속되어 매핑된다")
+    void success_aiHints_persisted_and_mapped_on_line_detail() throws Exception {
+        aiCallBudget.reset(0);
+
+        // 1) from-base 시작 (헤드 생성 + 응답 즉시 힌트 포함)
+        var head = startDecisionFromBase(userId);
+
+        // 2) 라인 상세 재조회 → 헤드 노드의 AI 힌트가 DB→DTO로 매핑되었는지 확인
+        var lineDetail1 = mockMvc.perform(get("/api/v1/decision-lines/{id}", head.decisionLineId)
+                        .with(authed(userId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode nodes1 = om.readTree(lineDetail1.getResponse().getContentAsString()).path("nodes");
+        assertThat(nodes1.isArray()).isTrue();
+        assertThat(nodes1.size()).isGreaterThanOrEqualTo(1);
+
+        // 가장 중요한 체크 한줄 요약: 헤드 노드의 AI 힌트가 비어있지 않음
+        JsonNode headNode1 = null;
+        for (JsonNode n : nodes1) if (n.path("id").asLong() == head.decisionNodeId) headNode1 = n;
+        assertThat(headNode1).isNotNull();
+        assertThat(headNode1.path("aiNextSituation").asText()).isNotBlank();
+        assertThat(headNode1.path("aiNextRecommendedOption").asText()).isNotBlank();
+
+        // 3) next 생성(자식 노드에도 힌트 저장)
+        String nextReq = """
+        {
+          "userId": %d,
+          "parentDecisionNodeId": %d,
+          "category": "%s",
+          "situation": "인턴 후 진로 기로",
+          "options": ["수락","보류","거절"],
+          "selectedIndex": 0
+        }
+        """.formatted(userId, head.decisionNodeId, NodeCategory.CAREER);
+
+        var nextRes = mockMvc.perform(post("/api/v1/decision-flow/next")
+                        .with(csrf()).with(authed(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nextReq))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        long childId = om.readTree(nextRes.getResponse().getContentAsString()).get("id").asLong();
+
+        // 4) 라인 상세 재조회 → 헤드/자식 모두 AI 힌트가 존재하는지 확인(매퍼 DECISION_READ 경유)
+        var lineDetail2 = mockMvc.perform(get("/api/v1/decision-lines/{id}", head.decisionLineId)
+                        .with(authed(userId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode nodes2 = om.readTree(lineDetail2.getResponse().getContentAsString()).path("nodes");
+        assertThat(nodes2.isArray()).isTrue();
+        assertThat(nodes2.size()).isGreaterThanOrEqualTo(2);
+
+        JsonNode headNode2 = null, childNode2 = null;
+        for (JsonNode n : nodes2) {
+            if (n.path("id").asLong() == head.decisionNodeId) headNode2 = n;
+            if (n.path("id").asLong() == childId)            childNode2 = n;
+        }
+        assertThat(headNode2).isNotNull();
+        assertThat(childNode2).isNotNull();
+
+        // 가장 많이 사용하는 체크 한줄 요약: 두 노드 모두 AI 힌트가 비어있지 않음
+        assertThat(headNode2.path("aiNextSituation").asText()).isNotBlank();
+        assertThat(headNode2.path("aiNextRecommendedOption").asText()).isNotBlank();
+        assertThat(childNode2.path("aiNextSituation").asText()).isNotBlank();
+        assertThat(childNode2.path("aiNextRecommendedOption").asText()).isNotBlank();
+
+        // (테스트 더미 AI 고정값을 사용하는 환경이면 아래 주석 해제해서 정확 값까지 검증 가능)
+        assertThat(childNode2.path("aiNextSituation").asText()).isEqualTo("테스트-상황(한 문장)");
+        assertThat(childNode2.path("aiNextRecommendedOption").asText()).isEqualTo("테스트-추천");
+    }
+
     // ===========================
     // 공통 헬퍼
     // ===========================

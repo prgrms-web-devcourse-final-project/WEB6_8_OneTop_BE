@@ -34,6 +34,9 @@ public class DecisionLine extends BaseEntity {
     @Column(nullable = false)
     private DecisionLineStatus status;
 
+    @Column(name = "parent_line_id")
+    private Long parentLineId;
+
     @OneToMany(mappedBy = "decisionLine", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DecisionNode> decisionNodes = new ArrayList<>();
 

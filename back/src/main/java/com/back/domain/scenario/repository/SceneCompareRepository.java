@@ -2,8 +2,10 @@ package com.back.domain.scenario.repository;
 
 import com.back.domain.scenario.entity.SceneCompare;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -14,4 +16,6 @@ public interface SceneCompareRepository extends JpaRepository<SceneCompare, Long
 
     // 특정 시나리오의 모든 비교 결과 조회 (6개: TOTAL + 5개 지표)
     List<SceneCompare> findByScenarioIdOrderByResultType(Long scenarioId);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    void deleteByScenario_IdIn(Collection<Long> scenarioIds);
 }

@@ -79,4 +79,9 @@ public class NodeService {
     public List<BaseLineDto> getMyBaseLines(Long id) {
         return nodeQueryService.getMyBaseLines(id);
     }
+
+    // 소유자 검증 포함 베이스라인 깊은 삭제 위임
+    public void deleteBaseLineDeep(Long userId, Long baseLineId) {
+        baseLineService.deleteBaseLineDeep(userId, baseLineId);
+    }
 }
