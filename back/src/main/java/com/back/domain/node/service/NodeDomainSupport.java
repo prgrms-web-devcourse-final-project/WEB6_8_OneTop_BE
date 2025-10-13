@@ -257,7 +257,7 @@ public class NodeDomainSupport {
         return ops.isEmpty() ? null : ops;
     }
 
-    // 가장 중요한: 피벗만 들어온 nodes를 헤더/테일 자동 부착하여 정규화
+    // 피벗만 들어온 nodes를 헤더/테일 자동 부착하여 정규화
     public List<BaseLineBulkCreateRequest.BaseNodePayload> normalizeWithEnds(
             List<BaseLineBulkCreateRequest.BaseNodePayload> raw
     ) {
@@ -301,7 +301,7 @@ public class NodeDomainSupport {
         return normalized;
     }
 
-    // 가장 많이 사용하는: 기존(헤더/테일 포함) 형태 감지 휴리스틱
+    // 기존(헤더/테일 포함) 형태 감지 휴리스틱
     private boolean looksLikeLegacyWithEnds(List<BaseLineBulkCreateRequest.BaseNodePayload> nodes) {
         if (nodes.size() < 3) return false;
         String s0 = Optional.ofNullable(nodes.get(0).situation()).orElse("");

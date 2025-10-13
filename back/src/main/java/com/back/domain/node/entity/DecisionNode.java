@@ -72,7 +72,6 @@ public class DecisionNode extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // ▼ 추가: 해석 정책/버전
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

@@ -46,7 +46,7 @@ public class NodeQueryService {
     private final ObjectMapper objectMapper;
 
     /*
-     * [TreeQuery] BaseLine 트리 조회 (하드닝 적용판)
+     * [TreeQuery] BaseLine 트리 조회
      * - 목적: 포크 앵커의 pivotLinkDecisionNodeId가 반드시 (background|ageYear|parentLineId)로만 매칭되도록 강제
      * - 흐름 개요
      *   1) 베이스/라인/노드 조회 및 DTO 매핑 → 보조 인덱스(pivot/children) 구축
@@ -57,8 +57,7 @@ public class NodeQueryService {
      *      - 포크 앵커의 결정 피벗 링크는 (background|ageYear|parentLineId)로 '정확 매칭', 미스면 즉시 예외
      *   6) renderPhase(라인 위상) → ageYear → id 기준 정렬 후 TreeDto 반환
      */
-
-    // 가장 중요한 함수 한줄 요약: BaseLine 전체 트리를 라벨링/피벗링크/검증 강화하여 TreeDto로 반환
+    // BaseLine 전체 트리를 라벨링/피벗링크/검증 강화하여 TreeDto로 반환
     public TreeDto getTreeForBaseLine(Long baseLineId) {
         // 가장 많이 사용하는 호출 한줄 요약: 베이스라인 존재 보장
         support.ensureBaseLineExists(baseLineId);
@@ -82,10 +81,10 @@ public class NodeQueryService {
                 Integer pivotSlot
         ) {}
 
-        // 가장 많이 사용하는 호출 한줄 요약: 베이스라인의 모든 라인 조회
+        // 베이스라인의 모든 라인 조회
         List<DecisionLine> lines = decisionLineRepository.findByBaseLine_Id(baseLineId);
 
-        // ★ 라인 메타(parentLineId) 사전 구축
+        // 라인 메타(parentLineId) 사전 구축
         Map<Long, Long> parentLineIdByLine = new HashMap<>();
         for (DecisionLine ln : lines) parentLineIdByLine.put(ln.getId(), ln.getParentLineId());
 
@@ -120,7 +119,7 @@ public class NodeQueryService {
             }
         }
 
-        // 1) 라인별 보조 인덱스: 노드 순서, 첫 from-base, from-base 라인 여부, 첫 fork 앵커
+        // 라인별 보조 인덱스: 노드 순서, 첫 from-base, from-base 라인 여부, 첫 fork 앵커
         Map<Long, Map<Long, Integer>> indexInLine = new HashMap<>();
         Map<Long, Long> firstFromBaseNodeIdByLine = new HashMap<>();
         Map<Long, Boolean> isFromBaseLine = new HashMap<>();
@@ -159,7 +158,7 @@ public class NodeQueryService {
             }
         }
 
-        // 1-보강) parentLineId 일관성 검증: from-base 라인은 null, 포크 라인은 not null(앵커 존재 시)
+        // parentLineId 일관성 검증: from-base 라인은 null, 포크 라인은 not null(앵커 존재 시)
         for (Long lineId : byLine.keySet()) {
             boolean hasForkAnchor = firstForkNodeIdByLine.containsKey(lineId);
             Long pli = parentLineIdByLine.get(lineId);
@@ -173,7 +172,7 @@ public class NodeQueryService {
             }
         }
 
-        // 2) 원본 normal 노드 인덱스(A안 핵심): key = background + "|" + ageYear + "|" + lineId
+        // 원본 normal 노드 인덱스(A안 핵심): key = background + "|" + ageYear + "|" + lineId
         // parentOptionIndex == null 인 노드(= normal)만 수집, 동일 키는 가장 오래된(작은 id) 고정
         Map<String, Long> sourceNormalByKey = new HashMap<>();
         Map<String, Integer> sourceNormalCount = new HashMap<>(); // 중복(normal) 감지
@@ -188,7 +187,7 @@ public class NodeQueryService {
                 sourceNormalCount.merge(k, 1, Integer::sum);
             }
         }
-        // 2-보강) 같은 라인에서 동일 (bg,age) normal이 2개 이상이면 모호성 → 예외
+        // 같은 라인에서 동일 (bg,age) normal이 2개 이상이면 모호성 → 예외
         for (Map.Entry<String, Integer> e : sourceNormalCount.entrySet()) {
             if (e.getValue() > 1)
                 throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "ambiguous normals for key=" + e.getKey());
@@ -218,7 +217,7 @@ public class NodeQueryService {
                 incomingFromLineId = (p != null ? p.getDecisionLine().getId() : null);
             }
 
-            // === edge type 규칙 ===
+
             String incomingEdgeType;
             if (v.isRoot) {
                 incomingEdgeType = "root";
@@ -356,7 +355,7 @@ public class NodeQueryService {
         return new DecisionLineListDto(summaries);
     }
 
-    // 가장 중요한: 특정 라인의 상세를 childrenIds/root/pivotLink*와 함께 반환
+    // 특정 라인의 상세를 childrenIds/root/pivotLink*와 함께 반환
     public DecisionLineDetailDto getDecisionLineDetail(Long decisionLineId) {
         DecisionLine line = decisionLineRepository.findById(decisionLineId)
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND,
@@ -365,17 +364,17 @@ public class NodeQueryService {
         Long baseLineId   = line.getBaseLine().getId();
         Long baseBranchId = (line.getBaseBranch() != null) ? line.getBaseBranch().getId() : null;
 
-        // 가장 많이 사용하는: 라인 노드를 타임라인 정렬 조회
+        // 라인 노드를 타임라인 정렬 조회
         List<DecisionNode> ordered = decisionNodeRepository
                 .findByDecisionLine_IdOrderByAgeYearAscIdAsc(line.getId());
 
-        // parent→children 인덱스 구성
+        // parent->children 인덱스 구성
         Map<Long, List<Long>> childrenIndex = buildChildrenIndex(ordered);
         // 베이스 분기 슬롯 역인덱스 구성
         Map<Long, PivotMark> pivotIndex = buildPivotIndex(baseLineId);
 
         List<DecNodeDto> nodes = ordered.stream().map(n -> {
-            // 기존 읽기 매퍼로 기본 DTO 생성(effective* 일부 포함)
+            // 기존 읽기 매퍼로 기본 DTO 생성(effective 일부 포함)
             DecNodeDto base = mappers.DECISION_READ.map(n);
 
             // 정책/핀/오버라이드에서 최종 버전 해석 (필요 시 덮어쓰기)
@@ -413,7 +412,7 @@ public class NodeQueryService {
             Integer pivotSlot = (mark != null) ? mark.slotIndex() : null;
 
             // ===== 라인 상세 전용 렌더 힌트 =====
-            // 한줄 요약: 상세 화면은 한 라인만 보므로 phase=1 고정, incoming은 parent 기준(normal)
+            // 상세 화면은 한 라인만 보므로 phase=1 고정, incoming은 parent 기준(normal)
             Integer renderPhase = 1;
             Long incomingFromId = isRoot ? null : n.getParent().getId();
             String incomingEdgeType = "normal";
@@ -429,9 +428,7 @@ public class NodeQueryService {
                     base.parentOptionIndex(), base.description(),
                     base.aiNextSituation(), base.aiNextRecommendedOption(),
                     base.followPolicy(), base.pinnedCommitId(), base.virtual(),
-                    // effective* (최종 해석 반영)
                     effCategory, effSituation, effDecision, effOpts, effDesc,
-                    // ▼ 렌더 편의 + 단일 패스 힌트(라인 내부 한정)
                     List.copyOf(childrenIds), isRoot, pivotBaseId,
                     pivotSlot, pivotLinkDecisionNodeId,
                     renderPhase, incomingFromId, incomingEdgeType,incomingFromLineId
@@ -447,7 +444,7 @@ public class NodeQueryService {
         );
     }
 
-    // ===== helpers =====
+    // ===== 핼퍼들 =====
     private List<String> parseOptionsJson(String optionsJson) {
         if (optionsJson == null || optionsJson.isBlank()) return null;
         try {
@@ -470,7 +467,7 @@ public class NodeQueryService {
     }
 
 
-    // 가장 많이 사용하는 함수 호출 위에 한줄 요약: DECISION parent→children 인덱스 구성
+    //  DECISION parent→children 인덱스 구성
     private Map<Long, List<Long>> buildChildrenIndex(List<DecisionNode> ordered) {
         Map<Long, List<Long>> map = new LinkedHashMap<>();
         for (DecisionNode d : ordered) {
@@ -486,7 +483,7 @@ public class NodeQueryService {
 
 
 
-    // 가장 많이 사용하는 함수 호출 위에 한줄 요약: BaseNode의 altOpt1/2TargetDecisionId로 pivot 역인덱스 구성
+    // BaseNode의 altOpt1/2TargetDecisionId로 pivot 역인덱스 구성
     private Map<Long, PivotMark> buildPivotIndex(Long baseLineId) {
         Map<Long, PivotMark> index = new HashMap<>();
         List<BaseNode> bases = baseNodeRepository.findByBaseLine_IdOrderByAgeYearAscIdAsc(baseLineId);
@@ -502,7 +499,7 @@ public class NodeQueryService {
         return index;
     }
 
-    // 가장 중요한 함수 위에 한줄 요약: 분기 표식 컨테이너(베이스 id와 슬롯 인덱스)
+    // 분기 표식 컨테이너(베이스 id와 슬롯 인덱스)
     private record PivotMark(Long baseNodeId, Integer slotIndex) {}
 
     /*
