@@ -5,8 +5,8 @@ import com.back.global.ai.exception.AiServiceException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -25,13 +25,20 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "ai.image", name = "enabled", havingValue = "true")
 public class StableDiffusionImageClient implements ImageAiClient {
 
     private final ImageAiConfig imageAiConfig;
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public StableDiffusionImageClient(
+            ImageAiConfig imageAiConfig,
+            @Qualifier("stabilityWebClient") WebClient webClient
+    ) {
+        this.imageAiConfig = imageAiConfig;
+        this.webClient = webClient;
+    }
 
     @Override
     public CompletableFuture<String> generateImage(String prompt) {
