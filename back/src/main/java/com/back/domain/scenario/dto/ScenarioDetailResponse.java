@@ -19,6 +19,9 @@ public record ScenarioDetailResponse(
         @Schema(description = "시나리오 생성 상태", example = "COMPLETED")
         ScenarioStatus status,
 
+        @Schema(description = "베이스 시나리오 ID (비교 분석용, null이면 이 시나리오가 베이스)", example = "1000")
+        Long baseScenarioId,
+
         @Schema(description = "시나리오 최종 직업", example = "AI 연구원")
         String job,
 
@@ -45,9 +48,23 @@ public record ScenarioDetailResponse(
                 .map(st -> new ScenarioTypeDto(st.getType(), st.getPoint(), st.getAnalysis()))
                 .toList();
 
+        // 베이스 시나리오 ID 찾기
+        // 1. 이 시나리오가 베이스 시나리오면 null (decisionLine == null)
+        // 2. DecisionLine 기반 시나리오면 같은 BaseLine의 베이스 시나리오 ID 찾기
+        Long baseScenarioId = null;
+        if (scenario.getDecisionLine() != null && scenario.getBaseLine() != null) {
+            // DecisionLine 기반 시나리오: BaseLine의 모든 시나리오 중 decisionLine이 null인 것 찾기
+            baseScenarioId = scenario.getBaseLine().getScenarios().stream()
+                    .filter(s -> s.getDecisionLine() == null)
+                    .map(Scenario::getId)
+                    .findFirst()
+                    .orElse(null);
+        }
+
         return new ScenarioDetailResponse(
                 scenario.getId(),
                 scenario.getStatus(),
+                baseScenarioId,
                 scenario.getJob(),
                 scenario.getTotal(),
                 scenario.getSummary(),
