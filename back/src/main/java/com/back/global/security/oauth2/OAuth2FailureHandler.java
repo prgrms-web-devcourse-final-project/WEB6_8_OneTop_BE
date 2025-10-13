@@ -27,10 +27,26 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
         log.error("OAuth2 Login Failure: {}", exception.getMessage());
 
-        String targetUrl = UriComponentsBuilder.fromUriString(frontUrl + "/oauth2/redirect")
-                .queryParam("error", exception.getMessage())
-                .build().toUriString();
+        String code = mapToErrorCode(exception);
+
+        String targetUrl = UriComponentsBuilder.fromUriString(frontUrl)
+                .queryParam("status", "error")
+                .queryParam("code", code)
+                .build(true)
+                .toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
+
+    private String mapToErrorCode(AuthenticationException ex) {
+        String msg = (ex.getMessage() == null ? "" : ex.getMessage()).toLowerCase();
+
+        if (msg.contains("access_denied")) return "ACCESS_DENIED";
+        if (msg.contains("email")) return "EMAIL_MISSING";
+        if (msg.contains("invalid_state") || msg.contains("state")) return "INVALID_STATE";
+        if (msg.contains("temporarily_unavailable") || msg.contains("server_error")) return "PROVIDER_UNAVAILABLE";
+        if (msg.contains("invalid_client") || msg.contains("unauthorized_client")) return "CLIENT_CONFIG_ERROR";
+        return "OAUTH2_FAILURE";
+    }
+
 }
