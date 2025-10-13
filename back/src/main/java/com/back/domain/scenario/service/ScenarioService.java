@@ -237,6 +237,12 @@ public class ScenarioService {
                         "parent decision node not found: " + lastDecision.parentDecisionNodeId()
                 ));
 
+        // DecisionLine null 체크 (데이터 무결성 검증)
+        if (parent.getDecisionLine() == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE,
+                    "Parent DecisionNode's DecisionLine is missing (data corruption). DecisionNode ID: " + parent.getId());
+        }
+
         // 같은 라인인지 강제
         if (!parent.getDecisionLine().getId().equals(line.getId())) {
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "parent node does not belong to the target line");
