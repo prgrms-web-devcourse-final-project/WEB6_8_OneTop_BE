@@ -62,7 +62,6 @@ server:
     session:
       cookie:
         secure: true      # 운영 true(HTTPS)
-        same-site: strict
         domain: ${custom.site.baseDomain}
 
 springdoc:
