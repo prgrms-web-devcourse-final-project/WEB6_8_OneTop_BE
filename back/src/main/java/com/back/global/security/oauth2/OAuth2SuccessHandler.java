@@ -35,6 +35,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         log.info("OAuth2 로그인 완료 - 사용자: {} ({})", user.getEmail(), user.getAuthProvider());
 
-        response.sendRedirect(frontUrl + "/oauth2/redirect?success=true");
+        response.sendRedirect(frontUrl);
     }
 }
