@@ -230,8 +230,8 @@ public class ScenarioService {
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "lastDecision.parentDecisionNodeId is required");
         }
 
-        // 부모 노드 id로 조회(없으면 404)
-        DecisionNode parent = decisionNodeRepository.findById(lastDecision.parentDecisionNodeId())
+        // 부모 노드 id로 조회(없으면 404) - DecisionLine과 User를 EAGER 로딩
+        DecisionNode parent = decisionNodeRepository.findWithLineAndUserById(lastDecision.parentDecisionNodeId())
                 .orElseThrow(() -> new ApiException(
                         ErrorCode.NODE_NOT_FOUND,
                         "parent decision node not found: " + lastDecision.parentDecisionNodeId()
