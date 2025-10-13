@@ -1,7 +1,8 @@
 package com.back.global.ai.client.image;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -13,12 +14,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * 활성화 조건:
  * - ai.image.enabled=false인 경우
+ * - ai.image.enabled 설정이 누락된 경우 (matchIfMissing=true)
  * - STABILITY_API_KEY가 설정되지 않은 경우
  * - S3 연결이 불가능한 프로덕션 환경
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(ImageAiClient.class)
+@Primary
+@ConditionalOnProperty(prefix = "ai.image", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpImageAiClient implements ImageAiClient {
 
     public NoOpImageAiClient() {
