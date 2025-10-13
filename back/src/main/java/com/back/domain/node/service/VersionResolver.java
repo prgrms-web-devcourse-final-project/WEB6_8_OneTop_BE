@@ -26,7 +26,7 @@ public class VersionResolver {
     private final BaselinePatchRepository patchRepo;
     private final BaseNodeRepository baseNodeRepo;
 
-    // 한줄 요약: 정책/브랜치/커밋 상황에 맞춰 최종 버전 id를 해석(브랜치 없으면 BaseLine.currentVersion 폴백)
+    // 정책/브랜치/커밋 상황에 맞춰 최종 버전 id를 해석(브랜치 없으면 BaseLine.currentVersion 폴백)
     public Long resolveVersionId(Long baseLineId,
                                  Long baseBranchId,
                                  Long pinnedCommitId,
@@ -52,7 +52,7 @@ public class VersionResolver {
                 return resolveFromBaseCurrent(baseLineId, ageYear).orElse(null);
             }
 
-            // 한줄 요약(가장 많이 쓰는 호출): 브랜치 헤드 커밋 id 조회
+            // 브랜치 헤드 커밋 id 조회
             Long headCommitId = branchRepo.findById(baseBranchId)
                     .map(BaselineBranch::getHeadCommit)
                     .map(BaselineCommit::getId)

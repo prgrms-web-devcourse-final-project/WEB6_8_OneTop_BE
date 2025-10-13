@@ -19,7 +19,7 @@ public record ForkFromDecisionRequest(
         String situation,            // 선택(교체)
         String description           // 선택(교체)
 ) {
-    // 가장 많이 사용하는: 구버전 호환(keepUntilParent/lineTitle을 받던 생성 시그니처 흡수)
+    // 구버전 호환(keepUntilParent/lineTitle을 받던 생성 시그니처 흡수)
     public ForkFromDecisionRequest(Long userId,
                                    Long parentDecisionNodeId,
                                    Integer targetOptionIndex,

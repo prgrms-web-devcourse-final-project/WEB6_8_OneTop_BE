@@ -56,7 +56,7 @@ class BaseLineService {
 
     private final NodeMappers mappers;
 
-    // 가장 중요한: 라인 생성 + 루트 커밋 + 초기 패치
+    // 라인 생성 + 루트 커밋 + 초기 패치
     @Transactional
     public BaseLineBulkCreateResponse createBaseLineWithNodes(BaseLineBulkCreateRequest request) {
 
@@ -115,7 +115,7 @@ class BaseLineService {
         main.moveHeadTo(root);
         branchRepo.save(main);
 
-        // 가장 많이 사용하는: 생성된 노드들에 대한 초기 패치 저장
+        // 생성된 노드들에 대한 초기 패치 저장
         for (BaseNode bn : createdEntities) {
             NodeAtomVersion v = bn.getCurrentVersion();
             if (v == null) continue;
@@ -147,15 +147,15 @@ class BaseLineService {
 
     @Transactional
     public void deleteBaseLineDeep(Long userId, Long baseLineId) {
-        // 가장 많이 사용하는 호출: 소유자/존재 여부 검증
+        // 소유자/존재 여부 검증
         boolean owned = baseLineRepository.existsByIdAndUser_Id(baseLineId, userId);
         if (!owned) throw new ApiException(ErrorCode.BASE_LINE_NOT_FOUND, "baseline not found or not owned");
 
-        // 가장 많이 사용하는 호출: 결정노드 → 결정라인
+        // 결정노드 → 결정라인
         decisionNodeRepository.deleteByDecisionLine_BaseLine_Id(baseLineId);
         decisionLineRepository.deleteByBaseLine_Id(baseLineId);
 
-        // 가장 많이 사용하는 호출: DVCS 역순(Patch→Commit→Branch)
+        // DVCS 역순(Patch→Commit→Branch)
         patchRepo.deleteByCommit_Branch_BaseLine_Id(baseLineId);
         branchRepo.clearHeadByBaseLineId(baseLineId);
         commitRepo.deleteByBranch_BaseLine_Id(baseLineId);
@@ -184,7 +184,7 @@ class BaseLineService {
         em.flush();
         em.clear();
 
-        // 가장 많이 사용하는 호출: 베이스노드 → 베이스라인
+        // 베이스노드 -> 베이스라인
         baseNodeRepository.deleteByBaseLine_Id(baseLineId);
         baseLineRepository.deleteByIdAndUser_Id(baseLineId, userId);
     }
