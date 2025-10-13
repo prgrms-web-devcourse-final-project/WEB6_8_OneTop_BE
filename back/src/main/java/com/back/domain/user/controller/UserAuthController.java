@@ -73,7 +73,11 @@ public class UserAuthController {
         HttpSession session = request.getSession(true);
 
         session.setMaxInactiveInterval(600);
-        session.setAttribute("guestId", savedGuest.getId());
+
+        session.setAttribute(
+                org.springframework.session.FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,
+                savedGuest.getEmail()
+        );
 
         new HttpSessionSecurityContextRepository()
                 .saveContext(SecurityContextHolder.getContext(), request, response);
