@@ -1,5 +1,6 @@
 package com.back.domain.node.entity;
 
+import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
@@ -34,6 +35,10 @@ public class BaseLine extends BaseEntity {
     @OneToMany(mappedBy = "baseLine", cascade = CascadeType.ALL, orphanRemoval = false)
     @Builder.Default
     private List<BaseNode> baseNodes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "baseLine", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Scenario> scenarios = new ArrayList<>();
 
     //중간 피벗 나이 목록 반환(헤더/꼬리 제외, 중복 제거, 오름차순)
     public List<Integer> pivotAges() {

@@ -4,6 +4,7 @@
  */
 package com.back.domain.node.entity;
 
+import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
@@ -48,6 +49,10 @@ public class DecisionLine extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pinned_commit_id")
     private BaselineCommit pinnedCommit;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id")
+    private Scenario scenario;
 
     // 라인 취소 상태 전이
     public void cancel() {
