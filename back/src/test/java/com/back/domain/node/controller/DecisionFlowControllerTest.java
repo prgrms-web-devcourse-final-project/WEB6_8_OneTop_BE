@@ -736,6 +736,155 @@ public class DecisionFlowControllerTest {
         assertThat(childNode2.path("aiNextRecommendedOption").asText()).isEqualTo("테스트-추천");
     }
 
+    @Nested
+    @DisplayName("옵션 동기화(증분)")
+    class OptionSyncIncremental {
+
+        // 같은 기원 세그먼트에서 ["A"] → ["A","B"] 로 한 개 추가 시, 기존 라인의 옵션이 ["A","B"]로 증분 반영되고 순서 보존
+        @Test
+        @DisplayName("성공 : from-base(라인2)에서 옵션을 한 개 추가하면 라인1 동일 구간 옵션이 증분 반영되고 기존 순서가 유지된다")
+        void success_incremental_one_append_preserves_order() throws Exception {
+            aiCallBudget.reset(0);
+
+            var baseInfo = createBaseLineAndPickFirstPivot(userId);
+
+            // 라인1 생성: 옵션 ["A"], selectedIndex=0
+            String fromBase1 = """
+        {
+          "userId": %d,
+          "baseLineId": %d,
+          "pivotAge": %d,
+          "selectedAltIndex": 0,
+          "category": "%s",
+          "situation": "증분-1",
+          "options": ["A"],
+          "selectedIndex": 0
+        }
+        """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.EDUCATION);
+
+            var r1 = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fromBase1))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            JsonNode body1 = om.readTree(r1.getResponse().getContentAsString());
+            long line1Id = body1.get("decisionLineId").asLong();
+            long head1Id = body1.get("id").asLong();
+
+            // 라인2 생성: 옵션 ["A","B"] (한 개 추가) — 동기화 트리거
+            String fromBase2 = """
+        {
+          "userId": %d,
+          "baseLineId": %d,
+          "pivotAge": %d,
+          "selectedAltIndex": 1,
+          "category": "%s",
+          "situation": "증분-2",
+          "options": ["A","B"],
+          "selectedIndex": 1
+        }
+        """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.EDUCATION);
+
+            mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fromBase2))
+                    .andExpect(status().isCreated()); // 생성이 튕기지 않아야 함
+
+            // 라인1 상세 재조회 → 헤드 노드 옵션이 ["A","B"]로 증분 반영, 순서 보존, 선택 인덱스(0)는 유효
+            var line1Detail = mockMvc.perform(get("/api/v1/decision-lines/{id}", line1Id)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode nodes1 = om.readTree(line1Detail.getResponse().getContentAsString()).path("nodes");
+
+            JsonNode head1 = null;
+            for (JsonNode n : nodes1) if (n.path("id").asLong() == head1Id) head1 = n;
+
+            Assertions.assertNotNull(head1, "라인1 헤드 노드를 찾지 못했습니다");
+            Assertions.assertTrue(head1.path("options").isArray());
+            Assertions.assertEquals(2, head1.path("options").size());
+            Assertions.assertEquals("A", head1.path("options").get(0).asText());
+            Assertions.assertEquals("B", head1.path("options").get(1).asText());
+            // 선택 인덱스는 기존(0) 유지되어야 함
+            Assertions.assertEquals(0, head1.path("selectedIndex").asInt());
+        }
+
+        // 같은 기원 세그먼트에서 ["A","B"] → ["A","B","C"] 로 다시 한 개 추가 시, 기존 라인의 옵션이 ["A","B","C"]로 증분 반영되고 순서 보존
+        @Test
+        @DisplayName("성공 : from-base(라인3)에서 또 한 개 추가하면 라인1 동일 구간 옵션이 [A,B,C]가 되고 순서가 유지된다")
+        void success_incremental_second_append_preserves_order() throws Exception {
+            aiCallBudget.reset(0);
+
+            var baseInfo = createBaseLineAndPickFirstPivot(userId);
+
+            // 라인1: ["A"]
+            String fromBase1 = """
+        {
+          "userId": %d,
+          "baseLineId": %d,
+          "pivotAge": %d,
+          "selectedAltIndex": 0,
+          "category": "%s",
+          "situation": "증분-1",
+          "options": ["A"],
+          "selectedIndex": 0
+        }
+        """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.EDUCATION);
+
+            var r1 = mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fromBase1))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+            JsonNode body1 = om.readTree(r1.getResponse().getContentAsString());
+            long line1Id = body1.get("decisionLineId").asLong();
+            long head1Id = body1.get("id").asLong();
+
+            // 라인2: ["A","B"]
+            String fromBase2 = """
+        {
+          "userId": %d,
+          "baseLineId": %d,
+          "pivotAge": %d,
+          "selectedAltIndex": 1,
+          "category": "%s",
+          "situation": "증분-2",
+          "options": ["A","B"],
+          "selectedIndex": 1
+        }
+        """.formatted(userId, baseInfo.baseLineId, baseInfo.pivotAge, NodeCategory.EDUCATION);
+
+            mockMvc.perform(post("/api/v1/decision-flow/from-base")
+                            .with(csrf()).with(authed(userId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(fromBase2))
+                    .andExpect(status().isCreated());
+
+
+            // 라인1 상세 재조회 → 헤드 노드 옵션이 ["A","B","C"]로 증분 반영, 순서 보존
+            var line1Detail = mockMvc.perform(get("/api/v1/decision-lines/{id}", line1Id)
+                            .with(authed(userId)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode nodes1 = om.readTree(line1Detail.getResponse().getContentAsString()).path("nodes");
+
+            JsonNode head1 = null;
+            for (JsonNode n : nodes1) if (n.path("id").asLong() == head1Id) head1 = n;
+
+            Assertions.assertNotNull(head1, "라인1 헤드 노드를 찾지 못했습니다");
+            Assertions.assertTrue(head1.path("options").isArray());
+            Assertions.assertEquals(2, head1.path("options").size());
+            Assertions.assertEquals("A", head1.path("options").get(0).asText());
+            Assertions.assertEquals("B", head1.path("options").get(1).asText());
+            // 기존 선택 인덱스(0)는 여전히 유효해야 함
+            Assertions.assertEquals(0, head1.path("selectedIndex").asInt());
+        }
+    }
+
+
     // ===========================
     // 공통 헬퍼
     // ===========================

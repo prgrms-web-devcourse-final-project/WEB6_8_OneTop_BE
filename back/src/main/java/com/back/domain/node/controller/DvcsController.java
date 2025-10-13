@@ -16,7 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+// 이 컨트롤러는 현재 사용하지 않으며 향후 DVCS 를 이용한 라인, 노드 편집 기능이 추가될 때 활성화될 예정임
 @RestController
 @RequestMapping("/api/v1/dvcs")
 @RequiredArgsConstructor

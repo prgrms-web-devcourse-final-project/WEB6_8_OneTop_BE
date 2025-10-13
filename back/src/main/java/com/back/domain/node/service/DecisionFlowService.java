@@ -2,7 +2,16 @@
  * DecisionFlowService (개선판)
  * - 라인 생성 시 해당 BaseLine의 기본 브랜치(main)를 라인에 부착
  * - 기존 생성/next/취소/완료/포크 흐름은 유지하고, 버전 해석은 매퍼/리졸버로 위임
+ *
+ * [추가 요약 - 옵션 동기화(코리더 한정 횡·종 전개, 증분 Append, 숨은 노드 포함)]
+ * 1) 노드가 생성되는 시점(from-base/next/fork)마다, 트리거 노드의 (baseLineId, ageYear)를 기준으로 코리더 라인 집합을 산출한다.
+ *    - 코리더 라인: 해당 라인의 첫 분기 나이(첫 from-base 또는 첫 fork)가 segAge(이번 노드 나이) 이상인 라인만 포함
+ *    - 이렇게 하면 같은 나이·같은 베이스라인이라도 다른 선택지로 일찍 갈라진 라인은 제외되어 덮어쓰기가 방지됨
+ * 2) 코리더에 속한 모든 라인에서 동일 ageYear의 모든 결정노드(노말/프렐류드/from-base/포크 포함)를 수집한다.
+ * 3) 후보 옵션들(트리거+각 노드)을 정규화(<=3, trim)한 뒤, prefix 충돌 없는 가장 긴 리스트를 리더로 선정한다.
+ * 4) 리더를 증분 Append로만 반영(순서 보존, 덮어쓰기 금지), selectedIndex는 범위를 벗어나면 null 보정한다.
  */
+
 package com.back.domain.node.service;
 
 import com.back.domain.node.dto.decision.*;
@@ -24,7 +33,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -129,6 +140,11 @@ public class DecisionFlowService {
                     : baseNodeRepository.linkAlt2IfEmpty(fresh.getId(), saved.getId());
             if (updated == 0) throw new ApiException(ErrorCode.INVALID_INPUT_VALUE, "branch slot was taken by another request");
 
+            // ★ 추가: (코리더 한정) 숨은 노드 포함 옵션 동기화 — 증분 Append, 순서 보존
+            // 가장 많이 사용하는 함수 호출 위에 한줄로만 요약 주석: 트리거 옵션 결정(입력값 우선, 없으면 엔티티에서 추출)
+            List<String> leaderOpts = (opts != null && !opts.isEmpty()) ? opts : support.extractOptions(saved);
+            syncOptionsAcrossAgeWithinCorridorLite(saved, leaderOpts);
+
             DecNodeDto baseDto = mapper.toResponse(saved);
             List<DecisionNode> orderedList = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
             var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), orderedList);
@@ -218,10 +234,15 @@ public class DecisionFlowService {
         DecisionNode saved = decisionNodeRepository.save(mapper.toEntity(createReq));
         DecNodeDto baseDto = mapper.toResponse(saved);
 
+        // ★ 추가: 코리더 한정 옵션 동기화(숨은 노드 포함, 증분 Append)
+        List<String> leaderOpts = (request.options() != null && !request.options().isEmpty())
+                ? request.options()
+                : support.extractOptions(saved);
+        syncOptionsAcrossAgeWithinCorridorLite(saved, leaderOpts);
+
         List<DecisionNode> ordered_decision = decisionNodeRepository
                 .findByDecisionLine_IdOrderByAgeYearAscIdAsc(baseDto.decisionLineId());
         var hint = aiVectorService.generateNextHint(baseDto.userId(), baseDto.decisionLineId(), ordered_decision);
-
 
         saved.setAiHint(hint.aiNextSituation(), hint.aiNextRecommendedOption());
         decisionNodeRepository.save(saved);
@@ -434,6 +455,12 @@ public class DecisionFlowService {
             DecisionNode saved = decisionNodeRepository.save(mapper.toEntity(createReq));
             prevNew = saved;
 
+            // ★ 추가: 포크 진행 중에도 해당 age에서 코리더 한정 동기화(프렐류드 포함)
+            List<String> leaderOptsHere = (options != null && !options.isEmpty())
+                    ? options
+                    : support.extractOptions(saved);
+            syncOptionsAcrossAgeWithinCorridorLite(saved, leaderOptsHere);
+
             if (isParent) {
                 forkPointDto = mapper.toResponse(saved);
                 forkAnchorSaved = saved; // AI 힌트 저장 대상으로 보관
@@ -532,5 +559,134 @@ public class DecisionFlowService {
             prev = decisionNodeRepository.save(mapper.toEntity(req));
         }
         return prev;
+    }
+
+    /**
+     * [추가/가장 중요한 함수] 코리더(공통 경로) 한정 옵션 동기화(Lite)
+     * - 같은 BaseLine + 같은 ageYear 중, 첫 분기 나이(첫 from-base 또는 첫 fork)가 segAge 이상인 라인만 포함
+     * - 포함된 라인의 동일 age 노드(노말/프렐류드/from-base/포크)에 리더 옵션을 증분 Append로 반영(순서 보존)
+     */
+    // 가장 중요한 함수 한줄로만 요약: 코리더 집합(첫 분기 나이 ≥ segAge) 안의 동일 age 노드를 증분 동기화
+    @Transactional
+    protected void syncOptionsAcrossAgeWithinCorridorLite(DecisionNode trigger, List<String> triggerOptions) {
+        if (trigger == null || trigger.getDecisionLine() == null) return;
+
+        final Integer segAge = trigger.getAgeYear();
+        final DecisionLine triggerLine = trigger.getDecisionLine();
+        if (segAge == null || triggerLine.getBaseLine() == null) return;
+        final Long baseLineId = triggerLine.getBaseLine().getId();
+
+        // 가장 많이 사용하는 함수 호출 한줄로만 요약: 베이스라인의 모든 라인 조회
+        List<DecisionLine> allLines = decisionLineRepository.findByBaseLine_Id(baseLineId);
+        if (allLines == null || allLines.isEmpty()) return;
+
+        // 한줄 요약: 라인별 첫 from-base 나이/첫 fork 나이 계산
+        Map<Long, LineBoundary> boundaryByLine = new HashMap<>();
+        for (DecisionLine ln : allLines) {
+            Integer fromBaseAge = null, forkAge = null;
+            List<DecisionNode> seq = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(ln.getId());
+            for (DecisionNode n : seq) {
+                if (fromBaseAge == null && isFromBaseMark(n)) fromBaseAge = n.getAgeYear();
+                if (forkAge == null && n.getParentOptionIndex() != null) forkAge = n.getAgeYear();
+                if (fromBaseAge != null && forkAge != null) break;
+            }
+            boundaryByLine.put(ln.getId(), new LineBoundary(fromBaseAge, forkAge));
+        }
+
+        // 한줄 요약: 첫 분기 경계 나이가 segAge 이상인 라인만 코리더로 선별
+        Set<Long> corridorLineIds = new HashSet<>();
+        for (DecisionLine ln : allLines) {
+            if (ln.getStatus() == DecisionLineStatus.CANCELLED) continue;
+            LineBoundary lb = boundaryByLine.get(ln.getId());
+            int boundary = (lb != null) ? lb.firstDivergenceAge() : Integer.MAX_VALUE;
+            if (segAge <= boundary) corridorLineIds.add(ln.getId());
+        }
+        if (corridorLineIds.isEmpty()) return;
+
+        // 동일 ageYear 대상 노드 수집(노말/프렐류드/from-base/포크 포함)
+        List<DecisionNode> group = new ArrayList<>();
+        for (DecisionLine ln : allLines) {
+            if (!corridorLineIds.contains(ln.getId())) continue;
+            List<DecisionNode> seq = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(ln.getId());
+            for (DecisionNode n : seq) if (segAge.equals(n.getAgeYear())) group.add(n);
+        }
+        if (group.isEmpty()) return;
+
+        // 리더 옵션 선정(정규화 + prefix 충돌 없는 최장 리스트)
+        Function<List<String>, List<String>> normalize = opts -> {
+            if (opts == null) return List.of();
+            return opts.stream().filter(s -> s != null && !s.isBlank())
+                    .map(String::trim).limit(3).toList();
+        };
+        List<List<String>> candidates = new ArrayList<>();
+        candidates.add(normalize.apply(triggerOptions != null ? triggerOptions : support.extractOptions(trigger)));
+        for (DecisionNode n : group) candidates.add(normalize.apply(support.extractOptions(n)));
+
+        BiFunction<List<String>, List<String>, Boolean> prefixOk = (a, b) -> {
+            int m = Math.min(a.size(), b.size());
+            for (int i = 0; i < m; i++) if (!Objects.equals(a.get(i), b.get(i))) return false;
+            return true;
+        };
+        List<String> leader = List.of();
+        outer:
+        for (List<String> cand : candidates) {
+            if (cand == null) continue;
+            for (List<String> other : candidates) {
+                if (other == null) continue;
+                if (!(prefixOk.apply(cand, other) || prefixOk.apply(other, cand))) continue outer;
+            }
+            if (cand.size() > leader.size()) leader = cand;
+        }
+        if (leader.isEmpty()) return;
+
+        // 증분 Append 반영(순서 보존, 숨은 노드 포함)
+        for (DecisionNode node : group) {
+            List<String> cur = normalize.apply(support.extractOptions(node));
+            boolean ok = true;
+            for (int i = 0; i < Math.min(cur.size(), leader.size()); i++) {
+                if (!Objects.equals(cur.get(i), leader.get(i))) { ok = false; break; }
+            }
+            if (!ok) continue;
+
+            String o1 = null, o2 = null, o3 = null;
+            int sz = Math.min(3, leader.size());
+            if (sz >= 1) o1 = leader.get(0);
+            if (sz >= 2) o2 = leader.get(1);
+            if (sz >= 3) o3 = leader.get(2);
+
+            node.setOption1(o1);
+            node.setOption2(o2);
+            node.setOption3(o3);
+
+            Integer sel = node.getSelectedIndex();
+            int eff = (o3 != null) ? 3 : (o2 != null ? 2 : (o1 != null ? 1 : 0));
+            if (sel != null && (sel < 0 || sel >= eff)) node.setSelectedIndex(null);
+
+            decisionNodeRepository.save(node);
+        }
+    }
+
+    // 가장 많이 사용하는 함수 호출 한줄로만 요약: from-base 표식 여부(피벗 슬롯 타깃 매칭으로 판정)
+    private boolean isFromBaseMark(DecisionNode n) {
+        BaseNode b = n.getBaseNode();
+        if (b == null) return false;
+        Long id = n.getId();
+        return Objects.equals(b.getAltOpt1TargetDecisionId(), id)
+                || Objects.equals(b.getAltOpt2TargetDecisionId(), id);
+    }
+
+    // 가장 중요한 함수 위에 한줄로만 요약 주석: 라인의 첫 분기 경계 나이 스냅샷 컨테이너
+    private static final class LineBoundary {
+        final Integer fromBaseAge; // null 허용
+        final Integer forkAge;     // null 허용
+        LineBoundary(Integer fromBaseAge, Integer forkAge) {
+            this.fromBaseAge = fromBaseAge;
+            this.forkAge = forkAge;
+        }
+        // 한줄 요약: 첫 분기 경계 나이(없으면 무한대)
+        int firstDivergenceAge() {
+            Integer a = (forkAge != null) ? forkAge : fromBaseAge;
+            return (a != null) ? a : Integer.MAX_VALUE;
+        }
     }
 }
