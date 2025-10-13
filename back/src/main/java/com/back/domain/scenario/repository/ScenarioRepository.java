@@ -19,8 +19,9 @@ import java.util.Optional;
 @Repository
 public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
 
-    // 사용자별 시나리오 조회 (권한 검증)
-    Optional<Scenario> findByIdAndUserId(Long id, Long userId);
+    // 사용자별 시나리오 조회 (권한 검증, baseLine.scenarios fetch)
+    @Query("SELECT s FROM Scenario s LEFT JOIN FETCH s.baseLine bl LEFT JOIN FETCH bl.scenarios WHERE s.id = :id AND s.user.id = :userId")
+    Optional<Scenario> findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
     // 베이스 시나리오 조회
     Optional<Scenario> findByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
@@ -32,8 +33,8 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
     Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
 
-    // DecisionLine 기반 시나리오 조회 (권한 검증 포함)
-    @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId AND s.user.id = :userId")
+    // DecisionLine 기반 시나리오 조회 (권한 검증 포함, baseLine.scenarios fetch)
+    @Query("SELECT s FROM Scenario s LEFT JOIN FETCH s.baseLine bl LEFT JOIN FETCH bl.scenarios WHERE s.decisionLine.id = :decisionLineId AND s.user.id = :userId")
     Optional<Scenario> findByDecisionLineIdAndUserId(
         @Param("decisionLineId") Long decisionLineId,
         @Param("userId") Long userId
