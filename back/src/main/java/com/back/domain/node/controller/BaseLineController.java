@@ -75,4 +75,15 @@ public class BaseLineController {
         List<BaseLineDto> list = nodeService.getMyBaseLines(me.getId());
         return ResponseEntity.ok(list);
     }
+
+    // 한줄 요약: 소유자 검증 후 베이스라인과 모든 연관 데이터 일괄 삭제
+    @DeleteMapping("/{baseLineId}")
+    public ResponseEntity<Void> deleteBaseLine(
+            @AuthenticationPrincipal CustomUserDetails me,
+            @PathVariable Long baseLineId
+    ) {
+        if (me == null) throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "login required");
+        nodeService.deleteBaseLineDeep(me.getId(), baseLineId); // 가장 많이 사용하는 호출: 파사드에 위임
+        return ResponseEntity.noContent().build();
+    }
 }

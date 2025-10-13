@@ -7,7 +7,6 @@ package com.back.domain.node.dto.decision;
 
 import com.back.domain.node.entity.FollowPolicy;
 import com.back.domain.node.entity.NodeCategory;
-
 import java.util.List;
 
 public record DecNodeDto(
@@ -46,11 +45,14 @@ public record DecNodeDto(
         Boolean root,                  // 라인 헤더면 true
         Long pivotLinkBaseNodeId,      // 베이스 분기 슬롯에서 올라온 첫 노드면 해당 BaseNode id
         Integer pivotSlotIndex,        // 0/1 (분기 슬롯 인덱스), 아니면 null
+        Long pivotLinkDecisionNodeId,
 
         // 단일 패스 렌더용 최소 힌트
         Integer renderPhase,           // 1=from-base 라인, 2..N=fork 깊이(부모 라인 +1)
         Long incomingFromId,           // 이 노드로 "들어오는" 에지의 from 노드 id(루트면 포크 원본, 아니면 parentId)
-        String incomingEdgeType        // "normal" | "fork"
+        String incomingEdgeType,       // "root","prelude","from-base","fork","normal"
+        // 포크 원본 라인 id(디버깅/렌더 보조용)
+        Long incomingFromLineId
 ) {
     // === 호환 오버로드(기존 서비스 호출 유지) ===
     public DecNodeDto(
@@ -70,6 +72,6 @@ public record DecNodeDto(
                 followPolicy, pinnedCommitId, virtual, effectiveCategory, effectiveSituation,
                 effectiveDecision, effectiveOptions, effectiveDescription,
                 null, null, null, null,
-                null, null, null); // 새 필드는 null 기본값
+                null, null, null, null,null); // 새 필드는 null 기본값
     }
 }

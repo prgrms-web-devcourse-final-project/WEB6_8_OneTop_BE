@@ -128,8 +128,8 @@ public final class NodeMappers {
                     e.getSelectedIndex(),
                     e.getParentOptionIndex(),
                     e.getDescription(),
-                    null,
-                    null,
+                    e.getAiNextSituation(),
+                    e.getAiNextRecommendedOption(),
                     e.getFollowPolicy(),
                     pinnedCommitId,
                     null, // virtual 투영은 상위 레이어에서 주입

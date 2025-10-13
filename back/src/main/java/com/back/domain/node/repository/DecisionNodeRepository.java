@@ -24,4 +24,6 @@ public interface DecisionNodeRepository extends JpaRepository<DecisionNode, Long
 
     // 같은 베이스라인에 속한 "헤드(부모 없음)" 결정 노드들만 조회
     List<DecisionNode> findByDecisionLine_BaseLine_IdAndParentIsNull(Long baseLineId);
+
+    void deleteByDecisionLine_BaseLine_Id(Long baseLineId);
 }

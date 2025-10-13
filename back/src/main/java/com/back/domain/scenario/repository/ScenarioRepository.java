@@ -5,10 +5,12 @@ import com.back.domain.scenario.entity.ScenarioStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -45,4 +47,11 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     Optional<Scenario> findByUserIdAndRepresentativeTrue(Long userId);
 
     boolean existsByDecisionLine_Id(Long decisionLineId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM Scenario s WHERE s.id IN :scenarioIds")
+    void deleteByIdIn(List<Long> scenarioIds);
+
+    @Query("select s.id from Scenario s where s.baseLine.id = :baseLineId")
+    List<Long> findIdsByBaseLine_Id(@Param("baseLineId") Long baseLineId);
 }

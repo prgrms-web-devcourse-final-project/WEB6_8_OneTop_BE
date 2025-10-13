@@ -4,6 +4,7 @@
  */
 package com.back.domain.node.entity;
 
+import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
@@ -34,6 +35,9 @@ public class DecisionLine extends BaseEntity {
     @Column(nullable = false)
     private DecisionLineStatus status;
 
+    @Column(name = "parent_line_id")
+    private Long parentLineId;
+
     @OneToMany(mappedBy = "decisionLine", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DecisionNode> decisionNodes = new ArrayList<>();
 
@@ -45,6 +49,9 @@ public class DecisionLine extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pinned_commit_id")
     private BaselineCommit pinnedCommit;
+
+    @OneToOne(mappedBy = "decisionLine", fetch = FetchType.LAZY)
+    private Scenario scenario;
 
     // 라인 취소 상태 전이
     public void cancel() {

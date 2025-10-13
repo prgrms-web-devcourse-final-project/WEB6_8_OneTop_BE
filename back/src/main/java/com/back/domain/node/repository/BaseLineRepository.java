@@ -32,4 +32,8 @@ public interface BaseLineRepository extends JpaRepository<BaseLine, Long> {
     // 사용자별 베이스라인 목록 조회 (페이징 및 N+1 방지)
     @Query("SELECT DISTINCT bl FROM BaseLine bl LEFT JOIN FETCH bl.baseNodes bn WHERE bl.user.id = :userId ORDER BY bl.createdDate DESC")
     Page<BaseLine> findAllByUserIdWithBaseNodes(@Param("userId") Long userId, Pageable pageable);
+
+    boolean existsByIdAndUser_Id(Long baseLineId, Long userId);
+
+    void deleteByIdAndUser_Id(Long baseLineId, Long userId);
 }

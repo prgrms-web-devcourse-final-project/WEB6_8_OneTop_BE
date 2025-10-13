@@ -39,4 +39,6 @@ public interface BaseNodeRepository extends JpaRepository<BaseNode, Long> {
     @Query("update BaseNode b set b.altOpt2TargetDecisionId = null " +
             "where b.id = :id and b.altOpt2TargetDecisionId = :targetId")
     int unlinkAlt2IfMatches(@Param("id") Long id, @Param("targetId") Long targetId);
+
+    void deleteByBaseLine_Id(Long baseLineId);
 }

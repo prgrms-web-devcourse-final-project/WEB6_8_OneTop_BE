@@ -82,6 +82,12 @@ public class DecisionNode extends BaseEntity {
     @JoinColumn(name = "override_version_id")
     private NodeAtomVersion overrideVersion;
 
+    @Column(name = "ai_next_situation", columnDefinition = "TEXT")
+    private String aiNextSituation;
+
+    @Column(name = "ai_next_recommended_option", columnDefinition = "TEXT")
+    private String aiNextRecommendedOption;
+
     // 다음 나이 검증
     public void guardNextAgeValid(int nextAge) {
         if (nextAge <= this.getAgeYear()) {
@@ -93,5 +99,10 @@ public class DecisionNode extends BaseEntity {
     public void setOverride(NodeAtomVersion version) {
         this.followPolicy = FollowPolicy.OVERRIDE;
         this.overrideVersion = version;
+    }
+
+    public void setAiHint(String nextSituation, String nextRecommended) {
+        this.aiNextSituation = nextSituation;
+        this.aiNextRecommendedOption = nextRecommended;
     }
 }

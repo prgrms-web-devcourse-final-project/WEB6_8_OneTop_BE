@@ -2,10 +2,12 @@ package com.back.domain.scenario.repository;
 
 import com.back.domain.scenario.entity.SceneType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -25,4 +27,6 @@ public interface SceneTypeRepository extends JpaRepository<SceneType, Long> {
     List<SceneType> findByScenarioIdInOrderByScenarioIdAscTypeAsc(@Param("scenarioIds") List<Long> scenarioIds);
 
     List<SceneType> findByScenarioId(Long scenarioId);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    void deleteByScenario_IdIn(Collection<Long> scenarioIds);
 }
