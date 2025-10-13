@@ -287,6 +287,7 @@ class ScenarioControllerTest {
             ScenarioDetailResponse mockResponse = new ScenarioDetailResponse(
                     scenarioId,
                     ScenarioStatus.COMPLETED,
+                    1L,
                     "스타트업 CEO",
                     85,
                     "성공적인 창업으로 안정적인 수익 창출",
@@ -305,6 +306,7 @@ class ScenarioControllerTest {
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.scenarioId").value(scenarioId))
+                    .andExpect(jsonPath("$.baseScenarioId").value(1L))
                     .andExpect(jsonPath("$.job").value("스타트업 CEO"))
                     .andExpect(jsonPath("$.total").value(85))
                     .andExpect(jsonPath("$.indicators").isArray())
