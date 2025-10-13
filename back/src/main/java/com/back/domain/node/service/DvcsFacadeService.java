@@ -33,7 +33,7 @@ public class DvcsFacadeService {
     private final BaselineBranchRepository branchRepo;
     private final BaselineCommitRepository commitRepo;
 
-    // 가장 중요한: 베이스 편집 → 커밋 생성
+    // 베이스 편집 -> 커밋 생성
     @Transactional
     public EditAcknowledgeDto editBase(Long meId, BaseEditRequest req) {
         BaseLine bl = baseLineRepo.findWithUserById(req.baseLineId())
@@ -55,10 +55,10 @@ public class DvcsFacadeService {
         return new EditAcknowledgeDto(true, "base edited", commit.getId());
     }
 
-    // 가장 중요한: 결정 편집(override or promote)
+    // 결정 편집(override or promote)
     @Transactional
     public EditAcknowledgeDto editDecision(Long meId, DecisionEditRequest req) {
-        // ★ LAZY 안전: 라인+유저까지 함께 로딩
+        // 라인+유저까지 함께 로딩
         DecisionNode dn = decisionNodeRepo.findWithLineAndUserById(req.decisionNodeId())
                 .orElseThrow(() -> new ApiException(ErrorCode.NODE_NOT_FOUND, "DecisionNode not found: " + req.decisionNodeId()));
         support.ensureOwnerOfDecisionLine(meId, dn.getDecisionLine());
@@ -119,10 +119,10 @@ public class DvcsFacadeService {
                             .build()));
         }
 
-        // 한줄 요약(가장 많이 쓰는 호출): 브랜치 headCommit 보장(main 헤드 승계, 없으면 init 커밋 생성)
+        // 브랜치 headCommit 보장(main 헤드 승계, 없으면 init 커밋 생성)
         ensureBranchHeadInitialized(target, bl.getUser().getId());
 
-        // 선택적으로: 특정 결정 라인에 적용
+        // 특정 결정 라인에 적용
         if (req.decisionLineId() != null) {
             DecisionLine line = decisionLineRepo.findWithUserById(req.decisionLineId())
                     .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND, "DecisionLine not found: " + req.decisionLineId()));

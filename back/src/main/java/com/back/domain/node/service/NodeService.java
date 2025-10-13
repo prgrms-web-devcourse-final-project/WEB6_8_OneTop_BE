@@ -71,7 +71,7 @@ public class NodeService {
         return nodeQueryService.getBaseNode(baseNodeId);
     }
 
-    // 가장 중요한: 결정 노드에서 세계선 포크
+    // 결정 노드에서 세계선 포크
     public DecNodeDto forkFromDecision(ForkFromDecisionRequest request) {
         return decisionFlowService.forkFromDecision(request);
     }

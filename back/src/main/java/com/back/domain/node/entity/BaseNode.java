@@ -66,7 +66,6 @@ public class BaseNode extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // ▼ 추가: 현재 적용 버전(Resolver가 우선 사용)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_version_id")
     private NodeAtomVersion currentVersion;

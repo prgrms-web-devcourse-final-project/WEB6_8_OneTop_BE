@@ -26,14 +26,14 @@ public class DecisionLineController {
 
     private final NodeQueryService nodeQueryService;
 
-    // 가장 중요한: 인증 사용자별 결정 라인 목록(요약)
+    // 인증 사용자별 결정 라인 목록(요약)
     @GetMapping
     public ResponseEntity<DecisionLineListDto> list(@AuthenticationPrincipal CustomUserDetails me) {
         if (me == null) throw new ApiException(ErrorCode.HANDLE_ACCESS_DENIED, "login required");
         return ResponseEntity.ok(nodeQueryService.getDecisionLines(me.getId()));
     }
 
-    // 가장 많이 사용하는: 특정 결정 라인 상세
+    // 특정 결정 라인 상세
     @GetMapping("/{decisionLineId}")
     public ResponseEntity<DecisionLineDetailDto> detail(@PathVariable Long decisionLineId) {
         return ResponseEntity.ok(nodeQueryService.getDecisionLineDetail(decisionLineId));
