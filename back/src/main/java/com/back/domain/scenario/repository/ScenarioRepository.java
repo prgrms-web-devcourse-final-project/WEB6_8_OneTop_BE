@@ -32,6 +32,13 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
     Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
 
+    // DecisionLine 기반 시나리오 조회 (권한 검증 포함)
+    @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId AND s.user.id = :userId")
+    Optional<Scenario> findByDecisionLineIdAndUserId(
+        @Param("decisionLineId") Long decisionLineId,
+        @Param("userId") Long userId
+    );
+
     // 내 완료된 선택 시나리오 목록 조회 (베이스 시나리오 제외)
     Page<Scenario> findByUserIdAndDecisionLineIsNotNullAndStatusOrderByCreatedDateDesc(
             Long userId,

@@ -423,6 +423,21 @@ public class ScenarioService {
         return ScenarioDetailResponse.from(scenario, sceneTypes);
     }
 
+    // DecisionLine ID로 시나리오 상세 조회
+    @Transactional(readOnly = true)
+    public ScenarioDetailResponse getScenarioByDecisionLine(Long decisionLineId, Long userId) {
+        // DecisionLine에 연결된 시나리오 조회 (권한 검증 포함)
+        Scenario scenario = scenarioRepository.findByDecisionLineIdAndUserId(decisionLineId, userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND,
+                        "해당 DecisionLine에 연결된 시나리오를 찾을 수 없습니다."));
+
+        // 지표 조회
+        var sceneTypes = sceneTypeRepository.findByScenarioIdOrderByTypeAsc(scenario.getId());
+
+        // DTO 변환 및 반환
+        return ScenarioDetailResponse.from(scenario, sceneTypes);
+    }
+
     // 시나리오 타임라인 조회
     @Transactional(readOnly = true)
     public TimelineResponse getScenarioTimeline(Long scenarioId, Long userId) {

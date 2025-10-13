@@ -89,6 +89,22 @@ public class ScenarioController {
         return ResponseEntity.ok(scenarioDetailResponse);
     }
 
+    @GetMapping("/by-decision-line/{decisionLineId}")
+    @Operation(
+        summary = "DecisionLine ID로 시나리오 조회",
+        description = "트리 시각화에서 DecisionLine ID를 통해 연결된 시나리오의 상세 정보를 조회합니다."
+    )
+    public ResponseEntity<ScenarioDetailResponse> getScenarioByDecisionLine(
+            @Parameter(description = "DecisionLine ID") @PathVariable Long decisionLineId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = getUserId(userDetails);
+
+        ScenarioDetailResponse scenarioDetailResponse = scenarioService.getScenarioByDecisionLine(decisionLineId, userId);
+
+        return ResponseEntity.ok(scenarioDetailResponse);
+    }
+
     @GetMapping("/{scenarioId}/timeline")
     @Operation(summary = "시나리오 타임라인 조회", description = "시나리오의 선택 경로를 시간순으로 조회합니다.")
     public ResponseEntity<TimelineResponse> getScenarioTimeline(
