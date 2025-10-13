@@ -128,7 +128,7 @@ custom:
   dev:
     baseDomain: localhost
     frontUrl: "http://${custom.dev.baseDomain}:3000"
-    backUrl: "http://${custom.dev.baseDomain}:${server.port}"
+    backUrl: "http://${custom.dev.baseDomain}:8080"
   prod:
     baseDomain: ${PROD_BASE_DOMAIN}
     frontUrl: "https://www.${custom.prod.baseDomain}"
