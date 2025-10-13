@@ -50,8 +50,7 @@ public class DecisionLine extends BaseEntity {
     @JoinColumn(name = "pinned_commit_id")
     private BaselineCommit pinnedCommit;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "scenario_id")
+    @OneToOne(mappedBy = "decisionLine", fetch = FetchType.LAZY)
     private Scenario scenario;
 
     // 라인 취소 상태 전이
