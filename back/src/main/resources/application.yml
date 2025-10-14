@@ -92,8 +92,8 @@ ai:
       model20: gemini-2.0-flash
       base-url: https://generativelanguage.googleapis.com
       timeout-seconds: 70           # AI 응답 대기 시간 (시나리오 생성: 30-40초 + 여유 30초)
-      max-retries: 0                # 재시도 비활성화 (타임아웃 방지)
-      retry-delay-seconds: 2        # 재시도 간격 (초)
+      max-retries: 2                # 재시도 횟수 (총 3번 시도, 일시 오류 복구)
+      retry-delay-seconds: 3        # 재시도 간격 (초, 지수 백오프 권장)
       max-context-tokens: 8192
   image:
     enabled: true
@@ -114,10 +114,18 @@ ai:
     timeout-seconds: 30        # 상황 생성 타임아웃 (30초, 실시간 응답용)
   base-scenario:
     maxOutputTokens: 16384     # 8192 → 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
-    timeout-seconds: 60        # 베이스 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
+    timeout-seconds: 90        # 베이스 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
+    # Generation Config (AI 응답 품질 제어)
+    temperature: 0.7           # 창의성 vs 일관성 (0.0=결정론적, 1.0=창의적)
+    topP: 0.9                  # 누적 확률 기준 필터링 (0.9=상위 90%)
+    topK: 5                   # 상위 K개 토큰만 고려 (다양성 확보)
   decision-scenario:
     maxOutputTokens: 16384     # 8192 -> 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
-    timeout-seconds: 60        # 결정 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
+    timeout-seconds: 90        # 결정 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
+    # Generation Config (AI 응답 품질 제어)
+    temperature: 0.7           # 창의성 vs 일관성 (0.0=결정론적, 1.0=창의적)
+    topP: 0.9                  # 누적 확률 기준 필터링 (0.9=상위 90%)
+    topK: 5                   # 상위 K개 토큰만 고려 (다양성 확보)
   embedding:
     dim: 768
 
