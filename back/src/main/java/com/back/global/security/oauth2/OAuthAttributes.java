@@ -13,8 +13,7 @@ public record OAuthAttributes(
         Map<String, Object> attributes,
         String nameAttributeKey,
         String name,
-        String email,
-        String picture
+        String email
 ) {
 
     public static OAuthAttributes of(String registrationId, String userNameAttributeName, Map<String, Object> attributes) {
@@ -32,8 +31,7 @@ public record OAuthAttributes(
                 attributes,
                 userNameAttributeName,
                 (String) attributes.get("name"),
-                (String) attributes.get("email"),
-                (String) attributes.get("picture")
+                (String) attributes.get("email")
         );
     }
 
@@ -47,8 +45,7 @@ public record OAuthAttributes(
                 attributes,
                 userNameAttributeName,
                 name,
-                email,
-                (String) attributes.get("avatar_url")
+                email
         );
     }
 }
