@@ -12,6 +12,7 @@ import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.mapper.PostMappers;
 import com.back.domain.post.repository.PostRepository;
+import com.back.domain.post.repository.PostRepositoryCustom;
 import com.back.domain.scenario.dto.ScenarioDetailResponse;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.SceneType;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final PostRepositoryCustom postRepositoryCustom;
     private final PostLikeRepository postLikeRepository;
     private final PollVoteRepository pollVoteRepository;
     private final ScenarioRepository scenarioRepository;
@@ -111,7 +113,7 @@ public class PostService {
     }
 
     public Page<PostSummaryResponse> getPosts(User user, PostSearchCondition condition, Pageable pageable) {
-        Page<Post> posts = postRepository.searchPosts(condition, pageable);
+        Page<Post> posts = postRepositoryCustom.searchPosts(condition, pageable);
 
         Set<Long> likedPostIds = user != null && user.getId() != null
                 ? getUserLikedPostIds(user.getId(), posts)

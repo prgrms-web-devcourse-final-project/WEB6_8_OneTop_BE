@@ -7,13 +7,12 @@ import com.back.domain.post.enums.SearchType;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
@@ -23,6 +22,7 @@ import java.util.List;
 import static com.back.domain.post.entity.QPost.post;
 import static com.back.domain.user.entity.QUser.user;
 
+@Profile("!prod")
 @RequiredArgsConstructor
 @Repository
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
