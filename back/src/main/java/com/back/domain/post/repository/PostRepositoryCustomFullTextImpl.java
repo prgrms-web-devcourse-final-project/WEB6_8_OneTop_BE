@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Profile("prod")
 @RequiredArgsConstructor
@@ -147,19 +148,32 @@ public class PostRepositoryCustomFullTextImpl implements PostRepositoryCustom {
     }
 
     private String buildOrderByColumns(Pageable pageable) {
+        // 허용된 정렬 컬럼만 화이트리스트로 관리
+        Map<String, String> allowedColumns = Map.of(
+                "createdDate", "p.created_date",
+                "likeCount", "p.like_count"
+        );
+
         List<String> orders = new ArrayList<>();
 
         for (Sort.Order order : pageable.getSort()) {
-            String column = switch (order.getProperty()) {
-                case "createdDate" -> "p.created_date";
-                case "likeCount" -> "p.like_count";
-                default -> "p.created_date";
-            };
+            String property = order.getProperty();
+
+            // 화이트리스트에 없는 컬럼은 무시
+            if (!allowedColumns.containsKey(property)) {
+                continue; // 또는 예외 발생
+            }
+
+            String column = allowedColumns.get(property);
+
+            // direction도 명시적으로 검증
             String direction = order.isAscending() ? "ASC" : "DESC";
+
             orders.add(column + " " + direction);
         }
 
-        return String.join(", ", orders);
+        // 정렬 조건이 없으면 기본값 반환
+        return orders.isEmpty() ? "p.created_date DESC" : String.join(", ", orders);
     }
 
     /**
