@@ -77,7 +77,8 @@ custom:
 # AI Services Configuration (Production)
 ai:
   image:
-    enabled: false                                     # 프로덕션 환경에서는 활성화
+    enabled: true                                      # 프로덕션 환경에서는 활성화
     storage-type: s3                                  # S3 스토리지 사용
     s3-bucket-name: ${AWS_S3_BUCKET_NAME}
     s3-region: ${AWS_REGION}
+    cloud-front-domain: ${AWS_CLOUD_FRONT_DOMAIN}    # 향후 확장성 고려, 현재는 미사용

@@ -40,6 +40,9 @@ public class ImageAiConfig {
     // AWS S3 리전 (storageType이 s3인 경우)
     private String s3Region;
 
+    // CloudFront 도메인 (storageType이 s3인 경우)
+    private String cloudFrontDomain;
+
     // 로컬 파일 저장 경로 (storageType="local"인 경우 사용)
     // 기본값: "./uploads/images"
     private String localStoragePath = "./uploads/images";
