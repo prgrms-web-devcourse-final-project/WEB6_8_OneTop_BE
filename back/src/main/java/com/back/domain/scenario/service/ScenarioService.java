@@ -102,8 +102,8 @@ public class ScenarioService {
             ScenarioCreateRequest request,
             @Nullable DecisionNodeNextRequest lastDecision) {
 
-        // DecisionLine 존재 여부 확인 (User EAGER 로딩)
-        DecisionLine decisionLine = decisionLineRepository.findWithUserById(request.decisionLineId())
+        // DecisionLine 존재 여부 확인 (User, BaseLine, BaseLine.baseNodes EAGER 로딩)
+        DecisionLine decisionLine = decisionLineRepository.findWithUserAndBaseLineById(request.decisionLineId())
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
 
         // 권한 검증

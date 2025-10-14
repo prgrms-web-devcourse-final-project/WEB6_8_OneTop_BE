@@ -35,11 +35,11 @@ import java.util.concurrent.CompletableFuture;
  */
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AiServiceImpl implements AiService {
 
-    private final @Qualifier("gemini25TextClient") TextAiClient textAiClient;
+    private final TextAiClient scenarioClient;
+    private final TextAiClient situationClient;
     private final ObjectMapper objectMapper;
     private final SceneTypeRepository sceneTypeRepository;
     private final SituationAiProperties situationAiProperties;
@@ -47,6 +47,26 @@ public class AiServiceImpl implements AiService {
     private final DecisionScenarioAiProperties decisionScenarioAiProperties;
     private final ImageAiClient imageAiClient;
     private final com.back.global.storage.StorageService storageService;
+
+    public AiServiceImpl(@Qualifier("gemini25TextClient") TextAiClient scenarioClient,
+                         @Qualifier("gemini20JsonClient") TextAiClient situationClient,
+                         ObjectMapper objectMapper,
+                         SceneTypeRepository sceneTypeRepository,
+                         SituationAiProperties situationAiProperties,
+                         BaseScenarioAiProperties baseScenarioAiProperties,
+                         DecisionScenarioAiProperties decisionScenarioAiProperties,
+                         ImageAiClient imageAiClient,
+                         com.back.global.storage.StorageService storageService) {
+        this.scenarioClient = scenarioClient;
+        this.situationClient = situationClient;
+        this.objectMapper = objectMapper;
+        this.sceneTypeRepository = sceneTypeRepository;
+        this.situationAiProperties = situationAiProperties;
+        this.baseScenarioAiProperties = baseScenarioAiProperties;
+        this.decisionScenarioAiProperties = decisionScenarioAiProperties;
+        this.imageAiClient = imageAiClient;
+        this.storageService = storageService;
+    }
 
     @Override
     public CompletableFuture<BaseScenarioResult> generateBaseScenario(BaseLine baseLine) {
@@ -65,10 +85,21 @@ public class AiServiceImpl implements AiService {
             // Step 2: AI 호출 및 파싱
             int maxTokens = baseScenarioAiProperties.getMaxOutputTokens();
             log.info("Using maxOutputTokens: {} for base scenario generation", maxTokens);
-            AiRequest request = new AiRequest(baseScenarioPrompt, Map.of(), maxTokens);
-            return textAiClient.generateText(request)
+
+            // JSON 모드 강제 + 구조화된 응답 유도 (application.yml에서 관리)
+            Map<String, Object> generationConfig = Map.of(
+                "temperature", baseScenarioAiProperties.getTemperature(),
+                "topP", baseScenarioAiProperties.getTopP(),
+                "topK", baseScenarioAiProperties.getTopK(),
+                "candidateCount", 1,
+                "response_mime_type", "application/json"  // JSON 모드 강제
+            );
+
+            AiRequest request = new AiRequest(baseScenarioPrompt, generationConfig, maxTokens);
+            return scenarioClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
+                            log.info("Raw AI response for BaseLine ID: {}: {}", baseLine.getId(), aiResponse);
                             log.debug("Received AI response for BaseLine ID: {}, length: {}",
                                     baseLine.getId(), aiResponse.length());
                             // Remove markdown code block wrappers (```json ... ```)
@@ -131,10 +162,20 @@ public class AiServiceImpl implements AiService {
             log.debug("Generated decision scenario prompt for DecisionLine ID: {}", decisionLine.getId());
 
             // Step 2: AI 호출 및 파싱
-            AiRequest request = new AiRequest(newScenarioPrompt, Map.of(), decisionScenarioAiProperties.getMaxOutputTokens());
-            return textAiClient.generateText(request)
+            // JSON 모드 강제 + 구조화된 응답 유도 (application.yml에서 관리)
+            Map<String, Object> generationConfig = Map.of(
+                "temperature", decisionScenarioAiProperties.getTemperature(),
+                "topP", decisionScenarioAiProperties.getTopP(),
+                "topK", decisionScenarioAiProperties.getTopK(),
+                "candidateCount", 1,
+                "response_mime_type", "application/json"  // JSON 모드 강제
+            );
+
+            AiRequest request = new AiRequest(newScenarioPrompt, generationConfig, decisionScenarioAiProperties.getMaxOutputTokens());
+            return scenarioClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
+                            log.info("Raw AI response for DecisionLine ID: {}: {}", decisionLine.getId(), aiResponse);
                             log.debug("Received AI response for DecisionLine ID: {}, length: {}",
                                     decisionLine.getId(), aiResponse.length());
                             // Remove markdown code block wrappers (```json ... ```)
@@ -215,7 +256,7 @@ public class AiServiceImpl implements AiService {
 
             // Step 2: AI 호출 및 상황 텍스트 추출
             AiRequest request = new AiRequest(situationPrompt, Map.of(), situationAiProperties.getMaxOutputTokens());
-            return textAiClient.generateText(request)
+            return situationClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
                             log.debug("Received AI response for situation generation, length: {}",

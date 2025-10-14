@@ -31,6 +31,9 @@ public record BaseScenarioResult(
      * indicators 배열을 Map<Type, Integer>로 변환
      */
     public Map<Type, Integer> indicatorScores() {
+        if (indicators == null) {
+            return java.util.Collections.emptyMap();
+        }
         return indicators.stream()
                 .collect(java.util.stream.Collectors.toMap(
                         ind -> Type.valueOf(ind.type),
@@ -42,6 +45,9 @@ public record BaseScenarioResult(
      * indicators 배열을 Map<Type, String>로 변환
      */
     public Map<Type, String> indicatorAnalysis() {
+        if (indicators == null) {
+            return java.util.Collections.emptyMap();
+        }
         return indicators.stream()
                 .collect(java.util.stream.Collectors.toMap(
                         ind -> Type.valueOf(ind.type),

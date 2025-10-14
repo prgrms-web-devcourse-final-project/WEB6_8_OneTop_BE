@@ -57,6 +57,7 @@ public class GeminiJsonTextClient implements TextAiClient {
 
     @Override
     public CompletableFuture<String> generateText(AiRequest aiRequest) {
+        log.info("[CLIENT] GeminiJsonTextClient (2.0) is being used.");
         if (aiRequest == null || aiRequest.prompt() == null) {
             return CompletableFuture.failedFuture(new AiParsingException("Prompt is null"));
         }

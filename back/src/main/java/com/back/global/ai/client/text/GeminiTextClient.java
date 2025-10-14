@@ -45,11 +45,12 @@ public class GeminiTextClient implements TextAiClient {
 
     @Override
     public CompletableFuture<String> generateText(AiRequest aiRequest) {
+        log.info("[CLIENT] GeminiTextClient (2.5) is being used.");
         return webClient
             .post()
                 .uri("/v1beta/models/{model}:generateContent", textAiConfig.getModel())
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(createGeminiRequest(aiRequest.prompt(), aiRequest.maxTokens()))
+                .bodyValue(createGeminiRequest(aiRequest))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
                 .bodyToMono(GeminiResponse.class)
@@ -64,17 +65,17 @@ public class GeminiTextClient implements TextAiClient {
                 .toFuture();
     }
 
-    private Map<String, Object> createGeminiRequest(String prompt, int maxTokens) {
+    private Map<String, Object> createGeminiRequest(AiRequest aiRequest) {
+        // AiRequest로부터 generationConfig를 가져와 사용
+        java.util.Map<String, Object> generationConfig = new java.util.HashMap<>(aiRequest.parameters());
+        // maxTokens는 AiRequest의 전용 필드에서 가져와 확실히 설정
+        generationConfig.put("maxOutputTokens", aiRequest.maxTokens());
+
         return Map.of(
             "contents", List.of(
-                Map.of("parts", List.of(Map.of("text", prompt)))
+                Map.of("parts", List.of(Map.of("text", aiRequest.prompt())))
             ),
-            "generationConfig", Map.of(
-                "temperature", 0.8,  // 시나리오 생성용 창의성 향상 (0.7 → 0.8)
-                "topK", 3,           // 성능 최적화 (40 → 3, 10-15% 속도 향상)
-                "topP", 0.95,
-                "maxOutputTokens", maxTokens  // AiRequest의 maxTokens 사용
-            )
+            "generationConfig", generationConfig
         );
     }
 

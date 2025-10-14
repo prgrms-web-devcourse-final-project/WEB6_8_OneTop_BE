@@ -20,5 +20,8 @@ public interface DecisionLineRepository extends JpaRepository<DecisionLine, Long
     @EntityGraph(attributePaths = {"user"})
     Optional<DecisionLine> findWithUserById(Long id);
 
+    @EntityGraph(attributePaths = {"user", "baseLine", "baseLine.baseNodes"})
+    Optional<DecisionLine> findWithUserAndBaseLineById(Long id);
+
     void deleteByBaseLine_Id(Long baseLineId);
 }

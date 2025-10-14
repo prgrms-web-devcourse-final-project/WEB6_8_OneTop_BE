@@ -39,7 +39,7 @@ public class DecisionScenarioPrompt {
         설명: {baseDescription}
         지표: {baseIndicators}
 
-        ## 대안 선택 경로
+        ## 새로운 선택 기록
         {decisionNodes}
 
         ## 요구사항 (JSON 형식)
@@ -116,12 +116,12 @@ public class DecisionScenarioPrompt {
             int actualYear = birthYear + node.getAgeYear() - 1; // 실제 연도 계산
 
             decisionNodesInfo.append(String.format(
-                "%d단계 선택 (%d세, %d년):\n상황: %s\n결정: %s\n\n",
+                "%d단계 선택 (%d세, %d년):\n사건: %s\n선택: %s\n\n",
                 i + 1,
                 node.getAgeYear(),
                 actualYear,
-                node.getSituation() != null ? node.getSituation() : "상황 정보 없음",
-                node.getDecision() != null ? node.getDecision() : "결정 정보 없음"
+                node.getSituation() != null ? node.getSituation() : "사건 정보 없음",
+                node.getDecision() != null ? node.getDecision() : "선택 정보 없음"
             ));
         }
 
@@ -146,13 +146,18 @@ public class DecisionScenarioPrompt {
         int careerScore = getScoreByType(baseSceneTypes, "직업");
         int healthScore = getScoreByType(baseSceneTypes, "건강");
 
-        // DecisionNode들의 실제 연도들을 타임라인 연도로 사용
+        // 맨 처음과 맨 끝 노드를 제외한 중간 노드들의 연도만 타임라인에 사용
         StringBuilder timelineYears = new StringBuilder();
-        for (int i = 0; i < decisionNodes.size(); i++) {
-            DecisionNode node = decisionNodes.get(i);
-            int actualYear = birthYear + node.getAgeYear() - 1;
-            if (i > 0) timelineYears.append(", ");
-            timelineYears.append('"').append(actualYear).append('"').append(": \"제목 (5단어 이내)\"");
+        if (decisionNodes.size() > 2) {
+            java.util.List<DecisionNode> intermediateNodes = decisionNodes.subList(1, decisionNodes.size() - 1);
+            for (int i = 0; i < intermediateNodes.size(); i++) {
+                DecisionNode node = intermediateNodes.get(i);
+                int actualYear = birthYear + node.getAgeYear() - 1;
+                if (i > 0) {
+                    timelineYears.append(", ");
+                }
+                timelineYears.append('"').append(actualYear).append('"').append(": \"해당 연도 요약 (5단어 이내)\"");
+            }
         }
 
         // 사용자 정보 추출 (null-safe)
