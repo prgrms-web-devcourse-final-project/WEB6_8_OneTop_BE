@@ -30,7 +30,6 @@ spring:
     open-in-view: false
 
   session:
-    store-type: redis
     redis:
       repository-type: indexed
 
