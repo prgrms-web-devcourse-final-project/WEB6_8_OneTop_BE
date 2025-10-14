@@ -38,14 +38,14 @@ public class UserInfoController {
     @PostMapping("/users-info")
     public ResponseEntity<UserInfoResponse> createMyInfo(@AuthenticationPrincipal CustomUserDetails principal,
                                                          @Valid @RequestBody UserInfoRequest req) {
-        return ResponseEntity.ok(userInfoService.createMyInfo(principal.getId(), req));
+        return ResponseEntity.ok(userInfoService.saveOrUpdateMyInfo(principal.getId(), req));
     }
 
     // 사용자 정보 수정
     @PutMapping("/users-info")
     public ResponseEntity<UserInfoResponse> updateMyInfo(@AuthenticationPrincipal CustomUserDetails principal,
                                                          @Valid @RequestBody UserInfoRequest req) {
-        return ResponseEntity.ok(userInfoService.updateMyInfo(principal.getId(), req));
+        return ResponseEntity.ok(userInfoService.saveOrUpdateMyInfo(principal.getId(), req));
     }
 
     // 내가 만든 시나리오 목록 조회 (평행우주 목록)

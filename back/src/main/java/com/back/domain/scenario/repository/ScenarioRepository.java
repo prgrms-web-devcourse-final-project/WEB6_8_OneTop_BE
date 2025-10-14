@@ -82,4 +82,17 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
 
     @Query("select s.id from Scenario s where s.baseLine.id = :baseLineId")
     List<Long> findIdsByBaseLine_Id(@Param("baseLineId") Long baseLineId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+    UPDATE Scenario s
+       SET s.representative = 
+           CASE WHEN s.id = :scenarioId THEN true ELSE false END
+     WHERE s.user.id = :userId
+       AND (s.representative = true OR s.id = :scenarioId)
+    """)
+    void updateRepresentativeStatus(
+            @Param("userId") Long userId,
+            @Param("scenarioId") Long scenarioId
+    );
 }
