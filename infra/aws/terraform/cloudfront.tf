@@ -74,7 +74,7 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
   # PriceClass_100: 미국, 캐나다, 유럽
   # PriceClass_200: PriceClass_100 + 아시아, 중동, 아프리카
   # PriceClass_All: 전세계
-  price_class = "PriceClass_100"
+  price_class = "PriceClass_200"
 
   # CDN 도메인 설정
   aliases = [var.cdn_domain]

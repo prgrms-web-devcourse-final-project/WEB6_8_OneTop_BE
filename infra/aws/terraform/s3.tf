@@ -38,27 +38,52 @@ resource "aws_s3_bucket_ownership_controls" "s3_1_ownership" {
 # CloudFront OAI가 S3 버킷에 접근할 수 있도록 허용
 # EC2 인스턴스가 파일 업로드/관리 가능
 # AWS 계정 소유자 및 Admin 사용자 접근 허용
-# Presigned URL을 통한 접근 차단
+# 일반 사용자의 직접적인 접근 차단
 resource "aws_s3_bucket_policy" "s3_1_policy" {
   bucket = aws_s3_bucket.s3_1.id
   policy = jsonencode({
-    Version = "2012-10-17",
+    Version   = "2012-10-17",
     Statement = [
       # 1. CloudFront OAI: S3 객체 읽기 (CDN 콘텐츠 제공)
       {
-        Sid = "AllowCloudFrontOAIReadOnly",
-        Effect = "Allow",
+        Sid       = "AllowCloudFrontOAIReadOnly",
+        Effect    = "Allow",
         Principal = {
           AWS = aws_cloudfront_origin_access_identity.oai_1.iam_arn
         },
-        Action = [
+        Action    = [
           "s3:GetObject",
           "s3:ListBucket"
         ],
-        Resource = [
+        Resource  = [
           aws_s3_bucket.s3_1.arn,
           "${aws_s3_bucket.s3_1.arn}/*"
         ]
+      },
+      {
+        Sid       = "AllowEC2Access",
+        Effect    = "Allow",
+        Principal = {
+          AWS = aws_iam_role.ec2_role_1.arn
+        },
+        Action    = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ],
+        Resource  = aws_s3_bucket.s3_1.arn
+      },
+      {
+        Sid       = "AllowEC2ObjectAccess",
+        Effect    = "Allow",
+        Principal = {
+          AWS = aws_iam_role.ec2_role_1.arn
+        },
+        Action    = [
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:PutObject"
+        ],
+        Resource  = "${aws_s3_bucket.s3_1.arn}/*"
       }
     ]
   })
