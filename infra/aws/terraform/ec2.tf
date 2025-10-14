@@ -32,11 +32,45 @@ resource "aws_iam_role" "ec2_role_1" {
 ####################
 # EC2 - Policy 설정
 ####################
-# EC2 역할에 AmazonS3FullAccess 정책을 부착
-# 생성된 인스턴스는 S3에 대한 완전한 액세스 권한을 가짐.
-resource "aws_iam_role_policy_attachment" "s3_full_access" {
+resource "aws_iam_policy" "ec2_s3_access_policy" {
+  name        = "${var.prefix}-ec2-s3-access-policy"
+  description = "EC2 instance S3 access policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "ListSpecificBucket",
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ],
+        Resource = aws_s3_bucket.s3_1.arn
+      },
+      {
+        Sid    = "AccessableBucketObjectsPermissions",
+        Effect = "Allow",
+        Action = [
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:PutObject"
+        ],
+        Resource = "${aws_s3_bucket.s3_1.arn}/*"
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "${var.prefix}-ec2-s3-access-policy"
+  })
+}
+
+# EC2 역할에 커스텀 정책을 부착
+# 생성된 인스턴스는 특정 S3에 대한 읽기/쓰기/삭제 권한을 가짐.
+resource "aws_iam_role_policy_attachment" "s3_access" {
   role       = aws_iam_role.ec2_role_1.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+  policy_arn = aws_iam_policy.ec2_s3_access_policy.arn
 }
 
 # EC2 역할에 AmazonEC2RoleforSSM 정책을 부착
@@ -113,7 +147,6 @@ resource "aws_instance" "ec2_1" {
     volume_type           = "gp2"
     volume_size           = 30 # 볼륨 크기를 30GB로 설정
     encrypted             = true
-    delete_on_termination = false
   }
 
   user_data = local.ec2_user_data
