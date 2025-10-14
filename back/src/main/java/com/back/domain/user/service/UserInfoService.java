@@ -42,17 +42,7 @@ public class UserInfoService {
     }
 
     @Transactional
-    public UserInfoResponse createMyInfo(Long userId, UserInfoRequest req) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
-
-        applyPatch(user, req);
-
-        return UserInfoResponse.from(user);
-    }
-
-    @Transactional
-    public UserInfoResponse updateMyInfo(Long userId, UserInfoRequest req) {
+    public UserInfoResponse saveOrUpdateMyInfo(Long userId, UserInfoRequest req) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
@@ -85,11 +75,12 @@ public class UserInfoService {
         // 시나리오 id 목록 추출
         List<Long> scenarioIds = scenarioPage.getContent().stream()
                 .map(Scenario::getId)
-                .collect(Collectors.toList());
+                .toList();
 
         // SceneType 조회, 시나리오 id별로 그룹화
-        List<SceneType> sceneTypes = sceneTypeRepository.findByScenarioIdIn(scenarioIds);
-        Map<Long, List<SceneType>> sceneTypeMap = sceneTypes.stream()
+        Map<Long, List<SceneType>> sceneTypeMap = scenarioIds.isEmpty()
+                ? Map.of()
+                : sceneTypeRepository.findByScenarioIdIn(scenarioIds).stream()
                 .collect(Collectors.groupingBy(st -> st.getScenario().getId()));
 
         Page<UserScenarioListResponse> responsePage = scenarioPage.map(scenario ->
@@ -134,12 +125,7 @@ public class UserInfoService {
             throw new IllegalArgumentException("Scenario does not belong to user");
         }
 
-        // 기존 대표 시나리오를 false로 변경
-        scenarioRepository.findByUserIdAndRepresentativeTrue(userId)
-                .ifPresent(existingRepresentative -> existingRepresentative.setRepresentative(false));
-
-        // 새로운 시나리오를 대표로 설정
-        scenario.setRepresentative(true);
+        scenarioRepository.updateRepresentativeStatus(userId, scenarioId);
     }
 
     public UserProfileResponse getMyProfile(Long userId) {
@@ -157,11 +143,11 @@ public class UserInfoService {
     }
 
     private void applyPatch(User user, UserInfoRequest req) {
-        if (req.username() != null)      user.setUsername(req.username());
+        if (req.username() != null)      user.setUsername(req.username().trim());
         if (req.birthdayAt() != null)    user.setBirthdayAt(req.birthdayAt());
         if (req.gender() != null)        user.setGender(req.gender());
         if (req.mbti() != null)          user.setMbti(req.mbti());
-        if (req.beliefs() != null)       user.setBeliefs(req.beliefs());
+        if (req.beliefs() != null)       user.setBeliefs(req.beliefs().trim());
         if (req.lifeSatis() != null)     user.setLifeSatis(req.lifeSatis());
         if (req.relationship() != null)  user.setRelationship(req.relationship());
         if (req.workLifeBal() != null)   user.setWorkLifeBal(req.workLifeBal());

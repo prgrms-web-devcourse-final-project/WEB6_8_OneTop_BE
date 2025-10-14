@@ -27,7 +27,7 @@ public class GuestService {
         User guest = User.builder()
                 .email(guestEmail)
                 .username(guestLoginId)
-                .password(null) // 게스트 비밀번호 없음(추후 전환 시 설정)
+                .password(null)
                 .nickname("게스트_" + UUID.randomUUID().toString().substring(0, 4))
                 .birthdayAt(LocalDateTime.now())
                 .role(Role.GUEST)
