@@ -23,6 +23,10 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     @Query("SELECT s FROM Scenario s LEFT JOIN FETCH s.baseLine bl LEFT JOIN FETCH bl.scenarios WHERE s.id = :id AND s.user.id = :userId")
     Optional<Scenario> findByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
+    // 시나리오 상태 폴링용 조회 (권한 검증 포함, 최소 데이터만 로딩)
+    @Query("SELECT s FROM Scenario s WHERE s.id = :id AND s.user.id = :userId")
+    Optional<Scenario> findByIdAndUserIdForStatusCheck(@Param("id") Long id, @Param("userId") Long userId);
+
     // 베이스 시나리오 조회
     Optional<Scenario> findByBaseLineIdAndDecisionLineIsNull(Long baseLineId);
 
@@ -32,6 +36,22 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
     // DecisionLine 기반 시나리오 조회 (중복 생성 방지 및 재시도용)
     @Query("SELECT s FROM Scenario s WHERE s.decisionLine.id = :decisionLineId")
     Optional<Scenario> findByDecisionLineId(@Param("decisionLineId") Long decisionLineId);
+
+    // AI 생성용 시나리오 조회 - 1단계: DecisionLine + DecisionNodes
+    @Query("SELECT DISTINCT s FROM Scenario s " +
+           "LEFT JOIN FETCH s.decisionLine dl " +
+           "LEFT JOIN FETCH dl.decisionNodes dn " +
+           "WHERE s.id = :id")
+    Optional<Scenario> findByIdWithDecisionNodes(@Param("id") Long id);
+
+    // AI 생성용 시나리오 조회 - 2단계: BaseLine + BaseNodes + User
+    @Query("SELECT DISTINCT s FROM Scenario s " +
+           "LEFT JOIN FETCH s.decisionLine dl " +
+           "LEFT JOIN FETCH dl.baseLine bl " +
+           "LEFT JOIN FETCH bl.baseNodes bn " +
+           "LEFT JOIN FETCH bl.user " +
+           "WHERE s.id = :id")
+    Optional<Scenario> findByIdWithDecisionLineAndBaseLine(@Param("id") Long id);
 
     // DecisionLine 기반 시나리오 조회 (권한 검증 포함, baseLine.scenarios fetch)
     @Query("SELECT s FROM Scenario s LEFT JOIN FETCH s.baseLine bl LEFT JOIN FETCH bl.scenarios WHERE s.decisionLine.id = :decisionLineId AND s.user.id = :userId")

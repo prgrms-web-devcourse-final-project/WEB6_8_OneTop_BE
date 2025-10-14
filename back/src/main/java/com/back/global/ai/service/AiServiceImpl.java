@@ -62,13 +62,28 @@ public class AiServiceImpl implements AiService {
             log.debug("Generated base scenario prompt for BaseLine ID: {}", baseLine.getId());
 
             // Step 2: AI 호출 및 파싱
-            AiRequest request = new AiRequest(baseScenarioPrompt, Map.of(), baseScenarioAiProperties.getMaxOutputTokens());
+            int maxTokens = baseScenarioAiProperties.getMaxOutputTokens();
+            log.info("Using maxOutputTokens: {} for base scenario generation", maxTokens);
+            AiRequest request = new AiRequest(baseScenarioPrompt, Map.of(), maxTokens);
             return textAiClient.generateText(request)
                     .thenApply(aiResponse -> {
                         try {
                             log.debug("Received AI response for BaseLine ID: {}, length: {}",
                                     baseLine.getId(), aiResponse.length());
-                            return objectMapper.readValue(aiResponse, BaseScenarioResult.class);
+                            // Remove markdown code block wrappers (```json ... ```)
+                            String cleanedResponse = aiResponse.trim();
+                            if (cleanedResponse.startsWith("```json")) {
+                                cleanedResponse = cleanedResponse.substring(7); // Remove ```json
+                            } else if (cleanedResponse.startsWith("```")) {
+                                cleanedResponse = cleanedResponse.substring(3); // Remove ```
+                            }
+                            if (cleanedResponse.endsWith("```")) {
+                                cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length() - 3);
+                            }
+                            cleanedResponse = cleanedResponse.trim();
+
+                            log.info("Cleaned AI response for BaseLine ID: {}: {}", baseLine.getId(), cleanedResponse);
+                            return objectMapper.readValue(cleanedResponse, BaseScenarioResult.class);
                         } catch (Exception e) {
                             log.error("Failed to parse BaseScenario AI response for BaseLine ID: {}, error: {}",
                                     baseLine.getId(), e.getMessage(), e);
@@ -121,7 +136,20 @@ public class AiServiceImpl implements AiService {
                         try {
                             log.debug("Received AI response for DecisionLine ID: {}, length: {}",
                                     decisionLine.getId(), aiResponse.length());
-                            return objectMapper.readValue(aiResponse, DecisionScenarioResult.class);
+                            // Remove markdown code block wrappers (```json ... ```)
+                            String cleanedResponse = aiResponse.trim();
+                            if (cleanedResponse.startsWith("```json")) {
+                                cleanedResponse = cleanedResponse.substring(7);
+                            } else if (cleanedResponse.startsWith("```")) {
+                                cleanedResponse = cleanedResponse.substring(3);
+                            }
+                            if (cleanedResponse.endsWith("```")) {
+                                cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length() - 3);
+                            }
+                            cleanedResponse = cleanedResponse.trim();
+
+                            log.info("Cleaned AI response for DecisionLine ID: {}: {}", decisionLine.getId(), cleanedResponse);
+                            return objectMapper.readValue(cleanedResponse, DecisionScenarioResult.class);
                         } catch (Exception e) {
                             log.error("Failed to parse DecisionScenario AI response for DecisionLine ID: {}, error: {}",
                                     decisionLine.getId(), e.getMessage(), e);

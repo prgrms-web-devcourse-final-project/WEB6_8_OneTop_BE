@@ -173,8 +173,13 @@ class AiServiceImplTest {
                     "total": 250,
                     "timelineTitles": {"2022": "대학원 입학", "2024": "졸업"},
                     "baselineTitle": "현재 삶 유지",
-                    "indicatorScores": {"경제": 50, "행복": 50, "관계": 50, "직업": 50, "건강": 50},
-                    "indicatorAnalysis": {"경제": "평균", "행복": "평균", "관계": "평균", "직업": "평균", "건강": "평균"}
+                    "indicators": [
+                        {"type": "경제", "point": 50, "analysis": "평균"},
+                        {"type": "행복", "point": 50, "analysis": "평균"},
+                        {"type": "관계", "point": 50, "analysis": "평균"},
+                        {"type": "직업", "point": 50, "analysis": "평균"},
+                        {"type": "건강", "point": 50, "analysis": "평균"}
+                    ]
                 }
                 """;
 
@@ -185,8 +190,13 @@ class AiServiceImplTest {
                     250,
                     Map.of("2022", "대학원 입학", "2024", "졸업"),
                     "현재 삶 유지",
-                    Map.of(Type.경제, 50, Type.행복, 50, Type.관계, 50, Type.직업, 50, Type.건강, 50),
-                    Map.of(Type.경제, "평균", Type.행복, "평균", Type.관계, "평균", Type.직업, "평균", Type.건강, "평균")
+                    List.of(
+                            new BaseScenarioResult.Indicator("경제", 50, "평균"),
+                            new BaseScenarioResult.Indicator("행복", 50, "평균"),
+                            new BaseScenarioResult.Indicator("관계", 50, "평균"),
+                            new BaseScenarioResult.Indicator("직업", 50, "평균"),
+                            new BaseScenarioResult.Indicator("건강", 50, "평균")
+                    )
             );
 
             given(baseScenarioAiProperties.getMaxOutputTokens()).willReturn(1500);
@@ -259,9 +269,18 @@ class AiServiceImplTest {
                     "total": 300,
                     "imagePrompt": "Young CTO working in startup office",
                     "timelineTitles": {"2023": "연구실 변경", "2024": "해외 학회"},
-                    "indicatorScores": {"경제": 60, "행복": 65, "관계": 55, "직업": 70, "건강": 50},
-                    "indicatorAnalysis": {"경제": "향상", "행복": "향상", "관계": "유지", "직업": "향상", "건강": "유지"},
-                    "comparisonResults": {"TOTAL": "전체적으로 향상", "경제": "10점 상승", "행복": "15점 상승"}
+                    "indicators": [
+                        {"type": "경제", "point": 60, "analysis": "향상"},
+                        {"type": "행복", "point": 65, "analysis": "향상"},
+                        {"type": "관계", "point": 55, "analysis": "유지"},
+                        {"type": "직업", "point": 70, "analysis": "향상"},
+                        {"type": "건강", "point": 50, "analysis": "유지"}
+                    ],
+                    "comparisons": [
+                        {"type": "TOTAL", "baseScore": 250, "newScore": 300, "analysis": "전체적으로 향상"},
+                        {"type": "경제", "baseScore": 50, "newScore": 60, "analysis": "10점 상승"},
+                        {"type": "행복", "baseScore": 50, "newScore": 65, "analysis": "15점 상승"}
+                    ]
                 }
                 """;
 
@@ -272,9 +291,18 @@ class AiServiceImplTest {
                     300,
                     "Young CTO working in startup office",
                     Map.of("2023", "연구실 변경", "2024", "해외 학회"),
-                    Map.of(Type.경제, 60, Type.행복, 65, Type.관계, 55, Type.직업, 70, Type.건강, 50),
-                    Map.of(Type.경제, "향상", Type.행복, "향상", Type.관계, "유지", Type.직업, "향상", Type.건강, "유지"),
-                    Map.of("TOTAL", "전체적으로 향상", "경제", "10점 상승", "행복", "15점 상승")
+                    List.of(
+                            new DecisionScenarioResult.Indicator("경제", 60, "향상"),
+                            new DecisionScenarioResult.Indicator("행복", 65, "향상"),
+                            new DecisionScenarioResult.Indicator("관계", 55, "유지"),
+                            new DecisionScenarioResult.Indicator("직업", 70, "향상"),
+                            new DecisionScenarioResult.Indicator("건강", 50, "유지")
+                    ),
+                    List.of(
+                            new DecisionScenarioResult.Comparison("TOTAL", 250, 300, "전체적으로 향상"),
+                            new DecisionScenarioResult.Comparison("경제", 50, 60, "10점 상승"),
+                            new DecisionScenarioResult.Comparison("행복", 50, 65, "15점 상승")
+                    )
             );
 
             List<SceneType> baseSceneTypes = createMockSceneTypes();
@@ -339,9 +367,12 @@ class AiServiceImplTest {
                     "total": 300,
                     "imagePrompt": "Young CTO working in startup office",
                     "timelineTitles": {"2023": "연구실 변경"},
-                    "indicatorScores": {"경제": 60},
-                    "indicatorAnalysis": {"경제": "향상"},
-                    "comparisonResults": {"TOTAL": "전체적으로 향상"}
+                    "indicators": [
+                        {"type": "경제", "point": 60, "analysis": "향상"}
+                    ],
+                    "comparisons": [
+                        {"type": "TOTAL", "baseScore": 250, "newScore": 300, "analysis": "전체적으로 향상"}
+                    ]
                 }
                 """;
 
@@ -352,9 +383,8 @@ class AiServiceImplTest {
                     300,
                     "Young CTO working in startup office",
                     Map.of("2023", "연구실 변경"),
-                    Map.of(Type.경제, 60),
-                    Map.of(Type.경제, "향상"),
-                    Map.of("TOTAL", "전체적으로 향상")
+                    List.of(new DecisionScenarioResult.Indicator("경제", 60, "향상")),
+                    List.of(new DecisionScenarioResult.Comparison("TOTAL", 250, 300, "전체적으로 향상"))
             );
 
             given(decisionScenarioAiProperties.getMaxOutputTokens()).willReturn(2000);

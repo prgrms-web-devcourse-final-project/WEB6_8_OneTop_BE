@@ -23,3 +23,6 @@ uploads/
 # 테스트 이미지 경로 (LocalStorageServiceTest)
 test-uploads/
 ./test-uploads/
+
+### Environment Variables ###
+.env

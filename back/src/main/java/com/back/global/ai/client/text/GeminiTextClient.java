@@ -54,10 +54,13 @@ public class GeminiTextClient implements TextAiClient {
             .retrieve()
             .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
             .bodyToMono(GeminiResponse.class)
+            .doOnNext(response -> log.debug("Gemini API response received: candidates={}, finishReason={}",
+                response.candidates().size(),
+                response.candidates().isEmpty() ? "N/A" : response.candidates().get(0).finishReason()))
             .map(this::extractContent)
             .timeout(Duration.ofSeconds(textAiConfig.getTimeoutSeconds()))
             .retryWhen(Retry.backoff(textAiConfig.getMaxRetries(), Duration.ofSeconds(textAiConfig.getRetryDelaySeconds())))
-            .doOnError(error -> log.error("Gemini API call failed: {}", error.getMessage()))
+            .doOnError(error -> log.error("Gemini API call failed: {}", error.getMessage(), error))
             .toFuture();
     }
 
@@ -77,25 +80,47 @@ public class GeminiTextClient implements TextAiClient {
 
     private String extractContent(GeminiResponse response) {
         try {
+            log.debug("Extracting content from Gemini response: candidates count={}",
+                response.candidates() != null ? response.candidates().size() : "null");
+
             // candidates가 비어있는 경우
-            if (response.candidates().isEmpty()) {
+            if (response.candidates() == null || response.candidates().isEmpty()) {
+                log.error("No candidates in Gemini response");
                 throw new AiParsingException("No candidates in Gemini response");
             }
 
             GeminiResponse.Candidate candidate = response.candidates().get(0);
+            log.debug("Candidate finishReason: {}, content: {}",
+                candidate.finishReason(),
+                candidate.content() != null ? "present" : "null");
 
             // 안전성 필터에 걸린 경우
             if ("SAFETY".equals(candidate.finishReason())) {
+                log.error("Content blocked by safety filters");
                 throw new AiParsingException("Content blocked by safety filters");
             }
 
-            // 내용이 없는 경우
-            if (candidate.content().parts().isEmpty()) {
-                throw new AiParsingException("No parts in candidate content");
+            // content가 null인 경우
+            if (candidate.content() == null) {
+                log.error("Content is null in candidate, finishReason: {}", candidate.finishReason());
+                throw new AiParsingException("Content is null in candidate (finishReason: " + candidate.finishReason() + ")");
             }
 
-            return candidate.content().parts().get(0).text();
+            // parts가 null이거나 비어있는 경우
+            if (candidate.content().parts() == null || candidate.content().parts().isEmpty()) {
+                log.error("No parts in candidate content, finishReason: {}, parts: {}",
+                    candidate.finishReason(),
+                    candidate.content().parts() == null ? "null" : "empty");
+                throw new AiParsingException("No parts in candidate content (finishReason: " + candidate.finishReason() + ")");
+            }
+
+            String text = candidate.content().parts().get(0).text();
+            log.debug("Successfully extracted text, length: {}", text != null ? text.length() : 0);
+            return text;
+        } catch (AiParsingException e) {
+            throw e;
         } catch (Exception e) {
+            log.error("Unexpected error while extracting content", e);
             throw new AiParsingException("Failed to extract content from Gemini response: " + e.getMessage());
         }
     }

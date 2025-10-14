@@ -6,7 +6,7 @@ spring:
    #  - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
    #  - org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
   config:
-    import: optional:file:.env[.properties]
+    import: optional:file:./.env[.properties]
   flyway:
     enabled: false
   profiles:
@@ -85,8 +85,8 @@ ai:
       api-key: ${GEMINI_API_KEY}
       model: gemini-2.5-flash
       base-url: https://generativelanguage.googleapis.com
-      timeout-seconds: 30
-      max-retries: 3
+      timeout-seconds: 180          # 테스트용 타임아웃 증가 (120 → 180초)
+      max-retries: 0                # 재시도 비활성화 (테스트용)
       retry-delay-seconds: 2        # 재시도 간격 (초)
   image:
     enabled: true
@@ -106,10 +106,10 @@ ai:
     maxOutputTokens: 128       # 성능 최적화 완료
     timeout-seconds: 30        # 상황 생성 타임아웃 (30초, 실시간 응답용)
   base-scenario:
-    maxOutputTokens: 1000
-    timeout-seconds: 60        # 베이스 시나리오 생성 타임아웃 (60초)
+    maxOutputTokens: 16384     # 8192 → 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
+    timeout-seconds: 180       # 베이스 시나리오 생성 타임아웃 (60 → 180초, 테스트용)
   decision-scenario:
-    maxOutputTokens: 1200
+    maxOutputTokens: 16384     # 8192 -> 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
     timeout-seconds: 60        # 선택 시나리오 생성 타임아웃 (60초)
 
 server:

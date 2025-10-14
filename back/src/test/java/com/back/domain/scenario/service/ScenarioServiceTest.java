@@ -477,9 +477,13 @@ class ScenarioServiceTest {
                 100, // total
                 "테스트 이미지",
                 Map.of("2025", "테스트 타이틀"),
-                Map.of(),
-                Map.of(),
-                Map.of()
+                java.util.List.of(
+                        new DecisionScenarioResult.Indicator("경제", 50, "테스트 경제 분석"),
+                        new DecisionScenarioResult.Indicator("행복", 50, "테스트 행복 분석")
+                ),
+                java.util.List.of(
+                        new DecisionScenarioResult.Comparison("TOTAL", 200, 250, "테스트 비교 분석")
+                )
         );
     }
 }
