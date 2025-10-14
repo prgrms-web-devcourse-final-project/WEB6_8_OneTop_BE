@@ -9,8 +9,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "ai.decision-scenario")
 public class DecisionScenarioAiProperties {
     private int maxOutputTokens = 1200;
+    private int timeoutSeconds = 60;
 
     // getters/setters
     public int getMaxOutputTokens() { return maxOutputTokens; }
     public void setMaxOutputTokens(int maxOutputTokens) { this.maxOutputTokens = maxOutputTokens; }
+    public int getTimeoutSeconds() { return timeoutSeconds; }
+    public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
 }

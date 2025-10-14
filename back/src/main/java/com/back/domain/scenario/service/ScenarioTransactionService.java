@@ -45,6 +45,7 @@ public class ScenarioTransactionService {
     private final BaseLineRepository baseLineRepository;
     private final AiService aiService;
     private final ObjectMapper objectMapper;
+    private final com.back.global.ai.config.ImageAiConfig imageAiConfig;
 
     // 상태 업데이트 전용 트랜잭션 메서드
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -139,7 +140,7 @@ public class ScenarioTransactionService {
         try {
             if (imagePrompt != null && !imagePrompt.trim().isEmpty()) {
                 String imageUrl = aiService.generateImage(imagePrompt)
-                        .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .orTimeout(imageAiConfig.getTimeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS)
                         .exceptionally(ex -> {
                             log.warn("Image generation timeout or error for scenario {}: {}",
                                     scenario.getId(), ex.getMessage());

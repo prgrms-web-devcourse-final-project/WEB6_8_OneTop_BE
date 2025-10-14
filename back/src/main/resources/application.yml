@@ -90,8 +90,8 @@ ai:
       api-key: ${GEMINI_API_KEY}
       model: gemini-2.5-flash
       base-url: https://generativelanguage.googleapis.com
-      timeout-seconds: 180          # 테스트용 타임아웃 증가 (120 → 180초)
-      max-retries: 0                # 재시도 비활성화 (테스트용)
+      timeout-seconds: 70           # AI 응답 대기 시간 (시나리오 생성: 30-40초 + 여유 30초)
+      max-retries: 0                # 재시도 비활성화 (타임아웃 방지)
       retry-delay-seconds: 2        # 재시도 간격 (초)
   image:
     enabled: true
@@ -112,10 +112,10 @@ ai:
     timeout-seconds: 30        # 상황 생성 타임아웃 (30초, 실시간 응답용)
   base-scenario:
     maxOutputTokens: 16384     # 8192 → 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
-    timeout-seconds: 180       # 베이스 시나리오 생성 타임아웃 (60 → 180초, 테스트용)
+    timeout-seconds: 60        # 베이스 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
   decision-scenario:
     maxOutputTokens: 16384     # 8192 -> 16384 (gemini-2.5-flash 최대 65536, 충분한 여유)
-    timeout-seconds: 60        # 선택 시나리오 생성 타임아웃 (60초)
+    timeout-seconds: 60        # 결정 시나리오 생성 타임아웃 (실제: 30-40초 + 여유)
 
 server:
   servlet:
