@@ -47,24 +47,24 @@ public class DecisionScenarioPrompt {
         {
             "job": "3년 후 예상 직업 (대안 선택 결과)",
             "summary": "3년 후 삶의 요약 (50자 내외)",
-            "description": "3년 후 상세 시나리오 (500-800자, 나비효과 포함)",
+            "description": "3년 후 상세 시나리오 (300-500자, 나비효과 포함)",
             "total": 250~350,
             "imagePrompt": "이미지 프롬프트 (영문, 50단어)",
             "indicators": [
-                {"type": "경제", "point": 30~96, "analysis": "분석 (200자, 기본과 차이점)"},
-                {"type": "행복", "point": 30~96, "analysis": "분석 (200자, 변화 강조)"},
-                {"type": "관계", "point": 30~96, "analysis": "분석 (200자)"},
-                {"type": "직업", "point": 30~96, "analysis": "분석 (200자)"},
-                {"type": "건강", "point": 30~96, "analysis": "분석 (200자)"}
+                {"type": "경제", "point": 30~96, "analysis": "분석 (150자, 기본과 차이점)"},
+                {"type": "행복", "point": 30~96, "analysis": "분석 (150자, 변화 강조)"},
+                {"type": "관계", "point": 30~96, "analysis": "분석 (150자)"},
+                {"type": "직업", "point": 30~96, "analysis": "분석 (150자)"},
+                {"type": "건강", "point": 30~96, "analysis": "분석 (150자)"}
             ],
             "timelineTitles": {"{timelineYears}": "연도별 제목 (5단어 이내)"},
             "comparisons": [
-                {"type": "TOTAL", "baseScore": {baseTotal}, "newScore": "합계", "analysis": "비교 (300자)"},
-                {"type": "경제", "baseScore": {baseEconomyScore}, "newScore": "점수", "analysis": "비교 (300자)"},
-                {"type": "행복", "baseScore": {baseHappinessScore}, "newScore": "점수", "analysis": "비교 (300자)"},
-                {"type": "관계", "baseScore": {baseRelationshipScore}, "newScore": "점수", "analysis": "비교 (300자)"},
-                {"type": "직업", "baseScore": {baseCareerScore}, "newScore": "점수", "analysis": "비교 (300자)"},
-                {"type": "건강", "baseScore": {baseHealthScore}, "newScore": "점수", "analysis": "비교 (300자)"}
+                {"type": "TOTAL", "baseScore": {baseTotal}, "newScore": "합계", "analysis": "비교 (200자)"},
+                {"type": "경제", "baseScore": {baseEconomyScore}, "newScore": "점수", "analysis": "비교 (200자)"},
+                {"type": "행복", "baseScore": {baseHappinessScore}, "newScore": "점수", "analysis": "비교 (200자)"},
+                {"type": "관계", "baseScore": {baseRelationshipScore}, "newScore": "점수", "analysis": "비교 (200자)"},
+                {"type": "직업", "baseScore": {baseCareerScore}, "newScore": "점수", "analysis": "비교 (200자)"},
+                {"type": "건강", "baseScore": {baseHealthScore}, "newScore": "점수", "analysis": "비교 (200자)"}
             ]
         }
         ```

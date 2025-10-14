@@ -108,8 +108,8 @@ public class ScenarioService {
             ScenarioCreateRequest request,
             @Nullable DecisionNodeNextRequest lastDecision) {
 
-        // DecisionLine 존재 여부 확인
-        DecisionLine decisionLine = decisionLineRepository.findById(request.decisionLineId())
+        // DecisionLine 존재 여부 확인 (User EAGER 로딩)
+        DecisionLine decisionLine = decisionLineRepository.findWithUserById(request.decisionLineId())
                 .orElseThrow(() -> new ApiException(ErrorCode.DECISION_LINE_NOT_FOUND));
 
         // 권한 검증
@@ -312,17 +312,20 @@ public class ScenarioService {
             // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
             scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
 
-            // 2. AI 시나리오 생성 (트랜잭션 외부에서 실행)
-            AiScenarioGenerationResult result = executeAiGeneration(scenarioId);
+            // 2. AI 생성에 필요한 모든 데이터를 트랜잭션 내에서 미리 로드
+            Scenario scenarioWithData = scenarioTransactionService.prepareScenarioData(scenarioId);
 
-            // 3. 결과 저장 및 완료 상태 업데이트 (별도 트랜잭션)
+            // 3. AI 시나리오 생성 (트랜잭션 외부에서 실행)
+            AiScenarioGenerationResult result = executeAiGeneration(scenarioWithData);
+
+            // 4. 결과 저장 및 완료 상태 업데이트 (별도 트랜잭션)
             scenarioTransactionService.saveAiResult(scenarioId, result);
             scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.COMPLETED, null);
 
             log.info("Scenario generation completed successfully for ID: {}", scenarioId);
 
         } catch (Exception e) {
-            // 4. 실패 상태 업데이트 (별도 트랜잭션)
+            // 5. 실패 상태 업데이트 (별도 트랜잭션)
             scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.FAILED,
                     "시나리오 생성 실패: " + e.getMessage());
             log.error("Scenario generation failed for ID: {}, error: {}",
@@ -331,11 +334,8 @@ public class ScenarioService {
     }
 
     // AI 호출 전용 메서드 (트랜잭션 없음)
-    private AiScenarioGenerationResult executeAiGeneration(Long scenarioId) {
-        Scenario scenario = scenarioRepository.findById(scenarioId)
-                .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
-
-        // AI 호출 로직 (트랜잭션 외부에서 실행)
+    private AiScenarioGenerationResult executeAiGeneration(Scenario scenario) {
+        // AI 호출 로직 (미리 로드된 데이터 사용)
         DecisionLine decisionLine = scenario.getDecisionLine();
         BaseLine baseLine = decisionLine.getBaseLine();
 
@@ -347,7 +347,7 @@ public class ScenarioService {
                 .generateDecisionScenario(decisionLine, baseScenario)
                 .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .exceptionally(ex -> {
-                    log.error("Decision scenario generation timeout or error for scenario ID: {}", scenarioId, ex);
+                    log.error("Decision scenario generation timeout or error for scenario ID: {}", scenario.getId(), ex);
                     throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "시나리오 생성 시간 초과 (60초)");
                 })
                 .join();
@@ -365,12 +365,12 @@ public class ScenarioService {
     private Scenario createBaseScenario(BaseLine baseLine) {
         log.info("Creating base scenario for BaseLine ID: {}", baseLine.getId());
 
-        // 1. AI 호출 with 타임아웃 (60초)
+        // 1. AI 호출 with 타임아웃 (180초 - 테스트용)
         BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine)
-                .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .orTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
                 .exceptionally(ex -> {
                     log.error("Base scenario generation timeout or error for BaseLine ID: {}", baseLine.getId(), ex);
-                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "베이스 시나리오 생성 시간 초과 (60초)");
+                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "베이스 시나리오 생성 시간 초과 (180초)");
                 })
                 .join();
 
@@ -394,7 +394,7 @@ public class ScenarioService {
     @Transactional(readOnly = true)
     public ScenarioStatusResponse getScenarioStatus(Long scenarioId, Long userId) {
         // 권한 검증 및 조회
-        Scenario scenario = scenarioRepository.findByIdAndUserId(scenarioId, userId)
+        Scenario scenario = scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
         // DTO 변환 및 반환

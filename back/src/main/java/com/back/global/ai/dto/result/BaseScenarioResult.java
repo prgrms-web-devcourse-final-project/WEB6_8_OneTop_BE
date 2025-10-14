@@ -2,6 +2,7 @@ package com.back.global.ai.dto.result;
 
 import com.back.domain.scenario.entity.Type;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,7 +16,36 @@ public record BaseScenarioResult(
         int total,  // 5개 지표 점수 합계
         Map<String, String> timelineTitles,
         String baselineTitle,
-        Map<Type, Integer> indicatorScores,
-        Map<Type, String> indicatorAnalysis
+        List<Indicator> indicators // AI 응답 구조와 일치 (배열)
 ) {
+    /**
+     * AI 응답의 indicators 배열 요소
+     */
+    public record Indicator(
+            String type,
+            int point,
+            String analysis
+    ) {}
+
+    /**
+     * indicators 배열을 Map<Type, Integer>로 변환
+     */
+    public Map<Type, Integer> indicatorScores() {
+        return indicators.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        ind -> Type.valueOf(ind.type),
+                        Indicator::point
+                ));
+    }
+
+    /**
+     * indicators 배열을 Map<Type, String>로 변환
+     */
+    public Map<Type, String> indicatorAnalysis() {
+        return indicators.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        ind -> Type.valueOf(ind.type),
+                        Indicator::analysis
+                ));
+    }
 }

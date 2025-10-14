@@ -118,31 +118,42 @@ public class StableDiffusionImageClient implements ImageAiClient {
         try {
             JsonNode rootNode = objectMapper.readTree(response);
 
-            // Stability AI 공식 응답 구조: { "artifacts": [{ "base64": "..." }] }
-            if (rootNode.has("artifacts") && rootNode.get("artifacts").isArray()) {
-                JsonNode firstArtifact = rootNode.get("artifacts").get(0);
-
-                // finishReason 검증
-                if (firstArtifact.has("finishReason")) {
-                    String finishReason = firstArtifact.get("finishReason").asText();
-                    if (!"SUCCESS".equals(finishReason)) {
-                        log.error("Image generation failed with reason: {}", finishReason);
-                        return Mono.error(new AiServiceException(
-                            ErrorCode.AI_GENERATION_FAILED,
-                            "Image generation failed: " + finishReason
-                        ));
-                    }
-                }
-
-                // Base64 데이터 추출
-                if (firstArtifact.has("base64")) {
-                    String base64Data = firstArtifact.get("base64").asText();
-                    log.info("Image generated successfully. Base64 length: {}", base64Data.length());
+            // 1. 단순 응답 구조 체크: {"image": "..."}
+            if (rootNode.has("image")) {
+                String base64Data = rootNode.get("image").asText();
+                if (base64Data != null && !base64Data.isEmpty()) {
+                    log.info("Image generated successfully (simple structure). Base64 length: {}", base64Data.length());
                     return Mono.just(base64Data);
                 }
             }
 
-            // 응답 구조가 예상과 다를 경우
+            // 2. 공식 응답 구조 체크: { "artifacts": [{...}] }
+            if (rootNode.has("artifacts") && rootNode.get("artifacts").isArray() && !rootNode.get("artifacts").isEmpty()) {
+                JsonNode firstArtifact = rootNode.get("artifacts").get(0);
+
+                if (firstArtifact != null) {
+                    // finishReason 검증
+                    if (firstArtifact.has("finishReason")) {
+                        String finishReason = firstArtifact.get("finishReason").asText();
+                        if (!"SUCCESS".equals(finishReason)) {
+                            log.error("Image generation failed with reason: {}", finishReason);
+                            return Mono.error(new AiServiceException(
+                                ErrorCode.AI_GENERATION_FAILED,
+                                "Image generation failed: " + finishReason
+                            ));
+                        }
+                    }
+
+                    // Base64 데이터 추출
+                    if (firstArtifact.has("base64")) {
+                        String base64Data = firstArtifact.get("base64").asText();
+                        log.info("Image generated successfully (artifacts structure). Base64 length: {}", base64Data.length());
+                        return Mono.just(base64Data);
+                    }
+                }
+            }
+
+            // 두 구조 모두 해당하지 않을 경우
             log.error("Unexpected Stable Diffusion API response structure: {}", response);
             return Mono.error(new AiServiceException(
                 ErrorCode.AI_GENERATION_FAILED,
