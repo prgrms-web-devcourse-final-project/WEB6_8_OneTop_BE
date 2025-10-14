@@ -14,9 +14,6 @@ import com.back.domain.scenario.entity.SceneType;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
-import com.back.global.ai.dto.result.BaseScenarioResult;
-import com.back.global.ai.dto.result.DecisionScenarioResult;
-import com.back.global.ai.service.AiService;
 import com.back.global.common.PageResponse;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
@@ -29,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,9 +57,6 @@ public class ScenarioService {
     // Object Mapper 주입
     private final ObjectMapper objectMapper;
 
-    // AI Service 주입
-    private final AiService aiService;
-
     // Scenario Transaction Service 주입
     private final ScenarioTransactionService scenarioTransactionService;
 
@@ -93,8 +86,8 @@ public class ScenarioService {
             validationResult.decisionLine
         );
 
-        // 3. 비동기 AI 처리 트리거 (트랜잭션 외부)
-        processScenarioGenerationAsync(scenarioId);
+        // 3. 비동기 AI 처리 트리거 (트랜잭션 외부, 별도 Bean에서 호출)
+        scenarioTransactionService.processScenarioGenerationAsync(scenarioId);
 
         return new ScenarioStatusResponse(
             scenarioId,
@@ -312,8 +305,8 @@ public class ScenarioService {
         // 1. 상태 업데이트 (트랜잭션)
         Long scenarioId = retryScenarioInTransaction(failedScenario.getId());
 
-        // 2. 비동기 AI 처리 트리거 (트랜잭션 외부)
-        processScenarioGenerationAsync(scenarioId);
+        // 2. 비동기 AI 처리 트리거 (트랜잭션 외부, 별도 Bean에서 호출)
+        scenarioTransactionService.processScenarioGenerationAsync(scenarioId);
 
         return new ScenarioStatusResponse(
                 scenarioId,
@@ -337,91 +330,6 @@ public class ScenarioService {
         scenarioRepository.save(scenario);
 
         return scenario.getId();
-    }
-
-    // 비동기 방식으로 AI 시나리오 생성
-    @Async("aiTaskExecutor")
-    public void processScenarioGenerationAsync(Long scenarioId) {
-        try {
-            // 1. 상태를 PROCESSING으로 업데이트 (별도 트랜잭션)
-            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
-
-            // 2. AI 생성에 필요한 모든 데이터를 트랜잭션 내에서 미리 로드
-            Scenario scenarioWithData = scenarioTransactionService.prepareScenarioData(scenarioId);
-
-            // 3. AI 시나리오 생성 (트랜잭션 외부에서 실행)
-            AiScenarioGenerationResult result = executeAiGeneration(scenarioWithData);
-
-            // 4. 결과 저장 및 완료 상태 업데이트 (별도 트랜잭션)
-            scenarioTransactionService.saveAiResult(scenarioId, result);
-            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.COMPLETED, null);
-
-            log.info("Scenario generation completed successfully for ID: {}", scenarioId);
-
-        } catch (Exception e) {
-            // 5. 실패 상태 업데이트 (별도 트랜잭션)
-            scenarioTransactionService.updateScenarioStatus(scenarioId, ScenarioStatus.FAILED,
-                    "시나리오 생성 실패: " + e.getMessage());
-            log.error("Scenario generation failed for ID: {}, error: {}",
-                    scenarioId, e.getMessage(), e);
-        }
-    }
-
-    // AI 호출 전용 메서드 (트랜잭션 없음)
-    private AiScenarioGenerationResult executeAiGeneration(Scenario scenario) {
-        // AI 호출 로직 (미리 로드된 데이터 사용)
-        DecisionLine decisionLine = scenario.getDecisionLine();
-        BaseLine baseLine = decisionLine.getBaseLine();
-
-        // 베이스 시나리오 확보
-        Scenario baseScenario = ensureBaseScenarioExists(baseLine);
-
-        // AI 호출 (트랜잭션 외부) with 타임아웃 (60초)
-        DecisionScenarioResult aiResult = aiService
-                .generateDecisionScenario(decisionLine, baseScenario)
-                .orTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-                .exceptionally(ex -> {
-                    log.error("Decision scenario generation timeout or error for scenario ID: {}", scenario.getId(), ex);
-                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "시나리오 생성 시간 초과 (60초)");
-                })
-                .join();
-
-        return new AiScenarioGenerationResult(aiResult);
-    }
-
-    // 베이스 시나리오 확보 (없으면 생성)
-    private Scenario ensureBaseScenarioExists(BaseLine baseLine) {
-        return scenarioRepository.findByBaseLineIdAndDecisionLineIsNull(baseLine.getId())
-                .orElseGet(() -> createBaseScenario(baseLine));
-    }
-
-    // 베이스 시나리오 생성
-    private Scenario createBaseScenario(BaseLine baseLine) {
-        log.info("Creating base scenario for BaseLine ID: {}", baseLine.getId());
-
-        // 1. AI 호출 with 타임아웃 (180초 - 테스트용)
-        BaseScenarioResult aiResult = aiService.generateBaseScenario(baseLine)
-                .orTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
-                .exceptionally(ex -> {
-                    log.error("Base scenario generation timeout or error for BaseLine ID: {}", baseLine.getId(), ex);
-                    throw new ApiException(ErrorCode.AI_REQUEST_TIMEOUT, "베이스 시나리오 생성 시간 초과 (180초)");
-                })
-                .join();
-
-        // 2. 베이스 시나리오 엔티티 생성
-        Scenario baseScenario = Scenario.builder()
-                .user(baseLine.getUser())
-                .decisionLine(null) // 베이스 시나리오는 DecisionLine 없음
-                .baseLine(baseLine) // 베이스 시나리오는 BaseLine 연결
-                .status(ScenarioStatus.COMPLETED) // 베이스는 바로 완료
-                .build();
-
-        Scenario savedScenario = scenarioRepository.save(baseScenario);
-
-        // 3. AI 결과 적용
-        scenarioTransactionService.applyBaseScenarioResult(savedScenario, aiResult);
-
-        return savedScenario;
     }
 
     // 시나리오 생성 상태 조회
