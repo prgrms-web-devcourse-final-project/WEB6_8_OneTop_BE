@@ -47,6 +47,12 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    implementation("org.testcontainers:testcontainers")
+    implementation("org.testcontainers:jdbc")
+    implementation("org.testcontainers:postgresql")
 
     // Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
@@ -63,6 +69,7 @@ dependencies {
     // Database
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.postgresql:postgresql")
 
     // Migration
      implementation("org.flywaydb:flyway-core:11.11.2")
@@ -78,6 +85,8 @@ dependencies {
     // AI Services - WebFlux for non-blocking HTTP clients
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("io.netty:netty-tcnative-boringssl-static:2.0.65.Final")
+
 
     // AWS SDK for S3
     implementation("software.amazon.awssdk:s3:2.20.+")

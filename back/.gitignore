@@ -37,7 +37,7 @@ out/
 .vscode/
 
 ### Environment Variables ###
-.env
+../.env
 
 # 테스트 이미지 경로 (LocalStorageServiceTest)
 test-uploads/

@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -163,6 +164,39 @@ public class ScenarioService {
             // lastDecision 처리 (필요 시)
             if (lastDecision != null) {
                 decisionFlowService.createDecisionNodeNext(lastDecision);
+                List<DecisionNode> ordered = decisionNodeRepository.findByDecisionLine_IdOrderByAgeYearAscIdAsc(decisionLine.getId());
+                DecisionNode parent = ordered.isEmpty() ? null : ordered.get(ordered.size() - 1);
+
+                // 베이스 라인의 tail BaseNode 해석(“결말” 우선, 없으면 최대 age)
+                BaseLine baseLine = decisionLine.getBaseLine();
+                List<BaseNode> baseNodes = baseLine.getBaseNodes();
+                BaseNode tailBase = baseNodes.stream()
+                        .filter(b -> {
+                            String s = b.getSituation() == null ? "" : b.getSituation();
+                            String d = b.getDecision()  == null ? "" : b.getDecision();
+                            return s.contains("결말") || d.contains("결말");
+                        })
+                        .max(Comparator.comparingInt(BaseNode::getAgeYear).thenComparingLong(BaseNode::getId))
+                        .orElseGet(() -> baseNodes.stream()
+                                .max(Comparator.comparingInt(BaseNode::getAgeYear).thenComparingLong(BaseNode::getId))
+                                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_INPUT_VALUE, "tail base not found"))
+                        );
+
+                // 엔티티 빌더로 ‘결말’ 결정노드 저장(테일과 동일 age)
+                DecisionNode ending = DecisionNode.builder()
+                        .user(decisionLine.getUser())
+                        .nodeKind(NodeType.DECISION)
+                        .decisionLine(decisionLine)
+                        .baseNode(tailBase)
+                        .parent(parent)
+                        .category(tailBase.getCategory())
+                        .situation("결말")
+                        .decision("결말")
+                        .ageYear(tailBase.getAgeYear())
+                        .background(tailBase.getSituation() == null ? "" : tailBase.getSituation())
+                        .build();
+
+                decisionNodeRepository.save(ending);
             }
 
             // DecisionLine 완료 처리
