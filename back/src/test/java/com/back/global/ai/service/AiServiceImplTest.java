@@ -165,6 +165,8 @@ class AiServiceImplTest {
         @DisplayName("성공 - 유효한 BaseLine으로 베이스 시나리오 생성")
         void generateBaseScenario_Success() throws Exception {
             // given
+            setField(aiService, "objectMapper", realObjectMapper);  // 실제 ObjectMapper 사용
+
             String mockAiResponse = """
                 {
                     "job": "중견기업 개발자",
@@ -173,27 +175,19 @@ class AiServiceImplTest {
                     "total": 250,
                     "timelineTitles": {"2022": "대학원 입학", "2024": "졸업"},
                     "baselineTitle": "현재 삶 유지",
-                    "indicatorScores": {"경제": 50, "행복": 50, "관계": 50, "직업": 50, "건강": 50},
-                    "indicatorAnalysis": {"경제": "평균", "행복": "평균", "관계": "평균", "직업": "평균", "건강": "평균"}
+                    "indicators": [
+                        {"type": "경제", "point": 50, "analysis": "평균"},
+                        {"type": "행복", "point": 50, "analysis": "평균"},
+                        {"type": "관계", "point": 50, "analysis": "평균"},
+                        {"type": "직업", "point": 50, "analysis": "평균"},
+                        {"type": "건강", "point": 50, "analysis": "평균"}
+                    ]
                 }
                 """;
-
-            BaseScenarioResult expectedResult = new BaseScenarioResult(
-                    "중견기업 개발자",
-                    "안정적인 직장 생활",
-                    "대학원을 졸업하고 IT 기업에 취직",
-                    250,
-                    Map.of("2022", "대학원 입학", "2024", "졸업"),
-                    "현재 삶 유지",
-                    Map.of(Type.경제, 50, Type.행복, 50, Type.관계, 50, Type.직업, 50, Type.건강, 50),
-                    Map.of(Type.경제, "평균", Type.행복, "평균", Type.관계, "평균", Type.직업, "평균", Type.건강, "평균")
-            );
 
             given(baseScenarioAiProperties.getMaxOutputTokens()).willReturn(1500);
             given(textAiClient.generateText(any(AiRequest.class)))
                     .willReturn(CompletableFuture.completedFuture(mockAiResponse));
-            given(objectMapper.readValue(mockAiResponse, BaseScenarioResult.class))
-                    .willReturn(expectedResult);
 
             // when
             CompletableFuture<BaseScenarioResult> future = aiService.generateBaseScenario(testBaseLine);
@@ -206,7 +200,12 @@ class AiServiceImplTest {
             assertThat(result.summary()).isEqualTo("안정적인 직장 생활");
 
             verify(textAiClient, times(1)).generateText(any(AiRequest.class));
-            verify(objectMapper, times(1)).readValue(mockAiResponse, BaseScenarioResult.class);
+        }
+
+        private void setField(Object target, String fieldName, Object value) throws Exception {
+            var field = AiServiceImpl.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
         }
 
         @Test
@@ -251,6 +250,8 @@ class AiServiceImplTest {
         @DisplayName("성공 - 유효한 DecisionLine과 BaseScenario로 시나리오 생성")
         void generateDecisionScenario_Success() throws Exception {
             // given
+            setField(aiService, "objectMapper", realObjectMapper);  // 실제 ObjectMapper 사용
+
             String mockAiResponse = """
                 {
                     "job": "스타트업 CTO",
@@ -259,23 +260,20 @@ class AiServiceImplTest {
                     "total": 300,
                     "imagePrompt": "Young CTO working in startup office",
                     "timelineTitles": {"2023": "연구실 변경", "2024": "해외 학회"},
-                    "indicatorScores": {"경제": 60, "행복": 65, "관계": 55, "직업": 70, "건강": 50},
-                    "indicatorAnalysis": {"경제": "향상", "행복": "향상", "관계": "유지", "직업": "향상", "건강": "유지"},
-                    "comparisonResults": {"TOTAL": "전체적으로 향상", "경제": "10점 상승", "행복": "15점 상승"}
+                    "indicators": [
+                        {"type": "경제", "point": 60, "analysis": "향상"},
+                        {"type": "행복", "point": 65, "analysis": "향상"},
+                        {"type": "관계", "point": 55, "analysis": "유지"},
+                        {"type": "직업", "point": 70, "analysis": "향상"},
+                        {"type": "건강", "point": 50, "analysis": "유지"}
+                    ],
+                    "comparisons": [
+                        {"type": "TOTAL", "baseScore": 250, "newScore": 300, "analysis": "전체적으로 향상"},
+                        {"type": "경제", "baseScore": 50, "newScore": 60, "analysis": "10점 상승"},
+                        {"type": "행복", "baseScore": 50, "newScore": 65, "analysis": "15점 상승"}
+                    ]
                 }
                 """;
-
-            DecisionScenarioResult expectedResult = new DecisionScenarioResult(
-                    "스타트업 CTO",
-                    "도전적인 창업 생활",
-                    "연구실 경험을 바탕으로 AI 스타트업 창업",
-                    300,
-                    "Young CTO working in startup office",
-                    Map.of("2023", "연구실 변경", "2024", "해외 학회"),
-                    Map.of(Type.경제, 60, Type.행복, 65, Type.관계, 55, Type.직업, 70, Type.건강, 50),
-                    Map.of(Type.경제, "향상", Type.행복, "향상", Type.관계, "유지", Type.직업, "향상", Type.건강, "유지"),
-                    Map.of("TOTAL", "전체적으로 향상", "경제", "10점 상승", "행복", "15점 상승")
-            );
 
             List<SceneType> baseSceneTypes = createMockSceneTypes();
 
@@ -284,8 +282,6 @@ class AiServiceImplTest {
                     .willReturn(baseSceneTypes);
             given(textAiClient.generateText(any(AiRequest.class)))
                     .willReturn(CompletableFuture.completedFuture(mockAiResponse));
-            given(objectMapper.readValue(mockAiResponse, DecisionScenarioResult.class))
-                    .willReturn(expectedResult);
 
             // when
             CompletableFuture<DecisionScenarioResult> future =
@@ -301,6 +297,12 @@ class AiServiceImplTest {
 
             verify(textAiClient, times(1)).generateText(any(AiRequest.class));
             verify(sceneTypeRepository, times(1)).findByScenarioIdOrderByTypeAsc(testScenario.getId());
+        }
+
+        private void setField(Object target, String fieldName, Object value) throws Exception {
+            var field = AiServiceImpl.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
         }
 
         @Test
@@ -331,6 +333,8 @@ class AiServiceImplTest {
         @DisplayName("성공 - SceneType이 비어있어도 정상 처리")
         void generateDecisionScenario_Success_EmptySceneTypes() throws Exception {
             // given
+            setField(aiService, "objectMapper", realObjectMapper);  // 실제 ObjectMapper 사용
+
             String mockAiResponse = """
                 {
                     "job": "스타트업 CTO",
@@ -339,31 +343,20 @@ class AiServiceImplTest {
                     "total": 300,
                     "imagePrompt": "Young CTO working in startup office",
                     "timelineTitles": {"2023": "연구실 변경"},
-                    "indicatorScores": {"경제": 60},
-                    "indicatorAnalysis": {"경제": "향상"},
-                    "comparisonResults": {"TOTAL": "전체적으로 향상"}
+                    "indicators": [
+                        {"type": "경제", "point": 60, "analysis": "향상"}
+                    ],
+                    "comparisons": [
+                        {"type": "TOTAL", "baseScore": 250, "newScore": 300, "analysis": "전체적으로 향상"}
+                    ]
                 }
                 """;
-
-            DecisionScenarioResult expectedResult = new DecisionScenarioResult(
-                    "스타트업 CTO",
-                    "도전적인 창업 생활",
-                    "연구실 경험을 바탕으로 AI 스타트업 창업",
-                    300,
-                    "Young CTO working in startup office",
-                    Map.of("2023", "연구실 변경"),
-                    Map.of(Type.경제, 60),
-                    Map.of(Type.경제, "향상"),
-                    Map.of("TOTAL", "전체적으로 향상")
-            );
 
             given(decisionScenarioAiProperties.getMaxOutputTokens()).willReturn(2000);
             given(sceneTypeRepository.findByScenarioIdOrderByTypeAsc(testScenario.getId()))
                     .willReturn(List.of()); // 빈 리스트 반환
             given(textAiClient.generateText(any(AiRequest.class)))
                     .willReturn(CompletableFuture.completedFuture(mockAiResponse));
-            given(objectMapper.readValue(mockAiResponse, DecisionScenarioResult.class))
-                    .willReturn(expectedResult);
 
             // when
             CompletableFuture<DecisionScenarioResult> future =

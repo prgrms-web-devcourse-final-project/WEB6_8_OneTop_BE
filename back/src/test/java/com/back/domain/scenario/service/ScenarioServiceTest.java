@@ -81,7 +81,7 @@ class ScenarioServiceTest {
             ReflectionTestUtils.setField(savedScenario, "id", 1001L);
 
             // 실제 ScenarioService 구현에 맞춘 모킹
-            given(decisionLineRepository.findById(decisionLineId))
+            given(decisionLineRepository.findWithUserById(decisionLineId))
                     .willReturn(Optional.of(mockDecisionLine));
             given(scenarioRepository.findByDecisionLineId(decisionLineId))
                     .willReturn(Optional.empty()); // 기존 시나리오 없음
@@ -101,7 +101,7 @@ class ScenarioServiceTest {
             assertThat(result.message()).isEqualTo("시나리오 생성이 시작되었습니다.");
 
             // 동기 부분의 핵심 비즈니스 로직만 검증
-            verify(decisionLineRepository).findById(decisionLineId);
+            verify(decisionLineRepository).findWithUserById(decisionLineId);
             verify(scenarioRepository).findByDecisionLineId(decisionLineId);
             verify(scenarioRepository).save(any(Scenario.class));
 
@@ -117,7 +117,7 @@ class ScenarioServiceTest {
             Long decisionLineId = 999L;
             ScenarioCreateRequest request = new ScenarioCreateRequest(decisionLineId);
 
-            given(decisionLineRepository.findById(decisionLineId))
+            given(decisionLineRepository.findWithUserById(decisionLineId))
                     .willReturn(Optional.empty());
 
             // When & Then
@@ -125,7 +125,7 @@ class ScenarioServiceTest {
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DECISION_LINE_NOT_FOUND);
 
-            verify(decisionLineRepository).findById(decisionLineId);
+            verify(decisionLineRepository).findWithUserById(decisionLineId);
             verify(scenarioRepository, never()).save(any());
         }
 
@@ -146,7 +146,7 @@ class ScenarioServiceTest {
                     .build();
             ReflectionTestUtils.setField(mockDecisionLine, "id", decisionLineId);
 
-            given(decisionLineRepository.findById(decisionLineId))
+            given(decisionLineRepository.findWithUserById(decisionLineId))
                     .willReturn(Optional.of(mockDecisionLine));
 
             // When & Then
@@ -154,7 +154,7 @@ class ScenarioServiceTest {
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.HANDLE_ACCESS_DENIED);
 
-            verify(decisionLineRepository).findById(decisionLineId);
+            verify(decisionLineRepository).findWithUserById(decisionLineId);
             verify(scenarioRepository, never()).save(any());
         }
 
@@ -182,7 +182,7 @@ class ScenarioServiceTest {
                     .build();
             ReflectionTestUtils.setField(existingScenario, "id", 999L);
 
-            given(decisionLineRepository.findById(decisionLineId))
+            given(decisionLineRepository.findWithUserById(decisionLineId))
                     .willReturn(Optional.of(mockDecisionLine));
             given(scenarioRepository.findByDecisionLineId(decisionLineId))
                     .willReturn(Optional.of(existingScenario)); // 기존 PENDING 시나리오 존재
@@ -220,6 +220,7 @@ class ScenarioServiceTest {
             Scenario mockScenario = Scenario.builder()
                     .user(mockUser)
                     .decisionLine(mockDecisionLine)
+                    .baseLine(mockBaseLine)
                     .status(ScenarioStatus.PENDING)
                     .build();
             ReflectionTestUtils.setField(mockScenario, "id", scenarioId);
@@ -228,9 +229,9 @@ class ScenarioServiceTest {
             doNothing().when(scenarioTransactionService).updateScenarioStatus(anyLong(), any(), any());
             doNothing().when(scenarioTransactionService).saveAiResult(anyLong(), any());
 
-            // executeAiGeneration에서 사용되는 repository 조회 모킹
-            given(scenarioRepository.findById(scenarioId))
-                    .willReturn(Optional.of(mockScenario));
+            // prepareScenarioData 모킹 추가 (핵심!)
+            given(scenarioTransactionService.prepareScenarioData(scenarioId))
+                    .willReturn(mockScenario);
 
             // 베이스 시나리오가 이미 존재하도록 설정 (AI 호출 방지)
             Scenario mockBaseScenario = Scenario.builder()
@@ -253,6 +254,7 @@ class ScenarioServiceTest {
             // Then
             // 트랜잭션 서비스 호출 검증
             verify(scenarioTransactionService).updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
+            verify(scenarioTransactionService).prepareScenarioData(scenarioId);
             verify(scenarioTransactionService).updateScenarioStatus(scenarioId, ScenarioStatus.COMPLETED, null);
         }
 
@@ -265,9 +267,9 @@ class ScenarioServiceTest {
             // 트랜잭션 서비스는 정상 동작하도록 모킹
             doNothing().when(scenarioTransactionService).updateScenarioStatus(anyLong(), any(), any());
 
-            // executeAiGeneration에서 시나리오를 찾을 수 없음
-            given(scenarioRepository.findById(scenarioId))
-                    .willReturn(Optional.empty());
+            // prepareScenarioData에서 시나리오를 찾을 수 없음 (예외 발생)
+            given(scenarioTransactionService.prepareScenarioData(scenarioId))
+                    .willThrow(new ApiException(ErrorCode.SCENARIO_NOT_FOUND));
 
             // When
             scenarioService.processScenarioGenerationAsync(scenarioId);
@@ -275,6 +277,7 @@ class ScenarioServiceTest {
             // Then
             // 실패 시 FAILED 상태 업데이트가 호출되어야 함
             verify(scenarioTransactionService).updateScenarioStatus(scenarioId, ScenarioStatus.PROCESSING, null);
+            verify(scenarioTransactionService).prepareScenarioData(scenarioId);
             verify(scenarioTransactionService).updateScenarioStatus(eq(scenarioId), eq(ScenarioStatus.FAILED), anyString());
         }
     }
@@ -295,7 +298,7 @@ class ScenarioServiceTest {
                     .build();
             ReflectionTestUtils.setField(mockScenario, "id", scenarioId);
 
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.of(mockScenario));
 
             // When
@@ -307,7 +310,7 @@ class ScenarioServiceTest {
             assertThat(result.status()).isEqualTo(ScenarioStatus.COMPLETED);
             assertThat(result.message()).isEqualTo("시나리오 생성이 완료되었습니다.");
 
-            verify(scenarioRepository).findByIdAndUserId(scenarioId, userId);
+            verify(scenarioRepository).findByIdAndUserIdForStatusCheck(scenarioId, userId);
         }
 
         @Test
@@ -317,7 +320,7 @@ class ScenarioServiceTest {
             Long scenarioId = 999L;
             Long userId = 1L;
 
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.empty());
 
             // When & Then
@@ -325,7 +328,7 @@ class ScenarioServiceTest {
                     .isInstanceOf(ApiException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.SCENARIO_NOT_FOUND);
 
-            verify(scenarioRepository).findByIdAndUserId(scenarioId, userId);
+            verify(scenarioRepository).findByIdAndUserIdForStatusCheck(scenarioId, userId);
         }
     }
 
@@ -427,7 +430,7 @@ class ScenarioServiceTest {
                     .status(ScenarioStatus.PENDING)
                     .build();
             ReflectionTestUtils.setField(pendingScenario, "id", scenarioId);
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.of(pendingScenario));
 
             ScenarioStatusResponse pendingResult = scenarioService.getScenarioStatus(scenarioId, userId);
@@ -438,7 +441,7 @@ class ScenarioServiceTest {
                     .status(ScenarioStatus.PROCESSING)
                     .build();
             ReflectionTestUtils.setField(processingScenario, "id", scenarioId);
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.of(processingScenario));
 
             ScenarioStatusResponse processingResult = scenarioService.getScenarioStatus(scenarioId, userId);
@@ -449,7 +452,7 @@ class ScenarioServiceTest {
                     .status(ScenarioStatus.COMPLETED)
                     .build();
             ReflectionTestUtils.setField(completedScenario, "id", scenarioId);
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.of(completedScenario));
 
             ScenarioStatusResponse completedResult = scenarioService.getScenarioStatus(scenarioId, userId);
@@ -460,7 +463,7 @@ class ScenarioServiceTest {
                     .status(ScenarioStatus.FAILED)
                     .build();
             ReflectionTestUtils.setField(failedScenario, "id", scenarioId);
-            given(scenarioRepository.findByIdAndUserId(scenarioId, userId))
+            given(scenarioRepository.findByIdAndUserIdForStatusCheck(scenarioId, userId))
                     .willReturn(Optional.of(failedScenario));
 
             ScenarioStatusResponse failedResult = scenarioService.getScenarioStatus(scenarioId, userId);
@@ -477,9 +480,13 @@ class ScenarioServiceTest {
                 100, // total
                 "테스트 이미지",
                 Map.of("2025", "테스트 타이틀"),
-                Map.of(),
-                Map.of(),
-                Map.of()
+                java.util.List.of(
+                        new DecisionScenarioResult.Indicator("경제", 50, "테스트 경제 분석"),
+                        new DecisionScenarioResult.Indicator("행복", 50, "테스트 행복 분석")
+                ),
+                java.util.List.of(
+                        new DecisionScenarioResult.Comparison("TOTAL", 200, 250, "테스트 비교 분석")
+                )
         );
     }
 }
