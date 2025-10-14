@@ -1,0 +1,27 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  datasource:
+
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+
+  flyway:
+    enabled: true
+    locations: classpath:db/mig
+
+  h2:
+    console:
+      enabled: false   # H2는 안쓰므로 끔
+
+management:
+  health:
+    redis:
+      enabled: false

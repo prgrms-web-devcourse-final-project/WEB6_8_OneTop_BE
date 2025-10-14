@@ -1,18 +1,25 @@
-/**
- * [요약] 경로 요약/인메모리 검색 보조 유틸
+/*
+ * 이 파일은 경로 요약 문자열 생성, pgvector 기반 관련 스니펫 검색, 스니펫 병합 유틸리티를 제공한다.
+ * 항상 lineId와 현재 나이를 받아 라인 전환 시 섞임을 방지한다.
  */
 package com.back.global.ai.vector;
 
 import com.back.domain.node.entity.DecisionNode;
+import com.back.domain.search.entity.NodeSnippet;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class AIVectorServiceSupportDomain {
 
-    // 이전 결정 경로를 요약 쿼리 문자열로 만든다
+    private final PgVectorSearchService vectorSearch;
+    private final EmbeddingClient embeddingClient;
+
+    // 이전 결정 경로를 간단한 요약 문자열로 만든다.
     public String buildQueryFromNodes(List<DecisionNode> nodes) {
         return nodes.stream()
                 .map(n -> String.format("- (%d세) %s → %s",
@@ -22,19 +29,27 @@ public class AIVectorServiceSupportDomain {
                 .collect(Collectors.joining("\n"));
     }
 
-    // 간단한 인메모리 유사 검색으로 상위 K 콘텍스트를 수집한다 (스텁)
-    public List<String> searchRelatedContexts(String query, int topK, int eachSnippetLimit) {
-        return Collections.emptyList(); // 추후 RAM 인덱스 교체 지점
+    // 라인/나이 윈도우로 제한하여 관련 스니펫을 상위 K개 가져온다.
+    public List<String> searchRelatedContexts(Long lineId, int currAge, String query, int topK, int eachSnippetLimit) {
+        float[] qEmb = embeddingClient.embed(query);
+        List<NodeSnippet> top = vectorSearch.topK(lineId, currAge, 2, qEmb, Math.max(topK, 1));
+        List<String> out = new ArrayList<>();
+        for (NodeSnippet s : top) {
+            String t = s.getText();
+            if (t == null || t.isBlank()) continue;
+            out.add(trim(t, eachSnippetLimit));
+        }
+        return out;
     }
 
-    // 여러 스니펫을 합치되 총 글자수 제한을 적용한다
+    // 여러 스니펫을 결합하되 총 길이를 제한한다.
     public String joinWithLimit(List<String> snippets, int totalCharLimit) {
         StringBuilder sb = new StringBuilder();
         for (String s : snippets) {
             if (s == null || s.isBlank()) continue;
             if (sb.length() + s.length() + 1 > totalCharLimit) break;
-            if (!sb.isEmpty()) sb.append("\n");
-            sb.append(trim(s, Math.min(s.length(), Math.max(50, totalCharLimit / 5))));
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(s);
         }
         return sb.toString();
     }

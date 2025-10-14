@@ -3,8 +3,6 @@ package com.back.global.initdata;
 import com.back.domain.comment.entity.Comment;
 import com.back.domain.comment.repository.CommentRepository;
 import com.back.domain.node.dto.PivotListDto;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
 import com.back.domain.node.dto.base.BaseLineBulkCreateRequest;
 import com.back.domain.node.dto.base.BaseLineBulkCreateResponse;
 import com.back.domain.node.dto.decision.DecNodeDto;
@@ -19,22 +17,20 @@ import com.back.domain.node.service.NodeService;
 import com.back.domain.post.entity.Post;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.post.repository.PostRepository;
-import com.back.domain.scenario.entity.SceneCompare;
-import com.back.domain.scenario.entity.SceneCompareResultType;
-import com.back.domain.scenario.entity.SceneType;
-import com.back.domain.scenario.entity.Scenario;
-import com.back.domain.scenario.entity.ScenarioStatus;
-import com.back.domain.scenario.entity.Type;
+import com.back.domain.scenario.entity.*;
+import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.scenario.repository.SceneCompareRepository;
 import com.back.domain.scenario.repository.SceneTypeRepository;
-import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.user.entity.Gender;
 import com.back.domain.user.entity.Mbti;
 import com.back.domain.user.entity.Role;
 import com.back.domain.user.entity.User;
 import com.back.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -54,6 +50,7 @@ import java.util.UUID;
 @Component
 @Profile("!prod")  // prod 프로파일에서는 실행 안 함
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "app.initdata.enabled", havingValue = "true", matchIfMissing = true)
 public class InitData implements CommandLineRunner {
 
     private final UserRepository userRepository;

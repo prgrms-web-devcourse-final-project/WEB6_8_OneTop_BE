@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"local","dev"})
+@Profile({"local","dev","prod"})
 @ConditionalOnProperty(name = "dvcs.backfill.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j

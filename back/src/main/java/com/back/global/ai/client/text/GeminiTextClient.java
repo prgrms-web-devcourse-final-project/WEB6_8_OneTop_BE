@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
  * Gemini AI 텍스트 생성 클라이언트
  * Google Gemini API를 통한 비동기 텍스트 생성, 재시도, 에러 처리를 담당합니다.
  */
-@Component
+@Component("gemini25TextClient")
 @Slf4j
 public class GeminiTextClient implements TextAiClient {
 
@@ -47,21 +47,21 @@ public class GeminiTextClient implements TextAiClient {
     public CompletableFuture<String> generateText(AiRequest aiRequest) {
         return webClient
             .post()
-            .uri("/v1beta/models/{model}:generateContent?key={apiKey}",
-                 textAiConfig.getModel(), textAiConfig.getApiKey())
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(createGeminiRequest(aiRequest.prompt(), aiRequest.maxTokens()))
-            .retrieve()
-            .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
-            .bodyToMono(GeminiResponse.class)
-            .doOnNext(response -> log.debug("Gemini API response received: candidates={}, finishReason={}",
-                response.candidates().size(),
-                response.candidates().isEmpty() ? "N/A" : response.candidates().get(0).finishReason()))
-            .map(this::extractContent)
-            .timeout(Duration.ofSeconds(textAiConfig.getTimeoutSeconds()))
-            .retryWhen(Retry.backoff(textAiConfig.getMaxRetries(), Duration.ofSeconds(textAiConfig.getRetryDelaySeconds())))
-            .doOnError(error -> log.error("Gemini API call failed: {}", error.getMessage(), error))
-            .toFuture();
+                .uri("/v1beta/models/{model}:generateContent", textAiConfig.getModel())
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createGeminiRequest(aiRequest.prompt(), aiRequest.maxTokens()))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::handleErrorResponse)
+                .bodyToMono(GeminiResponse.class)
+                .doOnNext(response -> log.debug("Gemini API response received: candidates={}, finishReason={}",
+                        response.candidates().size(),
+                        response.candidates().isEmpty() ? "N/A" : response.candidates().get(0).finishReason()))
+                .map(this::extractContent)
+                .timeout(Duration.ofSeconds(textAiConfig.getTimeoutSeconds()))
+                .retryWhen(Retry.backoff(textAiConfig.getMaxRetries(),
+                        Duration.ofSeconds(textAiConfig.getRetryDelaySeconds())))
+                .doOnError(error -> log.error("Gemini API call failed: {}", error.getMessage(), error))
+                .toFuture();
     }
 
     private Map<String, Object> createGeminiRequest(String prompt, int maxTokens) {
