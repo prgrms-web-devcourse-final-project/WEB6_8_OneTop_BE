@@ -45,7 +45,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     /**
-     * Full-Text Search가 필요한지 판단
+     * 제목, 제목+내용  +  검색어 검색 시 Full-Text Search 적용
      */
     private boolean isFullTextSearchRequired(PostSearchCondition condition) {
         return StringUtils.hasText(condition.keyword())
@@ -64,7 +64,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         Query dataQuery = em.createNativeQuery(dataSql, Post.class);
         setQueryParameters(dataQuery, condition, tsQuery, pageable);
 
-        @SuppressWarnings("unchecked")
         List<Post> posts = dataQuery.getResultList();
 
         // 전체 카운트 조회
@@ -158,15 +157,21 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
      * 전체 개수 조회
      */
     private long countWithFullText(PostSearchCondition condition, String tsQuery) {
+        // 10,000건 이상이면 "10,000+" 표시
+        long maxCount = 10000;
+
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM post p ");
-        sql.append("WHERE 1=1 ");
+        sql.append("SELECT COUNT(*) FROM (");
+        sql.append("  SELECT 1 FROM post p ");
+        sql.append("  WHERE 1=1 ");
 
         if (condition.category() != null) {
-            sql.append("AND p.category = :category ");
+            sql.append("  AND p.category = :category ");
         }
 
-        sql.append("AND ").append(getFullTextCondition(condition.searchType()));
+        sql.append("  AND ").append(getFullTextCondition(condition.searchType()));
+        sql.append("  LIMIT :maxCount");
+        sql.append(") subquery");
 
         Query countQuery = em.createNativeQuery(sql.toString());
 
@@ -174,6 +179,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             countQuery.setParameter("category", condition.category().name());
         }
         countQuery.setParameter("tsQuery", tsQuery);
+        countQuery.setParameter("maxCount", maxCount);
 
         return ((Number) countQuery.getSingleResult()).longValue();
     }
