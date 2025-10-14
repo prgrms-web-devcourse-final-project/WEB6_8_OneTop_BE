@@ -22,6 +22,7 @@ import com.back.global.ai.prompt.SituationPrompt;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -38,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class AiServiceImpl implements AiService {
 
-    private final TextAiClient textAiClient;
+    private final @Qualifier("gemini25TextClient") TextAiClient textAiClient;
     private final ObjectMapper objectMapper;
     private final SceneTypeRepository sceneTypeRepository;
     private final SituationAiProperties situationAiProperties;

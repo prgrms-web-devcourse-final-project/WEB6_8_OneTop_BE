@@ -10,8 +10,6 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "node_snippet")
 @Getter @Setter
@@ -37,6 +35,5 @@ public class NodeSnippet {
     @Column(name = "embedding", nullable = false, columnDefinition = "vector(768)")
     private float[] embedding;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+
 }
