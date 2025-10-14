@@ -1,6 +1,4 @@
--- ============================================
 -- PostgreSQL Full-Text Search 마이그레이션
--- ============================================
 
 -- 1. 카테고리 인덱스, 최신순 정렬을 위한 인덱스 추가
 CREATE INDEX idx_post_category ON post(category);
