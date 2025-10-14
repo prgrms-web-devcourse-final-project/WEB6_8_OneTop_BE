@@ -34,7 +34,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-class BaseLineService {
+public class BaseLineService {
 
     private final BaseLineRepository baseLineRepository;
     private final BaseNodeRepository baseNodeRepository;

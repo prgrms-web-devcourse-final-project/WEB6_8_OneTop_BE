@@ -32,7 +32,6 @@ public class EmbeddedRedisConfig {
             System.out.println("========================================");
         } catch (IOException e) {
             System.err.println("Embedded Redis start failed: " + e.getMessage());
-            System.err.println("This is OK if external Redis is already running");
         }
     }
 

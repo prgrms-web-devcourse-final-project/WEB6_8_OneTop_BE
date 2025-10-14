@@ -26,7 +26,7 @@ public enum ErrorCode {
     LOGIN_ID_DUPLICATION(HttpStatus.BAD_REQUEST, "U003", "Login ID Duplication"),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "U004", "Invalid Password"),
     UNAUTHORIZED_USER(HttpStatus.UNAUTHORIZED, "U005", "Unauthorized User"),
-    NICKNAME_DUPLICATION(HttpStatus.CONFLICT, "U006", "이미 사용 중인 닉네임입니다."),
+    NICKNAME_DUPLICATION(HttpStatus.CONFLICT, "U006", "Nickname Duplication"),
 
     // Post Errors
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "Post Not Found"),
@@ -72,11 +72,11 @@ public enum ErrorCode {
 
     // Poll Errors
     POLL_VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "PV001", "Poll Vote Not Found"),
-    POLL_VOTE_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "PV002", "투표 형식이 올바르지 않습니다."),
-    POLL_VOTE_INVALID_OPTION(HttpStatus.BAD_REQUEST, "PV003", "존재하지 않는 투표 항목입니다." ),
+    POLL_VOTE_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "PV002", "Invalid Poll Format"),
+    POLL_VOTE_INVALID_OPTION(HttpStatus.BAD_REQUEST, "PV003", "Invalid Poll Option" ),
 
     // Lock Errors
-    LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "L001", "다른 요청이 처리 중입니다. 잠시 후 다시 시도해주세요."),
+    LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "L001", "Another request is being processed. Please try again later."),
 
     // Storage Errors
     STORAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "ST001", "Failed to upload file to storage"),

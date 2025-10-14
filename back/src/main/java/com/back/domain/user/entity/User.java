@@ -1,9 +1,13 @@
 package com.back.domain.user.entity;
 
+import com.back.domain.comment.entity.Comment;
+import com.back.domain.like.entity.CommentLike;
+import com.back.domain.like.entity.PostLike;
 import com.back.domain.node.entity.BaseLine;
 import com.back.domain.node.entity.BaseNode;
 import com.back.domain.node.entity.DecisionLine;
 import com.back.domain.node.entity.DecisionNode;
+import com.back.domain.post.entity.Post;
 import com.back.domain.scenario.entity.Scenario;
 import com.back.global.baseentity.BaseEntity;
 import jakarta.persistence.*;
@@ -87,4 +91,20 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Scenario> scenarios = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Post> posts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PostLike> postLikes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentLike> commentLikes = new ArrayList<>();
 }

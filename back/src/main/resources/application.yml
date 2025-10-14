@@ -28,7 +28,12 @@ spring:
         highlight_sql: true
         default_batch_fetch_size: 100
     open-in-view: false
-  security: # 여기에 추가
+
+  session:
+    redis:
+      repository-type: indexed
+
+  security:
     oauth2:
       client:
         registration:
