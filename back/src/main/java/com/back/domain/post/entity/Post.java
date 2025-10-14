@@ -30,7 +30,7 @@ import java.util.List;
                         columnList = "category, created_date DESC"),
                 @Index(name = "idx_post_user_created",
                         columnList = "user_id, created_date DESC"),
-                @Index(name = "idx_post_title", columnList = "title")
+//                @Index(name = "idx_post_title", columnList = "title")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
@@ -75,6 +75,20 @@ public class Post extends BaseEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scenario_id")
     private Scenario scenario;
+
+    /**
+     * PostgreSQL tsvector 타입 컬럼
+     * - 트리거에 의해 자동으로 업데이트됨
+     * - 직접 값을 설정할 필요 없음
+     * - GIN 인덱스로 빠른 검색 지원
+     */
+    @Column(
+            name = "search_vector",
+            columnDefinition = "tsvector",
+            insertable = false,
+            updatable = false
+    )
+    private String searchVector;
 
     public void updatePost(String title, String content, PostCategory category) {
         this.title = title;
