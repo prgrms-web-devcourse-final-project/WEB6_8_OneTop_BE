@@ -27,7 +27,6 @@
 - [`Spring Data JPA`]
 - [`Spring Session (Redis)`]
 - [`Redis`]
-- [`JWT (jjwt)`]
 - [`Springdoc OpenAPI (Swagger UI)`]
 - [`QueryDSL`]
 - [`Flyway`]
