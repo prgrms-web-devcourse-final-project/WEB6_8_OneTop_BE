@@ -95,4 +95,6 @@ public interface ScenarioRepository extends JpaRepository<Scenario, Long> {
             @Param("userId") Long userId,
             @Param("scenarioId") Long scenarioId
     );
+
+    int countByUserIdAndDecisionLineIsNotNullAndStatus(Long userId, ScenarioStatus status);
 }
