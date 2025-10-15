@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
-@Profile("prod")
+@Profile({"test","prod"})
 @RequiredArgsConstructor
 public class SeedOrchestrator {
 
