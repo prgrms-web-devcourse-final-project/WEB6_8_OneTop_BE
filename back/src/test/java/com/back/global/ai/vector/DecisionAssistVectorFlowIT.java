@@ -32,7 +32,6 @@
 //import org.testcontainers.junit.jupiter.Testcontainers;
 //import org.testcontainers.utility.DockerImageName;
 //
-//import java.time.LocalDateTime;
 //import java.util.List;
 //import java.util.concurrent.CompletableFuture;
 //
@@ -200,7 +199,6 @@
 //                .category(category)
 //                .text(text)
 //                .embedding(emb != null ? emb : embeddingClient.embed(text))
-//                .updatedAt(LocalDateTime.now())
 //                .build();
 //        snippetRepo.save(s);
 //    }

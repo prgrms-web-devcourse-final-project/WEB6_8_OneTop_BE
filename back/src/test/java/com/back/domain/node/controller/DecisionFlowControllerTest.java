@@ -266,8 +266,8 @@ public class DecisionFlowControllerTest {
                             .content(nextReq))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.parentId").value(parentId))
-                    .andExpect(jsonPath("$.aiNextSituation").value("테스트-상황(한 문장)"))
-                    .andExpect(jsonPath("$.aiNextRecommendedOption").value("테스트-추천"))
+                    .andExpect(jsonPath("$.aiNextSituation").value("테스트-상황이다."))
+                    .andExpect(jsonPath("$.aiNextRecommendedOption").value("테스트-추천한다"))
                     .andReturn();
 
             JsonNode body = om.readTree(res.getResponse().getContentAsString());
@@ -732,8 +732,8 @@ public class DecisionFlowControllerTest {
         assertThat(childNode2.path("aiNextRecommendedOption").asText()).isNotBlank();
 
         // (테스트 더미 AI 고정값을 사용하는 환경이면 아래 주석 해제해서 정확 값까지 검증 가능)
-        assertThat(childNode2.path("aiNextSituation").asText()).isEqualTo("테스트-상황(한 문장)");
-        assertThat(childNode2.path("aiNextRecommendedOption").asText()).isEqualTo("테스트-추천");
+        assertThat(childNode2.path("aiNextSituation").asText()).isEqualTo("테스트-상황이다.");
+        assertThat(childNode2.path("aiNextRecommendedOption").asText()).isEqualTo("테스트-추천한다");
     }
 
     @Nested

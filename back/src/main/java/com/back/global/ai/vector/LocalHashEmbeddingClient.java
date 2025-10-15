@@ -1,6 +1,8 @@
 /*
- * 이 파일은 외부 API 없이 텍스트를 고정 차원(float[])으로 변환하는 경량 임베딩 클라이언트를 제공한다.
- * 토큰을 해시해서 차원에 매핑한 뒤 L2 정규화한다. 품질은 간이지만 개발/테스트/임시 운영에 충분하다.
+ * [코드 흐름 요약]
+ * - 입력 텍스트를 해시 기반 고정 차원 벡터로 변환하고 L2 정규화한다.
+ * - 토큰 단위 해시에 더해 바이그램/문자 셰이플릿을 선택적으로 사용해 희소성·구별력을 높인다.
+ * - 배치 임베딩(embedBatch)을 제공해 대량 처리 시 호출 비용과 GC 압력을 줄인다.
  */
 package com.back.global.ai.vector;
 
@@ -8,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -15,26 +19,74 @@ public class LocalHashEmbeddingClient implements EmbeddingClient {
 
     private final EmbeddingProperties props;
 
+    // 무결성 검증
+    private int dim() { return Math.max(32, props.getDim()); }
+
     // 텍스트를 고정 차원 해시 임베딩으로 변환한다.
     @Override
     public float[] embed(String text) {
-        int dim = Math.max(32, props.getDim());
-        float[] v = new float[dim];
+        int d = dim();
+        float[] v = new float[d];
         if (text == null || text.isBlank()) return v;
 
-        String[] toks = text.toLowerCase()
+        String[] toks = simpleTokenize(text);
+
+        // next 노드 생성
+        for (int i = 0; i < toks.length; i++) {
+            String t = toks[i];
+            if (t.isBlank()) continue;
+
+            // 1-그램
+            addHashed(v, t, 1f);
+
+            // 바이그램(선택)
+            if (props.isUseBigram() && i + 1 < toks.length) {
+                addHashed(v, t + "_" + toks[i + 1], 1f);
+            }
+
+            // 문자 셰이플릿(선택)
+            if (props.isUseCharShingle()) {
+                for (String s : charShingles(t, 3)) addHashed(v, s, 0.3f);
+            }
+        }
+
+        l2NormalizeInPlace(v);
+        return v;
+    }
+
+    // 배치 임베딩(단순 루프, 구현체 일관성 보장)
+    @Override
+    public List<float[]> embedBatch(List<String> texts) {
+        int n = texts == null ? 0 : texts.size();
+        List<float[]> out = new ArrayList<>(n);
+        if (n == 0) return out;
+        for (String s : texts) out.add(embed(s));
+        return out;
+    }
+
+    // 무결성 검증
+    private String[] simpleTokenize(String text) {
+        return text.toLowerCase()
                 .replaceAll("[^\\p{L}\\p{Nd}\\s]", " ")
                 .trim()
                 .split("\\s+");
+    }
 
-        for (String t : toks) {
-            if (t.isBlank()) continue;
-            int h = murmur32(t.getBytes(StandardCharsets.UTF_8));
-            int idx = Math.floorMod(h, dim);
-            v[idx] += 1.0f;
-        }
-        l2NormalizeInPlace(v);
-        return v;
+    // 무결성 검증
+    private List<String> charShingles(String t, int k) {
+        List<String> r = new ArrayList<>();
+        if (t.length() < k) return r;
+        for (int i = 0; i <= t.length() - k; i++) r.add(t.substring(i, i + k));
+        return r;
+    }
+
+    // 무결성 검증
+    private void addHashed(float[] v, String token, float w) {
+        int h = murmur32(token.getBytes(StandardCharsets.UTF_8));
+        int idx = Math.floorMod(h, v.length);
+        // 서명 해싱으로 편향 보정
+        float sign = ((h >>> 1) & 1) == 0 ? +1f : -1f;
+        v[idx] += sign * w;
     }
 
     // L2 정규화 수행

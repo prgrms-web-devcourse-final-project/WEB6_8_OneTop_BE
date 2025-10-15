@@ -22,7 +22,6 @@
 //import org.testcontainers.junit.jupiter.Testcontainers;
 //import org.testcontainers.utility.DockerImageName;
 //
-//import java.time.LocalDateTime;
 //import java.util.List;
 //
 //import static org.assertj.core.api.Assertions.assertThat;
@@ -105,7 +104,7 @@
 //        float[] emb = embeddingClient.embed(text);
 //        NodeSnippet s = NodeSnippet.builder()
 //                .lineId(lineId).ageYear(age).category(category)
-//                .text(text).embedding(emb).updatedAt(LocalDateTime.now())
+//                .text(text).embedding(emb)
 //                .build();
 //        snippetRepo.save(s);
 //    }
