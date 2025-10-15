@@ -1,8 +1,8 @@
 ///*
 // * [코드 흐름 요약]
-// * 1) 테스트 컨텍스트에서 AIVectorService를 실구현으로 강제 오버라이드(@Primary)
-// * 2) AiLatencyProbeConfig로 Gemini HTTP 왕복 시간(ms) 계측
-// * 3) budget.reset(1)로 1회 실호출 강제, 호출 후 realAi=true + e2e/http 시간 출력
+// * 1) 헤더 1개(parent==null) + 본문 3개(체인) = 총 4개의 DecisionNode 생성 유틸 추가
+// * 2) 테스트에서 단일 노드 대신 전체 체인을 전달하여 dropHeader 이후에도 본문이 남도록 보장
+// * 3) 마지막 본문 나이를 22로 맞춰 RAG 검색(age=22)과 정합성 유지
 // */
 //package com.back.global.ai.vector;
 //
@@ -11,9 +11,6 @@
 //import com.back.domain.node.entity.DecisionNode;
 //import com.back.domain.search.entity.NodeSnippet;
 //import com.back.domain.search.repository.NodeSnippetRepository;
-//import com.back.global.ai.client.text.TextAiClient;
-//import com.back.global.ai.config.SituationAiProperties;
-//import com.fasterxml.jackson.databind.ObjectMapper;
 //import org.junit.jupiter.api.Assumptions;
 //import org.junit.jupiter.api.BeforeEach;
 //import org.junit.jupiter.api.DisplayName;
@@ -32,8 +29,8 @@
 //import org.testcontainers.junit.jupiter.Testcontainers;
 //import org.testcontainers.utility.DockerImageName;
 //
-//import java.time.LocalDateTime;
 //import java.util.Arrays;
+//import java.util.ArrayList;
 //import java.util.List;
 //
 //import static org.assertj.core.api.Assertions.assertThat;
@@ -43,10 +40,8 @@
 //@TestPropertySource(properties = {
 //        "app.initdata.enabled=false"
 //})
-//
-//@ActiveProfiles("test") // 스텁이 떠 있어도 아래 @Primary 오버라이드가 이긴다
-//@Import({DecisionAssistVectorLatencyIT.RealAiOverrideConfig.class, AiLatencyProbeConfig.class,
-//AiOnceDelegateTestConfig.class})
+//@ActiveProfiles("test-pg")
+//@Import({AiLatencyProbeConfig.class, AiOnceDelegateTestConfig.class})
 //class DecisionAssistVectorLatencyIT {
 //
 //    // Docker 선기동 + pgvector
@@ -87,11 +82,11 @@
 //
 //    @Autowired EmbeddingClient embeddingClient;
 //    @Autowired PgVectorSearchService vectorSearch;
-//    @Autowired AIVectorService aivectorService;   // 오버라이드된 실구현 주입
-//    @Autowired DecisionAssistVectorFlowITTestOps ops; // 단순 세이브 헬퍼
+//    @Autowired AIVectorService aivectorService;
+//    @Autowired DecisionAssistVectorFlowITTestOps ops;
 //
 //    @Autowired
-//    AiCallBudget budget; // 예산 주입
+//    AiCallBudget budget;
 //
 //    @BeforeEach
 //    void setup() {
@@ -101,38 +96,36 @@
 //    @Test
 //    @DisplayName("실제 Gemini 호출 레이턴시 측정(E2E / HTTP)")
 //    void latency_real_ai() {
-//        // 1) 실호출 1회 강제
+//        // next 노드 생성
 //        budget.reset(1);
 //
-//        // 2) RAG 콘텍스트 준비
-//        long lineId = 900L; int age = 22;
-//        ops.saveSnippet(lineId, age, "수도권 컴공 진학 비용과 통학 고민", "EDUCATION");
-//        ops.saveSnippet(lineId, age, "서울 스타트업 인턴 이력서 준비", "CAREER");
+//        // RAG 콘텍스트 준비
+//        long lineId = 900L;
+//        ops.saveSnippet(lineId, 22, "수도권 컴공 진학 비용과 통학 고민", "EDUCATION");
+//        ops.saveSnippet(lineId, 22, "서울 스타트업 인턴 이력서 준비", "CAREER");
 //
-//        // 3) 호출
+//        // 호출
 //        long t0 = System.nanoTime();
-//        DecisionNode last = DecisionNode.builder().ageYear(age).situation("컴공 고려").decision("컴공 선택").build();
-//        var hint = aivectorService.generateNextHint(1L, lineId, List.of(last));
+//        List<DecisionNode> nodes = buildNodesWithHeader(); // 무결성 검증
+//        var hint = aivectorService.generateNextHint(1L, lineId, nodes);
 //        long e2eMs = (System.nanoTime() - t0) / 1_000_000;
 //
 //        long httpMs = AiLatencyProbeConfig.LAST_LATENCY_MS.get();
-//        boolean realAi = httpMs >= 0; // 데코레이터가 시간 기록했으면 실호출
+//        boolean realAi = httpMs >= 0;
 //
 //        System.out.println("[LAT] realAi=" + realAi + " e2eMs=" + e2eMs + " httpMs=" + httpMs +
 //                " situation=" + hint.aiNextSituation() + " option=" + hint.aiNextRecommendedOption());
 //
-//        assertThat(realAi).isTrue();     // 반드시 실호출이어야 함
+//        assertThat(realAi).isTrue();
 //        assertThat(hint.aiNextSituation()).isNotBlank();
 //    }
 //
 //    @Test
 //    @DisplayName("워밍업 후 레이턴시 P50 검증(상황 생성 경로)")
 //    void latency_after_warmup_p50() {
-//        // next 노드 생성: 워밍업 1회(최소 출력·짧은 프롬프트 권장)
+//        // next 노드 생성
 //        budget.reset(1); // 무결성 검증
-//        aivectorService.generateNextHint(1L, 900L, List.of(
-//                DecisionNode.builder().ageYear(22).situation("컴공 고려").decision("컴공 선택").build()
-//        ));
+//        aivectorService.generateNextHint(1L, 900L, buildNodesWithHeader());
 //
 //        // 측정 N회
 //        int N = 5;
@@ -141,9 +134,7 @@
 //        for (int i = 0; i < N; i++) {
 //            budget.reset(1); // 무결성 검증
 //            long t0 = System.nanoTime();
-//            var hint = aivectorService.generateNextHint(1L, 900L, List.of(
-//                    DecisionNode.builder().ageYear(22).situation("컴공 고려").decision("컴공 선택").build()
-//            ));
+//            var hint = aivectorService.generateNextHint(1L, 900L, buildNodesWithHeader());
 //            long e2eMs = (System.nanoTime() - t0) / 1_000_000;
 //            long httpMs = AiLatencyProbeConfig.LAST_LATENCY_MS.get();
 //            e2e[i] = e2eMs;
@@ -156,7 +147,6 @@
 //        long p50HTTP = http[N/2];
 //        System.out.println("[P50] e2e=" + p50E2E + "ms, http=" + p50HTTP + "ms");
 //
-//        // 무결성 검증: 목표 상한(예: 1200ms)을 테스트 기준으로 잡아두기
 //        assertThat(p50HTTP).isLessThan(1200);
 //    }
 //
@@ -175,25 +165,62 @@
 //        void saveSnippet(Long lineId, int age, String text, String category) {
 //            repo.save(NodeSnippet.builder()
 //                    .lineId(lineId).ageYear(age).category(category)
-//                    .text(text).embedding(emb.embed(text)).updatedAt(LocalDateTime.now())
+//                    .text(text).embedding(emb.embed(text))
 //                    .build());
 //        }
 //    }
 //
 //    @TestConfiguration
-//    static class RealAiOverrideConfig {
-//        // 한줄 요약: AIVectorService를 실구현으로 강제(@Primary)해서 test 스텁을 덮어쓴다
+//    static class BudgetTestConfig {
+//        // 무결성 검증: 테스트용 예산 기본값
 //        @Bean
-//        AIVectorService realAIVectorService(
-//                TextAiClient textAiClient,
-//                AIVectorServiceSupportDomain support,
-//                SituationAiProperties props,
-//                ObjectMapper objectMapper
-//        ) {
-//            var impl = new AIVectorServiceImpl(textAiClient, support, props, objectMapper);
-//            impl.setTopK(1); impl.setContextCharLimit(160); impl.setMaxOutputTokens(48);
-//            return impl;
+//        AiCallBudget aiCallBudget() {
+//            // next 노드 생성
+//            return new AiCallBudget();
 //        }
+//    }
 //
+//    // ===== 여기부터 추가: 헤더 포함 총 4개 노드 체인 =====
+//
+//    // 가장 많이 사용하는 함수 호출 위에 한줄로만
+//    private static List<DecisionNode> buildNodesWithHeader() {
+//        List<DecisionNode> nodes = new ArrayList<>();
+//
+//        // next 노드 생성
+//        DecisionNode header = DecisionNode.builder()
+//                .ageYear(19)
+//                .situation("타임라인 시작")
+//                .decision("루트")
+//                .build();
+//        nodes.add(header);
+//
+//        // next 노드 생성
+//        DecisionNode n1 = DecisionNode.builder()
+//                .ageYear(20)
+//                .situation("전공 탐색 시작")
+//                .decision("과목 청강")
+//                .parent(header) // 무결성 검증
+//                .build();
+//        nodes.add(n1);
+//
+//        // next 노드 생성
+//        DecisionNode n2 = DecisionNode.builder()
+//                .ageYear(21)
+//                .situation("진로 상담 참여")
+//                .decision("멘토 미팅")
+//                .parent(n1) // 무결성 검증
+//                .build();
+//        nodes.add(n2);
+//
+//        // next 노드 생성
+//        DecisionNode n3 = DecisionNode.builder()
+//                .ageYear(22) // ← 스니펫과 동일 나이(22)로 정렬
+//                .situation("컴공 고려")
+//                .decision("컴공 선택")
+//                .parent(n2) // 무결성 검증
+//                .build();
+//        nodes.add(n3);
+//
+//        return nodes; // [header, n1, n2, n3]
 //    }
 //}

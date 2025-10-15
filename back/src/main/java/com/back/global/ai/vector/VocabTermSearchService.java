@@ -1,11 +1,10 @@
 /*
  * [코드 흐름 요약]
- * - 라인/나이 윈도우로 후보를 좁히고, 빈/누락 쿼리에도 768차원 0-벡터를 사용해 안전 검색.
+ * - 쿼리 문자열이 비어도 768차원 0-벡터로 안전하게 유사도 검색을 수행한다.
  */
 package com.back.global.ai.vector;
 
-import com.back.domain.search.entity.NodeSnippet;
-import com.back.domain.search.repository.NodeSnippetRepository;
+import com.back.domain.search.repository.VocabTermRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,27 +13,19 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class PgVectorSearchService {
+public class VocabTermSearchService {
 
-    private final NodeSnippetRepository repo;
+    private final EmbeddingClient embeddingClient;
+    private final VocabTermRepository repo;
 
     // 무결성 검증
     private static final int DIM = 768;
     private static final String ZERO_LIT = zeroVectorLiteral();
 
-    // next 노드 생성
-    public List<NodeSnippet> topK(Long lineId, int currAge, int deltaAge, float[] queryEmbedding, int k) {
-        String q = toVectorLiteralOrZero(queryEmbedding);
-        int minAge = currAge - deltaAge;
-        int maxAge = currAge + deltaAge;
-        return repo.searchTopKByLineAndAgeWindow(lineId, minAge, maxAge, q, k);
-    }
-
-    public List<String> topKText(Long lineId, int currAge, int deltaAge, float[] queryEmbedding, int k) {
-        String q = toVectorLiteralOrZero(queryEmbedding);
-        int minAge = currAge - deltaAge;
-        int maxAge = currAge + deltaAge;
-        return repo.searchTopKTextByLineAndAgeWindow(lineId, minAge, maxAge, q, k);
+    public List<String> topKTermsByQuery(String query, int k) {
+        float[] q = (query == null) ? null : embeddingClient.embed(query);
+        String qLit = toVectorLiteralOrZero(q);
+        return repo.searchTopKTerms(qLit, k);
     }
 
     // 무결성 검증

@@ -1,11 +1,12 @@
 /*
  * [코드 흐름 요약]
- * - 라인/나이 윈도우로 후보를 좁히고, 빈/누락 쿼리에도 768차원 0-벡터를 사용해 안전 검색.
+ * - 쿼리 임베딩을 pgvector 리터럴로 변환하되, null/빈 입력 시 768차원 0-벡터를 사용.
+ * - 카테고리 필터와 함께 상위 K 테마를 조회.
  */
 package com.back.global.ai.vector;
 
-import com.back.domain.search.entity.NodeSnippet;
-import com.back.domain.search.repository.NodeSnippetRepository;
+import com.back.domain.node.entity.NodeCategory;
+import com.back.domain.search.repository.AgeThemeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,27 +15,21 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class PgVectorSearchService {
+public class AgeThemeSearchService {
 
-    private final NodeSnippetRepository repo;
+    private final EmbeddingClient embeddingClient;
+    private final AgeThemeRepository repo;
 
     // 무결성 검증
     private static final int DIM = 768;
     private static final String ZERO_LIT = zeroVectorLiteral();
 
     // next 노드 생성
-    public List<NodeSnippet> topK(Long lineId, int currAge, int deltaAge, float[] queryEmbedding, int k) {
-        String q = toVectorLiteralOrZero(queryEmbedding);
-        int minAge = currAge - deltaAge;
-        int maxAge = currAge + deltaAge;
-        return repo.searchTopKByLineAndAgeWindow(lineId, minAge, maxAge, q, k);
-    }
-
-    public List<String> topKText(Long lineId, int currAge, int deltaAge, float[] queryEmbedding, int k) {
-        String q = toVectorLiteralOrZero(queryEmbedding);
-        int minAge = currAge - deltaAge;
-        int maxAge = currAge + deltaAge;
-        return repo.searchTopKTextByLineAndAgeWindow(lineId, minAge, maxAge, q, k);
+    public List<String> topK(int age, NodeCategory category, String query, int k) {
+        float[] emb = (query == null) ? null : embeddingClient.embed(query);
+        String lit = toVectorLiteralOrZero(emb);
+        String cat = (category == null) ? null : category.name();
+        return repo.topKThemesByAgeAndCategory(age, cat, lit, k);
     }
 
     // 무결성 검증
@@ -53,10 +48,11 @@ public class PgVectorSearchService {
         return sb.toString();
     }
 
-    // next 노드 생성
+    // 무결성 검증
     private static String zeroVectorLiteral() {
+        char[] zeros = "0".toCharArray();
         String[] arr = new String[DIM];
-        Arrays.fill(arr, "0");
+        Arrays.fill(arr, new String(zeros));
         return "[" + String.join(",", arr) + "]";
     }
 }
