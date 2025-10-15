@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
-@Profile("test")
+@Profile("dev")
 @RequiredArgsConstructor
 public class SeedCronRunner {
 
