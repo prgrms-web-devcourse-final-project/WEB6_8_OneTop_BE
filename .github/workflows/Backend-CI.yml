@@ -75,6 +75,12 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Pre-pull pgvector image
+        run: docker pull pgvector/pgvector:pg16
+
+      - name: Grant Docker perms
+        run: docker info
+
       # Gradle 실행 권한 부여
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -87,10 +93,10 @@ jobs:
       # Gradle 빌드 및 테스트
       # 빌드 / 테스트 분리
       - name: Execute Build
-        run: ./gradlew clean build -x test --warning-mode=all
+        run: ./gradlew clean build -x test --warning-mode=all --no-daemon
 
       - name: Execute Tests
-        run: ./gradlew test --info
+        run: ./gradlew test --info --no-daemon
 
       # 테스트 실행 결과 로깅 Action
       - name: Generate JUnit Test Report
