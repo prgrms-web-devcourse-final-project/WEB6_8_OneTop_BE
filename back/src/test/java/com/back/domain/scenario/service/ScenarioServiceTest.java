@@ -9,8 +9,6 @@ import com.back.domain.scenario.entity.Scenario;
 import com.back.domain.scenario.entity.ScenarioStatus;
 import com.back.domain.scenario.repository.ScenarioRepository;
 import com.back.domain.user.entity.User;
-import com.back.global.ai.dto.result.DecisionScenarioResult;
-import com.back.global.ai.service.AiService;
 import com.back.global.exception.ApiException;
 import com.back.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -21,13 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -39,6 +36,7 @@ import static org.mockito.BDDMockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ScenarioService 단위 테스트")
+@ActiveProfiles("test")
 class ScenarioServiceTest {
 
     @Mock private ScenarioRepository scenarioRepository;

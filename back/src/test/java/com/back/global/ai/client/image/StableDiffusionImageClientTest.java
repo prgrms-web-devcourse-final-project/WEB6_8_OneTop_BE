@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -27,6 +28,7 @@ import static org.mockito.BDDMockito.*;
  * Stable Diffusion API 연동 로직을 검증합니다.
  */
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 @DisplayName("StableDiffusionImageClient 단위 테스트")
 class StableDiffusionImageClientTest {
 

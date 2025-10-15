@@ -28,11 +28,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -47,6 +47,7 @@ import static org.mockito.Mockito.*;
  * Mock을 사용하여 AI 클라이언트 및 의존성을 격리한 테스트를 수행합니다.
  */
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 @DisplayName("AiServiceImpl 테스트")
 class AiServiceImplTest {
 

@@ -10,7 +10,7 @@ spring:
   flyway:
     enabled: false
   profiles:
-    active: test
+    active: test-pg
   output:
     ansi:
       enabled: always

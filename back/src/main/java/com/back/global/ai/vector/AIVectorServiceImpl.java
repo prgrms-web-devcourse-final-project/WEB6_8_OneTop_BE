@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@Profile("!test")
+@Profile("!test & !test-pg")
 @RequiredArgsConstructor
 public class AIVectorServiceImpl implements AIVectorService {
 
