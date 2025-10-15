@@ -24,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,21 +35,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ActiveProfiles("test")
+
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 @Sql(
         statements = {
-                "SET REFERENTIAL_INTEGRITY FALSE",
-                "TRUNCATE TABLE COMMENTS",
-                "TRUNCATE TABLE POST",
-                "TRUNCATE TABLE USERS",
-
-                "ALTER TABLE COMMENTS ALTER COLUMN id RESTART WITH 1",
-                "ALTER TABLE POST ALTER COLUMN id RESTART WITH 1",
-                "ALTER TABLE USERS ALTER COLUMN id RESTART WITH 1",
-                "SET REFERENTIAL_INTEGRITY TRUE"
+                "TRUNCATE TABLE public.comments, public.post, public.users RESTART IDENTITY CASCADE"
         },
         executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
 )

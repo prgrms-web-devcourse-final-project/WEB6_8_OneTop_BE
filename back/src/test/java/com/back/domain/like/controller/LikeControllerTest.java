@@ -24,7 +24,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,22 +46,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 @Sql(
         statements = {
-                "SET REFERENTIAL_INTEGRITY FALSE",
-                "TRUNCATE TABLE COMMENT_LIKES",
-                "TRUNCATE TABLE COMMENTS",
-                "TRUNCATE TABLE POST_LIKES",
-                "TRUNCATE TABLE POST",
-                "TRUNCATE TABLE USERS",
-                "ALTER TABLE COMMENT_LIKES ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE COMMENTS ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE POST_LIKES ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE POST ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE USERS ALTER COLUMN ID RESTART WITH 1",
-                "SET REFERENTIAL_INTEGRITY TRUE"
+                "TRUNCATE TABLE public.comment_likes, public.comments, public.post_likes, public.post, public.users RESTART IDENTITY CASCADE"
         },
         executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
 )
-@ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 class LikeControllerTest {

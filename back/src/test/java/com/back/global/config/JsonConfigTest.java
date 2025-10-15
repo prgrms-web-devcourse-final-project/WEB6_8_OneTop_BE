@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.*;
  * Spring Boot 통합 테스트로 실제 Bean이 정상적으로 동작하는지 검증합니다.
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @TestPropertySource(properties = "spring.profiles.active=test")
 @DisplayName("JsonConfig 및 ObjectMapper 테스트")
 class JsonConfigTest {

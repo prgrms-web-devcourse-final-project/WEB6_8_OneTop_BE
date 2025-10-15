@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-@Profile("test")
+@Profile({"test", "test-pg"})
 public class AIVectorServiceStub implements AIVectorService {
 
     // 다음 입력 힌트(상수 또는 null) 반환

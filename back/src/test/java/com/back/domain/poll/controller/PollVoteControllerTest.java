@@ -40,16 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SqlConfig(transactionMode = SqlConfig.TransactionMode.ISOLATED)
 @Sql(
         statements = {
-                "SET REFERENTIAL_INTEGRITY FALSE",
-                "TRUNCATE TABLE POLL_VOTES",
-                "TRUNCATE TABLE COMMENTS",
-                "TRUNCATE TABLE POST",
-                "TRUNCATE TABLE USERS",
-                "ALTER TABLE POLL_VOTES ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE COMMENTS ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE POST ALTER COLUMN ID RESTART WITH 1",
-                "ALTER TABLE USERS ALTER COLUMN ID RESTART WITH 1",
-                "SET REFERENTIAL_INTEGRITY TRUE"
+                "TRUNCATE TABLE public.poll_votes, public.comments, public.post, public.users RESTART IDENTITY CASCADE"
         },
         executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
 )

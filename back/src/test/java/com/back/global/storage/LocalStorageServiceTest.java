@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,6 +30,7 @@ import static org.mockito.BDDMockito.*;
  * 로컬 파일 시스템 기반 이미지 저장 로직을 검증합니다.
  */
 @ExtendWith(MockitoExtension.class)
+@ActiveProfiles("test")
 @DisplayName("LocalStorageService 단위 테스트")
 class LocalStorageServiceTest {
 

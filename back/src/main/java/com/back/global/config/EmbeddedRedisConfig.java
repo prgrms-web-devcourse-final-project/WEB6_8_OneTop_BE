@@ -14,7 +14,7 @@ import java.io.IOException;
  * - test 프로필에서만 활성화
  */
 @Configuration
-@Profile("test")
+@Profile({"test","test-pg"})
 public class EmbeddedRedisConfig {
 
     @Value("${spring.data.redis.port}")
