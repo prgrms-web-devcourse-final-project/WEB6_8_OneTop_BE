@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * CompletableFuture.supplyAsync() 사용하여 메모리 효율적 처리
  * S3Client는 기본 Connection Pool 사용 (리소스 최소화)
+ * 파일명 저장
  * 파일명: UUID 기반으로 충돌 방지
  */
 @Slf4j
@@ -58,15 +59,8 @@ public class S3StorageService implements StorageService {
                 // S3 업로드
                 s3Client.putObject(putRequest, RequestBody.fromBytes(imageBytes));
 
-                String s3Url = String.format(
-                    "https://%s.s3.%s.amazonaws.com/%s",
-                    imageAiConfig.getS3BucketName(),
-                    imageAiConfig.getS3Region(),
-                    fileName
-                );
-
-                log.info("Image uploaded to S3 successfully: {}", s3Url);
-                return s3Url;
+                log.info("Image uploaded to S3 successfully with key: {}", fileName);
+                return fileName;
 
             } catch (IllegalArgumentException e) {
                 log.error("Invalid Base64 data: {}", e.getMessage());
@@ -82,26 +76,33 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
-    public CompletableFuture<Void> deleteImage(String imageUrl) {
+    public CompletableFuture<Void> deleteImage(String imageUrl) { // imageUrl is now the filename
         return CompletableFuture.runAsync(() -> {
             try {
-                String fileName = extractFileNameFromUrl(imageUrl);
+                if (imageUrl == null || imageUrl.isEmpty()) {
+                    throw new ApiException(ErrorCode.STORAGE_INVALID_FILE, "Image key cannot be null or empty for deletion.");
+                }
 
                 // S3 삭제 요청
                 DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
                     .bucket(imageAiConfig.getS3BucketName())
-                    .key(fileName)
+                    .key(imageUrl)
                     .build();
 
                 s3Client.deleteObject(deleteRequest);
-                log.info("Image deleted from S3: {}", fileName);
+                log.info("Image deleted from S3: {}", String.valueOf(imageUrl));
 
-            } catch (S3Exception e) {
-                log.error("S3 service error during deletion: {}", e.getMessage(), e);
-                throw new ApiException(ErrorCode.S3_CONNECTION_FAILED, "S3 delete failed: " + e.awsErrorDetails().errorMessage());
+            } catch (ApiException e) {
+                throw e;
             } catch (Exception e) {
-                log.error("Failed to delete image from S3: {}", e.getMessage(), e);
-                throw new ApiException(ErrorCode.STORAGE_DELETE_FAILED, "Failed to delete image from S3: " + e.getMessage());
+                if (e instanceof S3Exception) {
+                    S3Exception s3e = (S3Exception) e;
+                    log.error("S3 service error during deletion: {}", s3e.getMessage(), s3e);
+                    throw new ApiException(ErrorCode.S3_CONNECTION_FAILED, "S3 delete failed: " + s3e.getMessage());
+                } else {
+                    log.error("Failed to delete image from S3: {}", e.getMessage(), e);
+                    throw new ApiException(ErrorCode.STORAGE_DELETE_FAILED, "Failed to delete image from S3: " + e.getMessage());
+                }
             }
         });
     }
@@ -111,13 +112,5 @@ public class S3StorageService implements StorageService {
         return "s3";
     }
 
-    //S3 URL에서 파일명 추출, 예:https://bucket.s3.region.amazonaws.com/scenario-uuid.jpeg → scenario-uuid.jpeg
-    private String extractFileNameFromUrl(String imageUrl) {
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            throw new ApiException(ErrorCode.STORAGE_INVALID_FILE, "Image URL cannot be null or empty");
-        }
 
-        String[] parts = imageUrl.split("/");
-        return parts[parts.length - 1];
-    }
 }

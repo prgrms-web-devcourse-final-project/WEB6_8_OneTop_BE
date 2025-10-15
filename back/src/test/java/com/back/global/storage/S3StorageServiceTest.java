@@ -79,8 +79,7 @@ class S3StorageServiceTest {
 
             // Then
             assertThat(resultUrl).isNotNull();
-            assertThat(resultUrl).startsWith("https://" + TEST_BUCKET_NAME + ".s3." + TEST_REGION + ".amazonaws.com/");
-            assertThat(resultUrl).contains("scenario-");
+            assertThat(resultUrl).startsWith("scenario-");
             assertThat(resultUrl).endsWith(".jpeg");
 
             // S3Client 호출 검증
@@ -171,7 +170,7 @@ class S3StorageServiceTest {
             String resultUrl = s3StorageService.uploadBase64Image(base64Data).get();
 
             // Then - S3 표준 URL 형식: https://{bucket}.s3.{region}.amazonaws.com/{key}
-            assertThat(resultUrl).matches("https://test-bucket\\.s3\\.ap-northeast-2\\.amazonaws\\.com/scenario-[a-f0-9\\-]+\\.jpeg");
+            assertThat(resultUrl).matches("scenario-[a-f0-9\\-]+\\.jpeg");
         }
     }
 
@@ -183,46 +182,49 @@ class S3StorageServiceTest {
         @DisplayName("성공 - S3 이미지 삭제")
         void deleteImage_성공_S3_이미지_삭제() throws ExecutionException, InterruptedException {
             // Given
-            String s3Url = "https://test-bucket.s3.ap-northeast-2.amazonaws.com/scenario-test-uuid.jpeg";
+            String key = "scenario-test-uuid.jpeg";
             DeleteObjectResponse mockResponse = DeleteObjectResponse.builder().build();
             given(s3Client.deleteObject(any(DeleteObjectRequest.class)))
                     .willReturn(mockResponse);
 
             // When
-            CompletableFuture<Void> deleteFuture = s3StorageService.deleteImage(s3Url);
+            CompletableFuture<Void> deleteFuture = s3StorageService.deleteImage(key);
             deleteFuture.get();
 
             // Then
-            verify(s3Client, times(1)).deleteObject(any(DeleteObjectRequest.class));
+            verify(s3Client, times(1)).deleteObject(argThat((DeleteObjectRequest request) ->
+                    request.key().equals(key)
+            ));
         }
 
         @Test
         @DisplayName("실패 - S3 서비스 에러")
         void deleteImage_실패_S3_서비스_에러() {
             // Given
-            String s3Url = "https://test-bucket.s3.ap-northeast-2.amazonaws.com/scenario-test-uuid.jpeg";
-
-            AwsErrorDetails errorDetails = AwsErrorDetails.builder()
-                    .errorMessage("NoSuchKey")
-                    .build();
-            S3Exception s3Exception = (S3Exception) S3Exception.builder()
-                    .awsErrorDetails(errorDetails)
-                    .message("S3 Error")
-                    .build();
-
-            doThrow(s3Exception).when(s3Client).deleteObject(any(DeleteObjectRequest.class));
-
-            // When
-            CompletableFuture<Void> deleteFuture = s3StorageService.deleteImage(s3Url);
-
-            // Then
-            assertThatThrownBy(deleteFuture::get)
-                    .hasCauseInstanceOf(ApiException.class)
-                    .cause()
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.S3_CONNECTION_FAILED);
-
-            verify(s3Client, times(1)).deleteObject(any(DeleteObjectRequest.class));
-        }
+                        String key = "scenario-test-uuid.jpeg";
+            
+                        AwsErrorDetails errorDetails = AwsErrorDetails.builder()
+                                .errorMessage("NoSuchKey")
+                                .build();
+                        S3Exception s3Exception = (S3Exception) S3Exception.builder()
+                                .awsErrorDetails(errorDetails)
+                                .message("S3 Error")
+                                .build();
+            
+                        doThrow(s3Exception).when(s3Client).deleteObject(any(DeleteObjectRequest.class));
+            
+                        // When
+                        CompletableFuture<Void> deleteFuture = s3StorageService.deleteImage(key);
+            
+                        // Then
+                        assertThatThrownBy(deleteFuture::get)
+                                .hasCauseInstanceOf(ApiException.class)
+                                .cause()
+                                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.S3_CONNECTION_FAILED);
+            
+                        verify(s3Client, times(1)).deleteObject(argThat((DeleteObjectRequest request) ->
+                                request.key().equals(key)
+                        ));        }
 
         @Test
         @DisplayName("실패 - null URL")
@@ -237,7 +239,7 @@ class S3StorageServiceTest {
             assertThatThrownBy(deleteFuture::get)
                     .hasCauseInstanceOf(ApiException.class)
                     .cause()
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORAGE_DELETE_FAILED);
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORAGE_INVALID_FILE);
 
             // S3Client는 호출되지 않아야 함
             verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
@@ -256,53 +258,13 @@ class S3StorageServiceTest {
             assertThatThrownBy(deleteFuture::get)
                     .hasCauseInstanceOf(ApiException.class)
                     .cause()
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORAGE_DELETE_FAILED);
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.STORAGE_INVALID_FILE);
 
             // S3Client는 호출되지 않아야 함
             verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
         }
     }
 
-    @Nested
-    @DisplayName("URL 파싱")
-    class ExtractFileNameTests {
-
-        @Test
-        @DisplayName("성공 - S3 URL에서 파일명 추출")
-        void extractFileName_성공_S3_URL에서_파일명_추출() throws ExecutionException, InterruptedException {
-            // Given
-            String s3Url = "https://test-bucket.s3.ap-northeast-2.amazonaws.com/scenario-abc-123.jpeg";
-            DeleteObjectResponse mockResponse = DeleteObjectResponse.builder().build();
-            given(s3Client.deleteObject(any(DeleteObjectRequest.class)))
-                    .willReturn(mockResponse);
-
-            // When - deleteImage 내부에서 extractFileNameFromUrl 호출됨
-            s3StorageService.deleteImage(s3Url).get();
-
-            // Then - 정상적으로 파일명 추출 및 삭제 요청 성공
-            verify(s3Client, times(1)).deleteObject(argThat((DeleteObjectRequest request) ->
-                    request.key().equals("scenario-abc-123.jpeg")
-            ));
-        }
-
-        @Test
-        @DisplayName("성공 - 복잡한 S3 URL 파싱")
-        void extractFileName_성공_복잡한_S3_URL_파싱() throws ExecutionException, InterruptedException {
-            // Given - 경로가 있는 복잡한 URL
-            String complexUrl = "https://test-bucket.s3.ap-northeast-2.amazonaws.com/images/2024/scenario-test.jpeg";
-            DeleteObjectResponse mockResponse = DeleteObjectResponse.builder().build();
-            given(s3Client.deleteObject(any(DeleteObjectRequest.class)))
-                    .willReturn(mockResponse);
-
-            // When
-            s3StorageService.deleteImage(complexUrl).get();
-
-            // Then - 마지막 부분만 추출
-            verify(s3Client, times(1)).deleteObject(argThat((DeleteObjectRequest request) ->
-                    request.key().equals("scenario-test.jpeg")
-            ));
-        }
-    }
 
     @Nested
     @DisplayName("스토리지 타입")
