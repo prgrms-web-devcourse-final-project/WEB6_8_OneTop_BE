@@ -55,7 +55,8 @@ public class UserInfoService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
-        int scenarioCount = scenarioRepository.countByUserId(userId);
+        int scenarioCount = scenarioRepository.countByUserIdAndDecisionLineIsNotNullAndStatus(
+                userId, ScenarioStatus.COMPLETED);
         int totalPoints = scenarioRepository.sumTotalByUserId(userId);
         int postCount = postRepository.countByUserId(userId);
         int commentCount = commentRepository.countByUserId(userId);
