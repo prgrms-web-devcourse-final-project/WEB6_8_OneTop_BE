@@ -76,19 +76,6 @@ public class Post extends BaseEntity {
     @JoinColumn(name = "scenario_id")
     private Scenario scenario;
 
-    /**
-     * 마이그레이션 alter문으로 postgreSQL tsvector 타입 컬럼 지정
-     * - 트리거에 의해 자동으로 업데이트됨
-     * - 직접 값을 설정할 필요 없음
-     * - GIN 인덱스로 빠른 검색 지원
-     */
-    @Column(
-            name = "search_vector",
-            insertable = false,
-            updatable = false
-    )
-    private String searchVector;
-
     public void updatePost(String title, String content, PostCategory category) {
         this.title = title;
         this.content = content;
