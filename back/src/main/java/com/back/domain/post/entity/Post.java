@@ -1,6 +1,7 @@
 package com.back.domain.post.entity;
 
 import com.back.domain.comment.entity.Comment;
+import com.back.domain.like.entity.PostLike;
 import com.back.domain.poll.entity.PollVote;
 import com.back.domain.post.enums.PostCategory;
 import com.back.domain.scenario.entity.Scenario;
@@ -71,6 +72,10 @@ public class Post extends BaseEntity {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PollVote> pollVotes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PostLike> postLikes = new ArrayList<>();
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scenario_id")
