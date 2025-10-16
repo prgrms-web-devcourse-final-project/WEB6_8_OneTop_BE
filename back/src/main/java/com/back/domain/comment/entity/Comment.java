@@ -1,5 +1,6 @@
 package com.back.domain.comment.entity;
 
+import com.back.domain.like.entity.CommentLike;
 import com.back.domain.post.entity.Post;
 import com.back.domain.user.entity.User;
 import com.back.global.baseentity.BaseEntity;
@@ -46,6 +47,10 @@ public class Comment extends BaseEntity {
     private boolean hide;
 
     private int likeCount;
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentLike> commentLikes = new ArrayList<>();
 
     @LastModifiedDate
     private LocalDateTime updatedAt;
